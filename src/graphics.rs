@@ -1,4 +1,4 @@
-use vulkano::buffer::{BufferUsage, CpuAccessibleBuffer};
+use vulkano::buffer::{BufferUsage, CpuAccessibleBuffer, CpuBufferPool};
 use vulkano::command_buffer::{AutoCommandBufferBuilder, DynamicState};
 use vulkano::device::{Device, DeviceExtensions};
 use vulkano::framebuffer::{Framebuffer, FramebufferAbstract, RenderPassAbstract, Subpass};
@@ -13,6 +13,12 @@ use vulkano::swapchain::{
 use vulkano::sync;
 use vulkano::sync::{FlushError, GpuFuture};
 
+use vulkano::descriptor::descriptor_set::PersistentDescriptorSet;
+use vulkano::format::Format;
+use vulkano::image::Dimensions;
+use vulkano::image::StorageImage;
+use vulkano::pipeline::ComputePipeline;
+use vulkano::sampler::Sampler;
 use vulkano_win::VkSurfaceBuild;
 
 use winit::event::{Event, WindowEvent};
@@ -20,6 +26,13 @@ use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Window, WindowBuilder};
 
 use std::sync::Arc;
+
+mod cs {
+    vulkano_shaders::shader! {
+           ty: "compute",
+           path: "src/comp.glsl"
+    }
+}
 
 mod vs {
     vulkano_shaders::shader! {
@@ -127,25 +140,27 @@ pub fn run() {
         .unwrap()
     };
 
+    #[derive(Default, Debug, Clone)]
+    struct Vertex {
+        position: [f32; 2],
+    }
+    vulkano::impl_vertex!(Vertex, position);
     let vertex_buffer = {
-        #[derive(Default, Debug, Clone)]
-        struct Vertex {
-            position: [f32; 2],
-        }
-        vulkano::impl_vertex!(Vertex, position);
-
         CpuAccessibleBuffer::from_iter(
             device.clone(),
             BufferUsage::all(),
             [
                 Vertex {
-                    position: [-0.5, -0.25],
+                    position: [-1.0, -1.0],
                 },
                 Vertex {
-                    position: [0.0, 0.5],
+                    position: [-1.0, 1.0],
                 },
                 Vertex {
-                    position: [0.25, -0.1],
+                    position: [1.0, -1.0],
+                },
+                Vertex {
+                    position: [1.0, 1.0],
                 },
             ]
             .iter()
@@ -154,8 +169,40 @@ pub fn run() {
         .unwrap()
     };
 
+    let image = StorageImage::new(
+        device.clone(),
+        Dimensions::Dim2d {
+            width: 1024,
+            height: 1024,
+        },
+        Format::R8G8B8A8Unorm,
+        Some(queue.family()),
+    )
+    .unwrap();
+
+    let out_image = StorageImage::new(
+        device.clone(),
+        Dimensions::Dim2d {
+            width: 1024,
+            height: 1024,
+        },
+        Format::R8G8B8A8Unorm,
+        Some(queue.family()),
+    )
+    .unwrap();
+
+    let image_buffer = CpuAccessibleBuffer::from_iter(
+        device.clone(),
+        BufferUsage::all(),
+        (0..1024 * 1024 * 4).map(|_| 0u8),
+    )
+    .expect("failed to create buffer");
+
+    let sampler = Sampler::simple_repeat_linear_no_mipmap(device.clone());
+
     let vs = vs::Shader::load(device.clone()).unwrap();
     let fs = fs::Shader::load(device.clone()).unwrap();
+    let cs = cs::Shader::load(device.clone()).unwrap();
 
     let render_pass = Arc::new(
         vulkano::single_pass_renderpass!(
@@ -178,18 +225,41 @@ pub fn run() {
         .unwrap(),
     );
 
+    let compute_pipeline = Arc::new(
+        ComputePipeline::new(device.clone(), &cs.main_entry_point(), &())
+            .expect("failed to create compute pipeline"),
+    );
+
+    /*
+    let set = Arc::new(
+        PersistentDescriptorSet::start(compute_pipeline.clone(), 0)
+            .add_image(image.clone())
+            .unwrap()
+            .build()
+            .unwrap(),
+    );
+    */
+
     // build pipeline
-    let pipeline = Arc::new(
+    let graphics_pipeline = Arc::new(
         GraphicsPipeline::start()
-            .vertex_input_single_buffer()
+            .vertex_input_single_buffer::<Vertex>()
             // vert shader
             .vertex_shader(vs.main_entry_point(), ())
-            .triangle_list()
+            .triangle_strip()
             .viewports_dynamic_scissors_irrelevant(1)
             // frag shader
             .fragment_shader(fs.main_entry_point(), ())
             .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
             .build(device.clone())
+            .unwrap(),
+    );
+
+    let frag_set = Arc::new(
+        PersistentDescriptorSet::start(graphics_pipeline.clone(), 0)
+            .add_sampled_image(out_image.clone(), sampler.clone())
+            .unwrap()
+            .build()
             .unwrap(),
     );
 
@@ -208,6 +278,9 @@ pub fn run() {
 
     let mut recreate_swapchain = false;
     let mut previous_frame_end = Some(Box::new(sync::now(device.clone())) as Box<dyn GpuFuture>);
+
+    let mut gran = 0.5;
+    let data_buffer = CpuBufferPool::<cs::ty::Data>::new(device.clone(), BufferUsage::all());
 
     events_loop.run(move |ev, _, cf| {
         *cf = ControlFlow::Poll;
@@ -255,27 +328,52 @@ pub fn run() {
                 Err(err) => panic!("{:?}", err),
             };
 
-        // Specify the color to clear the framebuffer with i.e. blue
-        let clear_values = vec![[0.0, 0.0, 1.0, 1.0].into()];
+        gran /= 1.01;
+        gran = if gran <= 0.00005 { 0.5 } else { gran };
+        println!("{:?}", gran);
+        let comp_data = cs::ty::Data { granularity: gran };
+        let sub_buffer = data_buffer.next(comp_data).unwrap();
+        let set = Arc::new(
+            PersistentDescriptorSet::start(compute_pipeline.clone(), 0)
+                .add_image(image.clone())
+                .unwrap()
+                .add_buffer(sub_buffer)
+                .unwrap()
+                .build()
+                .unwrap(),
+        );
 
-        let command_buffer =
+        let compute_command_buffer =
             AutoCommandBufferBuilder::primary_one_time_submit(device.clone(), queue.family())
                 .unwrap()
-                // begin
-                .begin_render_pass(framebuffers[image_num].clone(), false, clear_values)
-                .unwrap()
-                //
-                // draw
-                //
-                .draw(
-                    pipeline.clone(),
-                    &dynamic_state,
-                    vertex_buffer.clone(),
-                    (),
+                .dispatch(
+                    [1024 / 8, 1024 / 8, 1],
+                    compute_pipeline.clone(),
+                    set.clone(),
                     (),
                 )
                 .unwrap()
-                // end
+                .copy_image_to_buffer(image.clone(), image_buffer.clone())
+                .unwrap()
+                .copy_buffer_to_image(image_buffer.clone(), out_image.clone())
+                .unwrap()
+                .build()
+                .unwrap();
+
+        let clear_values = vec![[0.0, 0.0, 1.0, 1.0].into()];
+        let graphics_command_buffer =
+            AutoCommandBufferBuilder::primary_one_time_submit(device.clone(), queue.family())
+                .unwrap()
+                .begin_render_pass(framebuffers[image_num].clone(), false, clear_values)
+                .unwrap()
+                .draw(
+                    graphics_pipeline.clone(),
+                    &dynamic_state,
+                    vertex_buffer.clone(),
+                    frag_set.clone(),
+                    (),
+                )
+                .unwrap()
                 .end_render_pass()
                 .unwrap()
                 .build()
@@ -283,10 +381,13 @@ pub fn run() {
 
         // wait for previous fram to end and then pass in new commands
         let prev = previous_frame_end.take();
+
         let future = prev
             .unwrap()
             .join(acquire_future)
-            .then_execute(queue.clone(), command_buffer)
+            .then_execute(queue.clone(), compute_command_buffer)
+            .unwrap()
+            .then_execute(queue.clone(), graphics_command_buffer)
             .unwrap()
             .then_swapchain_present(queue.clone(), swapchain.clone(), image_num)
             .then_signal_fence_and_flush();
