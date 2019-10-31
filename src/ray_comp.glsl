@@ -1,5 +1,8 @@
 #version 450
 #define FLT_MAX 3.402823466e+38
+#define MAT_DIFFUSE 0
+#define MAT_METAL   1
+
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
@@ -10,9 +13,17 @@ struct Ray {
 	vec3 direction;
 };
 
+
+struct Material {
+    int instance_of;
+    vec3 albedo;
+    float roughness;
+};
+
 struct Sphere {
     vec3 center;
     float radius;
+    Material material;
 };
 
 layout (binding = 1) buffer SphereList {
@@ -23,7 +34,31 @@ struct HitRecord {
     float t;
     vec3 point;
     vec3 normal;
+    Material material;
 };
+
+highp float rand(vec2 co)
+{
+    highp float a = 12.9898;
+    highp float b = 78.233;
+    highp float c = 43758.5453;
+    highp float dt= dot(co.xy ,vec2(a,b));
+    highp float sn= mod(dt,3.14);
+    return fract(sin(sn) * c);
+}
+
+highp float trand(vec2 co, float seed) {
+    return rand(co * seed);
+}
+
+vec3 random_in_unit_sphere(vec2 uv, float seed) {
+    vec3 p;
+    do {
+        p = 2.0*vec3(trand(uv, seed), trand(uv, seed*2.334), trand(uv, seed*-1.334)) - vec3(1,1,1);
+        seed *= 1.312;
+    } while (dot(p, p) >= 1.0);
+    return p;
+}
 
 vec3 point_at_parameter(Ray ray, float t) {
     return ray.origin + t*ray.direction;
@@ -43,6 +78,7 @@ bool hit_sphere(Sphere self, Ray ray, float t_min, float t_max, inout HitRecord 
             record.t = temp;
             record.point = point_at_parameter(ray, temp);
             record.normal = (record.point - self.center)/ self.radius;
+            record.material = self.material;
 
             return true;
         }
@@ -53,6 +89,7 @@ bool hit_sphere(Sphere self, Ray ray, float t_min, float t_max, inout HitRecord 
             record.t = temp;
             record.point = point_at_parameter(ray, record.t);
             record.normal = (record.point - self.center)  / self.radius;
+            record.material = self.material;
 
             return true;
         }
@@ -74,28 +111,59 @@ bool hit_world(Ray ray, float t_min, float t_max, inout HitRecord record) {
     return hit_anything;
 }
 
-vec3 color(in Ray ray) {
-    HitRecord record;
 
-    if (hit_world(ray, 0.0, FLT_MAX, record)) {
-        return 0.5 * (record.normal + vec3(1));
+bool diffuse_scatter(inout Ray ray, vec2 uv, HitRecord record, out vec3 attenuation) {
+    vec3 target = record.point + record.normal + random_in_unit_sphere(uv, 1.0);
+    ray = Ray(record.point, target - record.point);
+    attenuation = record.material.albedo;
+    return true;
+}
+
+bool scatter(inout Ray ray, vec2 uv, HitRecord record, out vec3 attenuation) {
+    // based on the material ID of the current hit, extract the right// material parameters and call the specific scatter 
+    if (record.material.instance_of == MAT_DIFFUSE) {
+        return diffuse_scatter(ray, uv, record, attenuation);
+    } else if (record.material.instance_of == MAT_METAL) {
+        //return MetalScatter(r, uv, hit, attenuation);
+        return false;
+    } else {
+        return false;
+    }
+}
+
+
+vec3 missed_color(vec3 direction) {
+    vec3 unit_direction = normalize(direction);
+    float t = 0.5 * (unit_direction.y + 1.0);
+    return mix(vec3(1.0, 1.0, 1.0), vec3(.5, .7, 1.0), t);
+}
+
+
+vec3 color(in Ray ray, vec2 uv) {
+    int max_bounces = 5;
+    vec3 final_color = vec3(1.0);
+    HitRecord record;
+    float seed = 1.0;
+
+    for (int i = 0; i < max_bounces; ++i) {
+        if (hit_world(ray, 0.0, FLT_MAX, record)) {
+            vec3 attenuation;
+            if (scatter(ray, uv * seed * 0.897, record, attenuation)) {
+                final_color *= attenuation;
+            }
+            else {
+                final_color *= vec3(0.0);
+                break;
+            }
+            seed *= 1.456;
+        }
+        else {
+            final_color *= missed_color(ray.direction);
+        }
     }
 
-    vec3 unit_direction = normalize(ray.direction);
-    float  t = 0.5*(unit_direction.y + 1.0);
-    return (1.0-t)*vec3(1.0, 1.0, 1.0) + t*vec3(0.5, 0.7, 1.0);
+    return final_color;
 }
-
-highp float rand(vec2 co)
-{
-    highp float a = 12.9898;
-    highp float b = 78.233;
-    highp float c = 43758.5453;
-    highp float dt= dot(co.xy ,vec2(a,b));
-    highp float sn= mod(dt,3.14);
-    return fract(sin(sn) * c);
-}
-
 
 void main() {
     vec2 norm_coordinates = (gl_GlobalInvocationID.xy + vec2(0.5)) / vec2(imageSize(img));
@@ -118,9 +186,12 @@ void main() {
         float v = float(idy + rand) / float(size.y);
 
         Ray ray = Ray(origin,  lower_left_corner + u*horizontal + v*vertical);
-        col += color(ray);
+        col += color(ray, vec2(u, v));
     }
     col /= float(num_samples);
+
+    //col = vec3(sqrt(col.x), sqrt(col.y), sqrt(col.z));
+    col = sqrt(col);
 
     vec4 to_write = vec4(col, 1.0);
     imageStore(img, ivec2(gl_GlobalInvocationID.xy), to_write);

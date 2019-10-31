@@ -615,6 +615,7 @@ pub fn run_ray() {
             .expect("failed to create compute pipeline"),
     );
 
+    use cs::ty::Material;
     use cs::ty::Sphere;
 
     let sphere_buffer = {
@@ -625,10 +626,24 @@ pub fn run_ray() {
                 Sphere {
                     center: [0.0, 0.0, -1.0],
                     radius: 0.5,
+                    material: Material {
+                        // alignment var
+                        _dummy0: [0; 12],
+                        instance_of: 0,
+                        albedo: [0.8, 0.3, 0.3],
+                        roughness: 0.5,
+                    },
                 },
                 Sphere {
                     center: [0.0, -100.5, -1.0],
                     radius: 100.0,
+                    material: Material {
+                        // alignment var
+                        _dummy0: [0; 12],
+                        instance_of: 0,
+                        albedo: [0.8, 0.8, 0.0],
+                        roughness: 0.5,
+                    },
                 },
             ]
             .iter()
