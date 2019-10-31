@@ -1,5 +1,5 @@
 pub mod graphics;
 
 fn main() {
-    graphics::run();
+    graphics::run_ray();
 }
