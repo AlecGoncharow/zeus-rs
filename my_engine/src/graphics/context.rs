@@ -152,27 +152,8 @@ impl GraphicsContext {
         let fs = fs::Shader::load(device.clone()).unwrap();
 
         let vertex_buffer = {
-            CpuAccessibleBuffer::from_iter(
-                device.clone(),
-                BufferUsage::all(),
-                [
-                    Vertex {
-                        position: [-0.5, -0.5, 0.0],
-                    },
-                    Vertex {
-                        position: [-0.5, 0.5, 0.0],
-                    },
-                    Vertex {
-                        position: [0.5, -0.5, 0.0],
-                    },
-                    Vertex {
-                        position: [0.5, 0.5, 0.0],
-                    },
-                ]
-                .iter()
-                .cloned(),
-            )
-            .unwrap()
+            CpuAccessibleBuffer::from_iter(device.clone(), BufferUsage::all(), [].iter().cloned())
+                .unwrap()
         };
 
         let render_pass = Arc::new(
@@ -201,7 +182,7 @@ impl GraphicsContext {
                 .vertex_input_single_buffer::<Vertex>()
                 // vert shader
                 .vertex_shader(vs.main_entry_point(), ())
-                .triangle_strip()
+                .triangle_list()
                 .viewports_dynamic_scissors_irrelevant(1)
                 // frag shader
                 .fragment_shader(fs.main_entry_point(), ())
