@@ -1,11 +1,12 @@
 use crate::graphics;
 use crate::input::{keyboard, mouse};
-use winit::event::DeviceEvent;
-use winit::event::ElementState;
-use winit::event::Event;
-use winit::event::KeyboardInput;
-use winit::event::WindowEvent;
-use winit::event_loop;
+use crate::timer;
+use winit::DeviceEvent;
+use winit::ElementState;
+use winit::Event;
+use winit::EventsLoop;
+use winit::KeyboardInput;
+use winit::WindowEvent;
 
 use crate::math::vec2::Vec2;
 
@@ -14,23 +15,25 @@ pub struct Context {
     pub keyboard_context: keyboard::KeyboardContext,
     pub mouse_context: mouse::MouseContext,
     pub gfx_context: graphics::context::GraphicsContext,
+    pub timer_context: timer::TimeContext,
 }
 
 impl Context {
-    pub fn new() -> (Self, event_loop::EventLoop<()>) {
-        let event_loop = event_loop::EventLoop::new();
+    pub fn new() -> (Self, EventsLoop) {
+        let event_loop = EventsLoop::new();
 
         let ctx = Self {
             continuing: true,
             keyboard_context: keyboard::KeyboardContext::new(),
             mouse_context: mouse::MouseContext::new(),
             gfx_context: graphics::context::GraphicsContext::new_default(&event_loop),
+            timer_context: timer::TimeContext::new(),
         };
 
         (ctx, event_loop)
     }
 
-    pub fn process_event(&mut self, event: &Event<()>) {
+    pub fn process_event(&mut self, event: &Event) {
         match event.clone() {
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::Resized(_logical_size) => {

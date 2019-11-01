@@ -14,6 +14,11 @@ impl Vec3 {
     }
 
     #[inline]
+    pub fn new_from_one(x: f32) -> Self {
+        Self::new(x, x, x)
+    }
+
+    #[inline]
     pub fn dot(&self, other: &Self) -> f32 {
         self.x * other.x + self.y * other.y + self.z * other.z
     }
@@ -93,7 +98,7 @@ impl Vec3 {
         self.squared_mag().sqrt()
     }
 
-    pub fn make_unit_vector(&self) -> Vec3 {
+    pub fn make_unit_vector(&self) -> Self {
         let scalar = 1.0 / self.magnitude();
         scalar * *self
     }

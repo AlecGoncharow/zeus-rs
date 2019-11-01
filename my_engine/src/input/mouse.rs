@@ -1,8 +1,8 @@
 use crate::context::Context;
 use crate::math::vec2::Vec2;
 use std::collections::HashMap;
-use winit::event::MouseButton;
-use winit::window::CursorIcon;
+use winit::MouseButton;
+use winit::MouseCursor;
 
 /// Taken from (ggez)[https://github.com/ggez/ggez/blob/master/src/input/mouse.rs]
 /// with some changes so I can use it with my types
@@ -12,7 +12,7 @@ pub struct MouseContext {
     last_position: Vec2,
     last_delta: Vec2,
     buttons_pressed: HashMap<MouseButton, bool>,
-    cursor_type: CursorIcon,
+    cursor_type: MouseCursor,
     cursor_grabbed: bool,
     cursor_hidden: bool,
 }
@@ -22,7 +22,7 @@ impl MouseContext {
         Self {
             last_position: Vec2::origin(),
             last_delta: Vec2::origin(),
-            cursor_type: CursorIcon::Default,
+            cursor_type: MouseCursor::Default,
             buttons_pressed: HashMap::new(),
             cursor_grabbed: false,
             cursor_hidden: false,
@@ -53,7 +53,7 @@ impl Default for MouseContext {
 }
 
 /// Returns the current mouse cursor type of the window.
-pub fn cursor_type(ctx: &Context) -> CursorIcon {
+pub fn cursor_type(ctx: &Context) -> MouseCursor {
     ctx.mouse_context.cursor_type
 }
 

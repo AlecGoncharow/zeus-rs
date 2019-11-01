@@ -16,10 +16,13 @@ use vulkano::sync::{FlushError, GpuFuture};
 use vulkano::pipeline::GraphicsPipelineAbstract;
 use vulkano_win::VkSurfaceBuild;
 
-use winit::event_loop::EventLoop;
-use winit::window::{Window, WindowBuilder};
+use winit::dpi::LogicalSize;
+use winit::EventsLoop;
+use winit::{Window, WindowBuilder};
 
 use std::sync::Arc;
+
+use crate::math::Vec3;
 
 mod vs {
     vulkano_shaders::shader! {
@@ -39,7 +42,7 @@ pub struct GraphicsContext {
     pub recreate_swapchain: bool,
     previous_frame_end: Option<Box<dyn GpuFuture>>,
 
-    swapchain: Arc<Swapchain<winit::window::Window>>,
+    swapchain: Arc<Swapchain<winit::Window>>,
     queue: Arc<Queue>,
     device: Arc<Device>,
 
@@ -51,6 +54,7 @@ pub struct GraphicsContext {
     framebuffers: Vec<Arc<dyn FramebufferAbstract + Send + Sync>>,
 
     vertex_buffer: Arc<CpuAccessibleBuffer<[Vertex]>>,
+    window_dims: LogicalSize,
 }
 
 #[derive(Default, Debug, Clone)]
@@ -60,11 +64,11 @@ struct Vertex {
 vulkano::impl_vertex!(Vertex, position);
 
 impl GraphicsContext {
-    pub fn new_default(events_loop: &EventLoop<()>) -> Self {
+    pub fn new_default(events_loop: &EventsLoop) -> Self {
         let instance = {
             let extensions = vulkano_win::required_extensions();
 
-            Instance::new(None, &extensions, None).unwrap()
+            Instance::new(None, &extensions.into(), None).unwrap()
         };
 
         let physical = PhysicalDevice::enumerate(&instance)
@@ -84,7 +88,7 @@ impl GraphicsContext {
         );
 
         let surface = WindowBuilder::new()
-            .build_vk_surface(&events_loop, instance.clone())
+            .build_vk_surface(events_loop, instance.clone())
             .unwrap();
         let window = surface.window();
 
@@ -111,6 +115,7 @@ impl GraphicsContext {
 
         let queue = queues.next().unwrap();
 
+        let window_dims = window.get_inner_size().unwrap();
         let (swapchain, images) = {
             let caps = surface.capabilities(physical).unwrap();
 
@@ -120,15 +125,15 @@ impl GraphicsContext {
             // Choosing the internal format that the images will have.
             let format = caps.supported_formats[0].0;
             // Because for both of these cases, the swapchain needs to be the window dimensions, we just use that.
-            let initial_dimensions = {
-                // convert to physical pixels
-                let dimensions: (u32, u32) = window
-                    .inner_size()
-                    .to_physical(window.hidpi_factor())
-                    .into();
+            let initial_dimensions = if let Some(dimensions) = window.get_inner_size() {
+                let dimensions: (u32, u32) =
+                    dimensions.to_physical(window.get_hidpi_factor()).into();
                 [dimensions.0, dimensions.1]
+            } else {
+                [0, 0]
             };
 
+            println!("{:#?}", initial_dimensions);
             // Please take a look at the docs for the meaning of the parameters we didn't mention.
             Swapchain::new(
                 device.clone(),
@@ -197,6 +202,9 @@ impl GraphicsContext {
             line_width: None,
             viewports: None,
             scissors: None,
+            compare_mask: None,
+            write_mask: None,
+            reference: None,
         };
 
         let framebuffers =
@@ -218,6 +226,7 @@ impl GraphicsContext {
             dynamic_state,
             framebuffers,
             vertex_buffer,
+            window_dims,
         }
     }
 
@@ -230,13 +239,16 @@ impl GraphicsContext {
         // In this example that includes the swapchain, the framebuffers and the dynamic state viewport.
         if self.recreate_swapchain {
             // Get the new dimensions of the window.
-            let dimensions = {
-                let dimensions: (u32, u32) = window
-                    .inner_size()
-                    .to_physical(window.hidpi_factor())
-                    .into();
+            let dimensions = if let Some(dimensions) = window.get_inner_size() {
+                let dimensions: (u32, u32) =
+                    dimensions.to_physical(window.get_hidpi_factor()).into();
                 [dimensions.0, dimensions.1]
+            } else {
+                return;
             };
+
+            self.window_dims = window.get_inner_size().unwrap();
+            println!("{:#?}", dimensions);
 
             let (new_swapchain, new_images) =
                 match self.swapchain.recreate_with_dimension(dimensions) {
@@ -319,6 +331,51 @@ impl GraphicsContext {
             }
         }
     }
+
+    pub fn set_verts(&mut self, verts: &Vec<Vec3>) {
+        self.vertex_buffer = {
+            CpuAccessibleBuffer::from_iter(
+                self.device.clone(),
+                BufferUsage::all(),
+                verts_from_vec(normalize_vec_to_ndc(verts, self.window_dims))
+                    .iter()
+                    .cloned(),
+            )
+            .unwrap()
+        };
+    }
+}
+
+fn normalize_vec_to_ndc(verts: &Vec<Vec3>, dims: LogicalSize) -> Vec<Vec3> {
+    let max_x = dims.width as f32;
+    let max_y = dims.height as f32;
+
+    let mut ret = vec![];
+
+    for vec in verts {
+        println!("{:#?}", vec);
+        let mut x = vec.x / max_x;
+        let mut y = vec.y / max_y;
+        let z = vec.z;
+
+        x = 2.0 * x - 1.0;
+        y = 2.0 * y - 1.0;
+
+        let point = Vec3 { x, y, z };
+        println!("{:#?}", point);
+        ret.push(point);
+    }
+
+    ret
+}
+
+fn verts_from_vec(verts: Vec<Vec3>) -> Vec<Vertex> {
+    verts
+        .into_iter()
+        .map(|point| Vertex {
+            position: [point.x, point.y, point.z],
+        })
+        .collect()
 }
 
 fn window_size_dependent_setup(
