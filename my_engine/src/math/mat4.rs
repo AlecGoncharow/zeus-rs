@@ -59,7 +59,7 @@ impl Mat4 {
             z: Vec4::new(
                 axis.x * axis.z * (1.0 - theta.cos()) - axis.y * theta.sin(),
                 axis.y * axis.z * (1.0 - theta.cos()) + axis.x * theta.sin(),
-                axis.z * axis.z * (1.0 - axis.z * axis.z) * theta.cos(),
+                axis.z * axis.z + (1.0 - axis.z * axis.z) * theta.cos(),
                 0.0,
             )
             .zero_out_insignificant(0.00005),

@@ -1,3 +1,4 @@
+use my_engine::graphics::CameraProjection;
 /// based on, ty thinmatrix https://github.com/TheThinMatrix/LowPolyTerrain/blob/master/src/main/Camera.java
 ///
 /// questionable java code but I just want to get something working
@@ -5,9 +6,8 @@ use my_engine::math::Mat4;
 use my_engine::math::Vec2;
 use my_engine::math::Vec3;
 
-use my_engine::graphics::CameraProjection;
-
 use my_engine::context::Context;
+use my_engine::winit::dpi::LogicalSize;
 
 const PITCH_SENSITIVITY: f64 = 0.3;
 const YAW_SENSITIVITY: f64 = 0.3;
@@ -19,7 +19,7 @@ const FAR_PLANE: f64 = 2500.0;
 
 const Y_OFFSET: f64 = 5.0;
 
-const TERRAIN_SIZE: f64 = 1.0;
+const TERRAIN_SIZE: f64 = 100.0;
 
 #[derive(Debug)]
 pub struct Camera {
@@ -32,6 +32,8 @@ pub struct Camera {
     pub pitch_float: SmoothFloat,
     pub angle_float: SmoothFloat,
     pub distance_float: SmoothFloat,
+
+    pub dims: LogicalSize,
 }
 
 impl CameraProjection for &Camera {
@@ -43,7 +45,7 @@ impl CameraProjection for &Camera {
 impl Camera {
     pub fn new(ctx: &Context) -> Self {
         Self {
-            position: Vec3::new_from_one(0),
+            position: Vec3::new_from_one(-1),
             view_matrix: Mat4::identity(),
             projection_matrix: Self::create_projection_matrix(ctx),
 
@@ -52,6 +54,8 @@ impl Camera {
             pitch_float: SmoothFloat::new(10.0, 10.0),
             angle_float: SmoothFloat::new(0.0, 10.0),
             distance_float: SmoothFloat::new(10.0, 5.0),
+
+            dims: ctx.gfx_context.window_dims,
         }
     }
 
@@ -69,34 +73,41 @@ impl Camera {
 
     fn update_view_matrix(&mut self) {
         let mut view_matrix = Mat4::identity();
+        println!("{:#?}", view_matrix);
 
         let pitch_rotate = Mat4::rotation_from_degrees(self.pitch_float.actual, (1, 0, 0).into());
         view_matrix = pitch_rotate * view_matrix;
+        println!("{:#?}", view_matrix);
 
         let yaw_rotate = Mat4::rotation_from_degrees(self.yaw, (0, 1, 0).into());
         view_matrix = yaw_rotate * view_matrix;
+        println!("{:#?}", view_matrix);
 
         let negative_camera = -1.0 * self.position;
         let camera_trans =
             Mat4::translation(negative_camera.x, negative_camera.y, negative_camera.z);
         view_matrix = camera_trans * view_matrix;
+        println!("{:#?}", view_matrix);
 
         self.view_matrix = view_matrix;
     }
 
+    // https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/gluPerspective.xml
     pub fn create_projection_matrix(ctx: &Context) -> Mat4 {
         let mut projection_matrix = Mat4::identity();
 
-        let aspect_ratio = ctx.gfx_context.window_dims.width / ctx.gfx_context.window_dims.width;
+        let aspect_ratio = ctx.gfx_context.window_dims.width / ctx.gfx_context.window_dims.height;
         let y_scale = 1.0 / (FOV / 2.0).to_radians().tan();
         let x_scale = y_scale / aspect_ratio;
         let fustrum_length = FAR_PLANE - NEAR_PLANE;
 
+        println!("scale {}, {}", x_scale, y_scale);
+
         projection_matrix.x.x = x_scale;
         projection_matrix.y.y = y_scale;
-        projection_matrix.z.z = -((FAR_PLANE + NEAR_PLANE) / fustrum_length);
+        projection_matrix.z.z = -(FAR_PLANE + NEAR_PLANE) / fustrum_length;
         projection_matrix.z.w = -1.0;
-        projection_matrix.w.z = -((2.0 * NEAR_PLANE * FAR_PLANE) / fustrum_length);
+        projection_matrix.w.z = -(2.0 * NEAR_PLANE * FAR_PLANE) / fustrum_length;
         projection_matrix.w.w = 0.0;
 
         projection_matrix

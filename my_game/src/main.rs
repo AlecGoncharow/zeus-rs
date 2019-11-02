@@ -18,12 +18,14 @@ impl EventHandler for State {
     fn draw(&mut self, ctx: &mut Context) -> Result<(), ()> {
         self.frame += 1;
         if self.frame < 10 {
+            /*
             println!(
                 "{:#?}",
-                self.camera.projection_matrix * self.camera.view_matrix
+                //self.camera.projection_matrix * self.camera.view_matrix
             );
+            */
         }
-        println!("{:#?}", self.camera.distance_float);
+        //println!("{:#?}", self.camera.position);
         ctx.gfx_context.set_verts(&self.points);
         ctx.render(&self.camera);
         Ok(())
@@ -57,20 +59,45 @@ impl EventHandler for State {
         println!("Mouse wheel scrolled: x: {}, y: {}", x, y);
         self.camera.update_zoom(Vec2::new(x, y));
     }
+
+    fn resize_event(&mut self, ctx: &mut Context, width: f32, height: f32) {
+        println!("resize_event: width: {}, height: {}", width, height);
+        self.camera.projection_matrix = camera::Camera::create_projection_matrix(ctx);
+    }
+}
+
+fn get_corner_positions(row: i32, col: i32) -> [Vec3; 4] {
+    [
+        (col, -5, row).into(),
+        (col, -5, row + 1).into(),
+        (col + 1, -5, row).into(),
+        (col + 1, -5, row + 1).into(),
+    ]
+}
+
+fn generate_grid(size: i32) -> Vec<Vec3> {
+    let mut grid: Vec<Vec3> = vec![];
+
+    for row in 0..size {
+        for col in 0..size {
+            let pos = get_corner_positions(row, col);
+            grid.push(pos[0]);
+            grid.push(pos[1]);
+            grid.push(pos[2]);
+            grid.push(pos[2]);
+            grid.push(pos[1]);
+            grid.push(pos[3]);
+        }
+    }
+
+    grid
 }
 
 fn main() {
     let (ctx, event_loop) = Context::new();
     let my_game = State {
         frame: 0,
-        points: vec![
-            (0.0, 0.0, 0.0).into(),
-            (-0.5, -0.7, 0.5).into(),
-            (0.5, -0.7, 0.5).into(),
-            (-0.5, -0.7, 0.5).into(),
-            (0.5, -0.7, 0.5).into(),
-            (0.0, 0.7, 0.0).into(),
-        ],
+        points: generate_grid(100),
         camera: camera::Camera::new(&ctx),
         mouse_down: false,
     };

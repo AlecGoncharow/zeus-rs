@@ -307,7 +307,6 @@ impl GraphicsContext {
             };
 
         let set = {
-            use crate::math::Mat4;
             let data = vs::ty::Camera {
                 //projection_view_matrix: Mat4::identity().into(),
                 projection_view_matrix: camera.projection_view_matrix().into(),
