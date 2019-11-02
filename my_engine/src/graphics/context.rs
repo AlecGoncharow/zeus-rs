@@ -1,5 +1,6 @@
 use vulkano::buffer::{BufferUsage, CpuAccessibleBuffer, CpuBufferPool};
-use vulkano::command_buffer::{AutoCommandBufferBuilder, DynamicState};
+use vulkano::command_buffer::AutoCommandBufferBuilder;
+use vulkano::command_buffer::DynamicState;
 use vulkano::device::{Device, DeviceExtensions, Queue};
 use vulkano::format::Format;
 use vulkano::framebuffer::{Framebuffer, FramebufferAbstract, RenderPassAbstract, Subpass};
@@ -26,6 +27,7 @@ use std::sync::Arc;
 
 use crate::graphics::CameraProjection;
 use crate::math::Vec3;
+use std::iter;
 
 mod vs {
     vulkano_shaders::shader! {
@@ -51,10 +53,12 @@ pub struct GraphicsContext {
 
     surface: Arc<Surface<Window>>,
 
+    vertex_shader: vs::Shader,
+    frag_shader: fs::Shader,
+
     graphics_pipeline: Arc<dyn GraphicsPipelineAbstract + Send + Sync>,
     graphics_pool: FixedSizeDescriptorSetsPool<Arc<dyn GraphicsPipelineAbstract + Send + Sync>>,
     render_pass: Arc<dyn RenderPassAbstract + Send + Sync>,
-    dynamic_state: DynamicState,
     framebuffers: Vec<Arc<dyn FramebufferAbstract + Send + Sync>>,
 
     uniform_buffer: Arc<CpuBufferPool<vs::ty::Camera>>,
@@ -159,8 +163,8 @@ impl GraphicsContext {
             .unwrap()
         };
 
-        let vs = vs::Shader::load(device.clone()).unwrap();
-        let fs = fs::Shader::load(device.clone()).unwrap();
+        let vertex_shader = vs::Shader::load(device.clone()).unwrap();
+        let frag_shader = fs::Shader::load(device.clone()).unwrap();
 
         let vertex_buffer = {
             CpuAccessibleBuffer::from_iter(device.clone(), BufferUsage::all(), [].iter().cloned())
@@ -193,38 +197,17 @@ impl GraphicsContext {
             .unwrap(),
         );
 
-        let graphics_pipeline = Arc::new(
-            GraphicsPipeline::start()
-                .vertex_input_single_buffer::<Vertex>()
-                // vert shader
-                .vertex_shader(vs.main_entry_point(), ())
-                .triangle_list()
-                .viewports_dynamic_scissors_irrelevant(1)
-                // frag shader
-                .fragment_shader(fs.main_entry_point(), ())
-                .depth_stencil_simple_depth()
-                .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
-                .build(device.clone())
-                .unwrap(),
+        let (graphics_pipeline, framebuffers) = window_size_dependent_setup(
+            &device,
+            &vertex_shader,
+            &frag_shader,
+            &images,
+            render_pass.clone(),
         );
 
         let graphics_pool: FixedSizeDescriptorSetsPool<
             Arc<dyn GraphicsPipelineAbstract + Send + Sync>,
         > = FixedSizeDescriptorSetsPool::new(graphics_pipeline.clone(), 0);
-
-        // Dynamic viewports allow us to recreate just the viewport when the window is resized
-        // Otherwise we would have to recreate the whole pipeline.
-        let mut dynamic_state = DynamicState {
-            line_width: None,
-            viewports: None,
-            scissors: None,
-            compare_mask: None,
-            write_mask: None,
-            reference: None,
-        };
-
-        let framebuffers =
-            window_size_dependent_setup(&device, &images, render_pass.clone(), &mut dynamic_state);
 
         let uniform_buffer = Arc::new(CpuBufferPool::<vs::ty::Camera>::new(
             device.clone(),
@@ -236,16 +219,17 @@ impl GraphicsContext {
         GraphicsContext {
             recreate_swapchain,
             previous_frame_end,
+            device,
 
             swapchain,
             queue,
-            device,
             surface,
 
+            vertex_shader,
+            frag_shader,
             graphics_pipeline,
             graphics_pool,
             render_pass,
-            dynamic_state,
             framebuffers,
             vertex_buffer,
             uniform_buffer,
@@ -285,12 +269,16 @@ impl GraphicsContext {
             self.swapchain = new_swapchain;
             // Because framebuffers contains an Arc on the old swapchain, we need to
             // recreate framebuffers as well.
-            self.framebuffers = window_size_dependent_setup(
+            let (new_pipeline, new_framebuffers) = window_size_dependent_setup(
                 &self.device,
+                &self.vertex_shader,
+                &self.frag_shader,
                 &new_images,
                 self.render_pass.clone(),
-                &mut self.dynamic_state,
             );
+
+            self.graphics_pipeline = new_pipeline;
+            self.framebuffers = new_framebuffers;
 
             self.recreate_swapchain = false;
         }
@@ -307,9 +295,10 @@ impl GraphicsContext {
             };
 
         let set = {
+            use crate::math::Mat4;
             let data = vs::ty::Camera {
-                //projection_view_matrix: Mat4::identity().into(),
-                projection_view_matrix: camera.projection_view_matrix().into(),
+                projection_view_matrix: Mat4::identity().into(),
+                //projection_view_matrix: camera.projection_view_matrix().into(),
             };
 
             let sub_buffer = self.uniform_buffer.next(data).unwrap();
@@ -331,8 +320,7 @@ impl GraphicsContext {
         .unwrap()
         .draw(
             self.graphics_pipeline.clone(),
-            &self.dynamic_state,
-            //@TODO fix
+            &DynamicState::none(),
             vec![self.vertex_buffer.clone()],
             set,
             (),
@@ -371,7 +359,7 @@ impl GraphicsContext {
         }
     }
 
-    pub fn set_verts(&mut self, verts: &Vec<Vec3>) {
+    pub fn set_verts(&mut self, verts: &Vec<(Vec3, Vec3)>) {
         self.vertex_buffer = {
             CpuAccessibleBuffer::from_iter(
                 self.device.clone(),
@@ -383,56 +371,32 @@ impl GraphicsContext {
     }
 }
 
-fn _normalize_vec_to_ndc(verts: &Vec<Vec3>, dims: LogicalSize) -> Vec<Vec3> {
-    let max_x = dims.width as f64;
-    let max_y = dims.height as f64;
-
-    let mut ret = vec![];
-
-    for vec in verts {
-        println!("{:#?}", vec);
-        let mut x = vec.x / max_x;
-        let mut y = vec.y / max_y;
-        let z = vec.z;
-
-        x = 2.0 * x - 1.0;
-        y = 2.0 * y - 1.0;
-
-        let point = Vec3 { x, y, z };
-        println!("{:#?}", point);
-        ret.push(point);
-    }
-
-    ret
-}
-
-fn verts_from_vec(verts: &Vec<Vec3>) -> Vec<Vertex> {
+fn verts_from_vec(verts: &Vec<(Vec3, Vec3)>) -> Vec<Vertex> {
     verts
         .into_iter()
-        .map(|point| Vertex {
+        .map(|(point, col)| Vertex {
             position: [point.x as f32, point.y as f32, point.z as f32],
-            color: [0.0, 1.0, 0.0],
+            color: [col.x as f32, col.y as f32, col.y as f32],
         })
         .collect()
 }
 
 fn window_size_dependent_setup(
     device: &Arc<Device>,
+    vs: &vs::Shader,
+    fs: &fs::Shader,
     images: &[Arc<SwapchainImage<Window>>],
     render_pass: Arc<dyn RenderPassAbstract + Send + Sync>,
-    dynamic_state: &mut DynamicState,
-) -> Vec<Arc<dyn FramebufferAbstract + Send + Sync>> {
+) -> (
+    Arc<dyn GraphicsPipelineAbstract + Send + Sync>,
+    Vec<Arc<dyn FramebufferAbstract + Send + Sync>>,
+) {
     let dimensions = images[0].dimensions();
+
     let depth_buffer =
         AttachmentImage::transient(device.clone(), dimensions, Format::D16Unorm).unwrap();
-    let viewport = Viewport {
-        origin: [0.0, 0.0],
-        dimensions: [dimensions[0] as f32, dimensions[1] as f32],
-        depth_range: 0.0..1.0,
-    };
-    dynamic_state.viewports = Some(vec![viewport]);
 
-    images
+    let framebuffers = images
         .iter()
         .map(|image| {
             Arc::new(
@@ -445,5 +409,25 @@ fn window_size_dependent_setup(
                     .unwrap(),
             ) as Arc<dyn FramebufferAbstract + Send + Sync>
         })
-        .collect::<Vec<_>>()
+        .collect::<Vec<_>>();
+
+    let pipeline = Arc::new(
+        GraphicsPipeline::start()
+            .vertex_input_single_buffer::<Vertex>()
+            .vertex_shader(vs.main_entry_point(), ())
+            .triangle_list()
+            .viewports_dynamic_scissors_irrelevant(1)
+            .viewports(iter::once(Viewport {
+                origin: [0.0, 0.0],
+                dimensions: [dimensions[0] as f32, dimensions[1] as f32],
+                depth_range: 0.0..1.0,
+            }))
+            .fragment_shader(fs.main_entry_point(), ())
+            .depth_stencil_simple_depth()
+            .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
+            .build(device.clone())
+            .unwrap(),
+    );
+
+    (pipeline, framebuffers)
 }
