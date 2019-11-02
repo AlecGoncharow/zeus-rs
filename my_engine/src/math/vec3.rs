@@ -2,24 +2,28 @@ use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Vec3 {
-    pub x: f32,
-    pub y: f32,
-    pub z: f32,
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
 }
 
 impl Vec3 {
     #[inline]
-    pub fn new(x: f32, y: f32, z: f32) -> Self {
-        Self { x, y, z }
+    pub fn new(x: impl Into<f64>, y: impl Into<f64>, z: impl Into<f64>) -> Self {
+        Self {
+            x: x.into(),
+            y: y.into(),
+            z: z.into(),
+        }
     }
 
     #[inline]
-    pub fn new_from_one(x: f32) -> Self {
+    pub fn new_from_one(x: impl Into<f64> + Copy) -> Self {
         Self::new(x, x, x)
     }
 
     #[inline]
-    pub fn dot(&self, other: &Self) -> f32 {
+    pub fn dot(&self, other: &Self) -> f64 {
         self.x * other.x + self.y * other.y + self.z * other.z
     }
 
@@ -42,7 +46,8 @@ impl Vec3 {
     }
 
     #[inline]
-    pub fn refract(&self, n: &Self, ni_over_nt: f32) -> Option<Self> {
+    pub fn refract(&self, n: &Self, ni_over_nt: impl Into<f64> + Copy) -> Option<Self> {
+        let ni_over_nt = ni_over_nt.into();
         let uv = self.make_unit_vector();
         let dt = uv.dot(n);
         let discriminant = 1.0 - ((ni_over_nt * ni_over_nt) * (1.0 - (dt * dt)));
@@ -89,12 +94,12 @@ impl Vec3 {
     }
 
     #[inline]
-    pub fn squared_mag(&self) -> f32 {
+    pub fn squared_mag(&self) -> f64 {
         self.dot(self)
     }
 
     #[inline]
-    pub fn magnitude(&self) -> f32 {
+    pub fn magnitude(&self) -> f64 {
         self.squared_mag().sqrt()
     }
 
@@ -109,7 +114,7 @@ impl Vec3 {
     }
 
     #[inline]
-    pub fn clamp(&self, min: f32, max: f32) -> Self {
+    pub fn clamp(&self, min: f64, max: f64) -> Self {
         Self {
             x: if self.x < min {
                 min
@@ -136,8 +141,8 @@ impl Vec3 {
     }
 }
 
-impl From<(f32, f32, f32)> for Vec3 {
-    fn from(tuple: (f32, f32, f32)) -> Self {
+impl<T: Into<f64>> From<(T, T, T)> for Vec3 {
+    fn from(tuple: (T, T, T)) -> Self {
         Self::new(tuple.0, tuple.1, tuple.2)
     }
 }
@@ -186,7 +191,7 @@ impl SubAssign for Vec3 {
     }
 }
 
-impl Mul<Vec3> for f32 {
+impl Mul<Vec3> for f64 {
     type Output = Vec3;
 
     fn mul(self, vec: Vec3) -> Vec3 {
@@ -198,24 +203,24 @@ impl Mul<Vec3> for f32 {
     }
 }
 
-impl Mul<f32> for Vec3 {
+impl<T: Into<f64> + Copy> Mul<T> for Vec3 {
     type Output = Self;
 
-    fn mul(self, scalar: f32) -> Self {
+    fn mul(self, scalar: T) -> Self {
         Self {
-            x: self.x * scalar,
-            y: self.y * scalar,
-            z: self.z * scalar,
+            x: self.x * scalar.into(),
+            y: self.y * scalar.into(),
+            z: self.z * scalar.into(),
         }
     }
 }
 
-impl MulAssign<f32> for Vec3 {
-    fn mul_assign(&mut self, scalar: f32) {
+impl<T: Into<f64> + Copy> MulAssign<T> for Vec3 {
+    fn mul_assign(&mut self, scalar: T) {
         *self = Self {
-            x: self.x * scalar,
-            y: self.y * scalar,
-            z: self.z * scalar,
+            x: self.x * scalar.into(),
+            y: self.y * scalar.into(),
+            z: self.z * scalar.into(),
         }
     }
 }

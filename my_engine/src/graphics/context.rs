@@ -348,8 +348,8 @@ impl GraphicsContext {
 }
 
 fn normalize_vec_to_ndc(verts: &Vec<Vec3>, dims: LogicalSize) -> Vec<Vec3> {
-    let max_x = dims.width as f32;
-    let max_y = dims.height as f32;
+    let max_x = dims.width as f64;
+    let max_y = dims.height as f64;
 
     let mut ret = vec![];
 
@@ -374,7 +374,7 @@ fn verts_from_vec(verts: Vec<Vec3>) -> Vec<Vertex> {
     verts
         .into_iter()
         .map(|point| Vertex {
-            position: [point.x, point.y, point.z],
+            position: [point.x as f32, point.y as f32, point.z as f32],
             color: [0.0, 1.0, 0.0],
         })
         .collect()

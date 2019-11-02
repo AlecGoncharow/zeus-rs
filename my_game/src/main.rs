@@ -24,7 +24,7 @@ impl EventHandler for State {
 
     fn mouse_button_down_event(&mut self, _ctx: &mut Context, button: MouseButton, x: f32, y: f32) {
         println!("Mouse button pressed: {:?}, x: {}, y: {}", button, x, y);
-        self.points.push(Vec3 { x, y, z: 0.0 });
+        self.points.push(Vec3::new(x, y, 0.0));
     }
 }
 

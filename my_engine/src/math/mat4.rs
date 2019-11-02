@@ -37,7 +37,11 @@ impl Mat4 {
     }
 
     #[inline]
-    pub fn scalar(x_scalar: f32, y_scalar: f32, z_scalar: f32) -> Self {
+    pub fn scalar(
+        x_scalar: impl Into<f64>,
+        y_scalar: impl Into<f64>,
+        z_scalar: impl Into<f64>,
+    ) -> Self {
         Self {
             x: Vec4::new(x_scalar, 0.0, 0.0, 0.0),
             y: Vec4::new(0.0, y_scalar, 0.0, 0.0),
@@ -47,12 +51,15 @@ impl Mat4 {
     }
 
     #[inline]
-    pub fn scalar_from_one(scalar: f32) -> Self {
+    pub fn scalar_from_one(scalar: impl Into<f64> + Copy) -> Self {
         Self::scalar(scalar, scalar, scalar)
     }
 
     #[inline]
-    pub fn translation(x_tr: f32, y_tr: f32, z_tr: f32) -> Self {
+    pub fn translation<T>(x_tr: T, y_tr: T, z_tr: T) -> Self
+    where
+        T: Into<f64>,
+    {
         Self {
             x: Vec4::new(1.0, 0.0, 0.0, x_tr),
             y: Vec4::new(0.0, 1.0, 0.0, y_tr),
@@ -110,7 +117,7 @@ impl SubAssign for Mat4 {
     }
 }
 
-impl Mul<Mat4> for f32 {
+impl Mul<Mat4> for f64 {
     type Output = Mat4;
 
     fn mul(self, mat: Mat4) -> Mat4 {
@@ -123,26 +130,26 @@ impl Mul<Mat4> for f32 {
     }
 }
 
-impl Mul<f32> for Mat4 {
+impl<T: Into<f64> + Copy> Mul<T> for Mat4 {
     type Output = Self;
 
-    fn mul(self, scalar: f32) -> Self {
+    fn mul(self, scalar: T) -> Self {
         Self {
-            x: self.x * scalar,
-            y: self.y * scalar,
-            z: self.z * scalar,
-            w: self.w * scalar,
+            x: self.x * scalar.into(),
+            y: self.y * scalar.into(),
+            z: self.z * scalar.into(),
+            w: self.w * scalar.into(),
         }
     }
 }
 
-impl MulAssign<f32> for Mat4 {
-    fn mul_assign(&mut self, scalar: f32) {
+impl<T: Into<f64> + Copy> MulAssign<T> for Mat4 {
+    fn mul_assign(&mut self, scalar: T) {
         *self = Self {
-            x: self.x * scalar,
-            y: self.y * scalar,
-            z: self.z * scalar,
-            w: self.w * scalar,
+            x: self.x * scalar.into(),
+            y: self.y * scalar.into(),
+            z: self.z * scalar.into(),
+            w: self.w * scalar.into(),
         }
     }
 }
@@ -193,24 +200,8 @@ impl Mul<Vec4> for Mat4 {
     }
 }
 
-impl
-    From<
-        ((
-            (f32, f32, f32, f32),
-            (f32, f32, f32, f32),
-            (f32, f32, f32, f32),
-            (f32, f32, f32, f32),
-        )),
-    > for Mat4
-{
-    fn from(
-        tuple: (
-            (f32, f32, f32, f32),
-            (f32, f32, f32, f32),
-            (f32, f32, f32, f32),
-            (f32, f32, f32, f32),
-        ),
-    ) -> Self {
+impl<T: Into<f64>> From<(((T, T, T, T), (T, T, T, T), (T, T, T, T), (T, T, T, T)))> for Mat4 {
+    fn from(tuple: ((T, T, T, T), (T, T, T, T), (T, T, T, T), (T, T, T, T))) -> Self {
         Self::new(
             tuple.0.into(),
             tuple.1.into(),
@@ -225,7 +216,7 @@ mod tests {
     use crate::math::*;
     #[test]
     fn test_mult() {
-        let vec = Vec4::new(1.0, 2.0, 3.0, 1.0);
+        let vec = Vec4::new(1.0, 2, 3.0, 1);
 
         let mat = Mat4::scalar_from_one(5.0);
 
@@ -257,10 +248,10 @@ mod tests {
             .into();
 
         let rhs = Mat4::new(
-            (3.0, 10.0, 12.0, 18.0).into(),
-            (12.0, 1.0, 4.0, 9.0).into(),
-            (9.0, 10.0, 12.0, 2.0).into(),
-            (3.0, 12.0, 4.0, 10.0).into(),
+            (3, 10, 12, 18).into(),
+            (12, 1, 4, 9).into(),
+            (9, 10, 12, 2).into(),
+            (3, 12, 4, 10).into(),
         );
 
         /*

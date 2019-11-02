@@ -3,18 +3,27 @@ use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Vec4 {
-    pub x: f32,
-    pub y: f32,
-    pub z: f32,
-    pub w: f32,
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+    pub w: f64,
 }
 
 impl Vec4 {
     #[inline]
-    pub fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
-        Self { x, y, z, w }
+    pub fn new(x: impl Into<f64>, y: impl Into<f64>, z: impl Into<f64>, w: impl Into<f64>) -> Self {
+        Self {
+            x: x.into(),
+            y: y.into(),
+            z: z.into(),
+            w: w.into(),
+        }
     }
-
+    #[inline]
+    pub fn new_from_one(x: impl Into<f64> + Copy) -> Self {
+        Self::new(x, x, x, x)
+    }
+    /*
     pub fn from_vec3(vec: Vec3) -> Self {
         Self {
             x: vec.x,
@@ -23,28 +32,7 @@ impl Vec4 {
             w: 1.0,
         }
     }
-
-    #[inline]
-    pub fn new_from_one(x: f32) -> Self {
-        Self::new(x, x, x, x)
-    }
-
-    #[inline]
-    pub fn dot(&self, other: &Self) -> f32 {
-        self.x * other.x + self.y * other.y + self.z * other.z + self.w * other.w
-    }
-
-    /*
-    #[inline]
-    pub fn cross(&self, other: &Self) -> Self {
-        Self {
-            x: (self.y * other.z) - (self.z * other.y),
-            y: (self.z * other.x) - (self.x * other.z),
-            z: (self.x * other.y) - (self.y * other.x),
-        }
-    }
     */
-
     #[inline]
     pub fn gamma_two(&self) -> Self {
         Self {
@@ -86,12 +74,27 @@ impl Vec4 {
     }
 
     #[inline]
-    pub fn squared_mag(&self) -> f32 {
+    pub fn dot(&self, other: &Self) -> f64 {
+        self.x * other.x + self.y * other.y + self.z * other.z + self.w * other.w
+    }
+
+    /*
+    #[inline]
+    pub fn cross(&self, other: &Self) -> Self {
+        Self {
+            x: (self.y * other.z) - (self.z * other.y),
+            y: (self.z * other.x) - (self.x * other.z),
+            z: (self.x * other.y) - (self.y * other.x),
+        }
+    }
+    */
+    #[inline]
+    pub fn squared_mag(&self) -> f64 {
         self.dot(self)
     }
 
     #[inline]
-    pub fn magnitude(&self) -> f32 {
+    pub fn magnitude(&self) -> f64 {
         self.squared_mag().sqrt()
     }
 
@@ -106,7 +109,9 @@ impl Vec4 {
     }
 
     #[inline]
-    pub fn clamp(&self, min: f32, max: f32) -> Self {
+    pub fn clamp(&self, min: impl Into<f64>, max: impl Into<f64>) -> Self {
+        let min = min.into();
+        let max = max.into();
         Self {
             x: if self.x < min {
                 min
@@ -140,8 +145,8 @@ impl Vec4 {
     }
 }
 
-impl From<(f32, f32, f32, f32)> for Vec4 {
-    fn from(tuple: (f32, f32, f32, f32)) -> Self {
+impl<T: Into<f64>> From<(T, T, T, T)> for Vec4 {
+    fn from(tuple: (T, T, T, T)) -> Self {
         Self::new(tuple.0, tuple.1, tuple.2, tuple.3)
     }
 }
@@ -194,7 +199,7 @@ impl SubAssign for Vec4 {
     }
 }
 
-impl Mul<Vec4> for f32 {
+impl Mul<Vec4> for f64 {
     type Output = Vec4;
 
     fn mul(self, vec: Vec4) -> Vec4 {
@@ -207,26 +212,65 @@ impl Mul<Vec4> for f32 {
     }
 }
 
-impl Mul<f32> for Vec4 {
-    type Output = Self;
+impl Mul<Vec4> for f32 {
+    type Output = Vec4;
 
-    fn mul(self, scalar: f32) -> Self {
-        Self {
-            x: self.x * scalar,
-            y: self.y * scalar,
-            z: self.z * scalar,
-            w: self.w * scalar,
+    fn mul(self, vec: Vec4) -> Vec4 {
+        Vec4 {
+            x: vec.x * self as f64,
+            y: vec.y * self as f64,
+            z: vec.z * self as f64,
+            w: vec.w * self as f64,
         }
     }
 }
 
-impl MulAssign<f32> for Vec4 {
-    fn mul_assign(&mut self, scalar: f32) {
+impl Mul<Vec4> for i32 {
+    type Output = Vec4;
+
+    fn mul(self, vec: Vec4) -> Vec4 {
+        Vec4 {
+            x: vec.x * self as f64,
+            y: vec.y * self as f64,
+            z: vec.z * self as f64,
+            w: vec.w * self as f64,
+        }
+    }
+}
+
+impl Mul<Vec4> for u32 {
+    type Output = Vec4;
+
+    fn mul(self, vec: Vec4) -> Vec4 {
+        Vec4 {
+            x: vec.x * self as f64,
+            y: vec.y * self as f64,
+            z: vec.z * self as f64,
+            w: vec.w * self as f64,
+        }
+    }
+}
+
+impl<T: Into<f64> + Copy> Mul<T> for Vec4 {
+    type Output = Self;
+
+    fn mul(self, scalar: T) -> Self {
+        Self {
+            x: self.x * scalar.into(),
+            y: self.y * scalar.into(),
+            z: self.z * scalar.into(),
+            w: self.w * scalar.into(),
+        }
+    }
+}
+
+impl<T: Into<f64> + Copy> MulAssign<T> for Vec4 {
+    fn mul_assign(&mut self, scalar: T) {
         *self = Self {
-            x: self.x * scalar,
-            y: self.y * scalar,
-            z: self.z * scalar,
-            w: self.w * scalar,
+            x: self.x * scalar.into(),
+            y: self.y * scalar.into(),
+            z: self.z * scalar.into(),
+            w: self.w * scalar.into(),
         }
     }
 }
