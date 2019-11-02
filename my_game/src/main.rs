@@ -4,6 +4,8 @@ use my_engine::winit::MouseButton;
 
 use my_engine::math::Vec3;
 
+mod camera;
+
 struct State {
     frame: u32,
     points: Vec<Vec3>,

@@ -1,3 +1,4 @@
+use crate::math::Vec3;
 use crate::math::Vec4;
 use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
 
@@ -36,6 +37,41 @@ impl Mat4 {
         }
     }
 
+    /// https://sites.google.com/site/glennmurray/Home/rotation-matrices-and-formulas/rotation-about-an-arbitrary-axis-in-3-dimensions
+    pub fn rotation(theta: f64, axis: Vec3) -> Self {
+        let axis = axis.make_unit_vector();
+
+        Self {
+            x: Vec4::new(
+                axis.x * axis.x + (1.0 - axis.x * axis.x) * theta.cos(),
+                axis.x * axis.y * (1.0 - theta.cos()) - axis.z * theta.sin(),
+                axis.x * axis.z * (1.0 - theta.cos()) + axis.y * theta.sin(),
+                0.0,
+            )
+            .zero_out_insignificant(0.00005),
+            y: Vec4::new(
+                axis.x * axis.y * (1.0 - theta.cos()) + axis.z * theta.sin(),
+                axis.y * axis.y + (1.0 - axis.y * axis.y) * theta.cos(),
+                axis.y * axis.z * (1.0 - theta.cos()) - axis.x * theta.sin(),
+                0.0,
+            )
+            .zero_out_insignificant(0.00005),
+            z: Vec4::new(
+                axis.x * axis.z * (1.0 - theta.cos()) - axis.y * theta.sin(),
+                axis.y * axis.z * (1.0 - theta.cos()) + axis.x * theta.sin(),
+                axis.z * axis.z * (1.0 - axis.z * axis.z) * theta.cos(),
+                0.0,
+            )
+            .zero_out_insignificant(0.00005),
+            w: Vec4::new(0, 0, 0, 1),
+        }
+    }
+
+    pub fn rotation_from_degrees(degrees: f64, axis: Vec3) -> Self {
+        use std::f64::consts::PI;
+
+        Self::rotation(degrees * PI / 180.0, axis)
+    }
     #[inline]
     pub fn scalar(
         x_scalar: impl Into<f64>,
@@ -200,6 +236,7 @@ impl Mul<Vec4> for Mat4 {
     }
 }
 
+///T,T
 impl<T: Into<f64>> From<(((T, T, T, T), (T, T, T, T), (T, T, T, T), (T, T, T, T)))> for Mat4 {
     fn from(tuple: ((T, T, T, T), (T, T, T, T), (T, T, T, T), (T, T, T, T))) -> Self {
         Self::new(
@@ -263,5 +300,28 @@ mod tests {
          */
 
         println!("{:#?}", lhs * rhs);
+    }
+
+    #[test]
+    fn test_rotation() {
+        let vec = Vec4::new(1, 0, 0, 1);
+
+        let rotation = Mat4::rotation_from_degrees(90.0, (0, 0, 1).into());
+
+        println!(
+            "rotation mat: {:#?},  output:{:#?}",
+            rotation,
+            rotation * vec
+        );
+
+        let vec = Vec4::new(1, 0, 0, 1);
+
+        let rotation = Mat4::rotation_from_degrees(53.1, (0, 0, 1).into());
+
+        println!(
+            "rotation mat: {:#?},  output:{:#?}",
+            rotation,
+            rotation * vec
+        );
     }
 }

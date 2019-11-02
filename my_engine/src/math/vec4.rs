@@ -23,7 +23,8 @@ impl Vec4 {
     pub fn new_from_one(x: impl Into<f64> + Copy) -> Self {
         Self::new(x, x, x, x)
     }
-    /*
+
+    #[inline]
     pub fn from_vec3(vec: Vec3) -> Self {
         Self {
             x: vec.x,
@@ -32,7 +33,6 @@ impl Vec4 {
             w: 1.0,
         }
     }
-    */
     #[inline]
     pub fn gamma_two(&self) -> Self {
         Self {
@@ -44,12 +44,12 @@ impl Vec4 {
     }
 
     #[inline]
-    pub fn make_comp_mul(&self, other: &Self) -> Self {
+    pub fn make_comp_mul(&self, rhs: &Self) -> Self {
         Self {
-            x: self.x * other.x,
-            y: self.y * other.y,
-            z: self.z * other.z,
-            w: self.w * other.w,
+            x: self.x * rhs.x,
+            y: self.y * rhs.y,
+            z: self.z * rhs.z,
+            w: self.w * rhs.w,
         }
     }
 
@@ -106,6 +106,16 @@ impl Vec4 {
     #[inline]
     pub fn normalize(&mut self) {
         *self = self.make_unit_vector();
+    }
+
+    #[inline]
+    pub fn zero_out_insignificant(&self, delta: f64) -> Self {
+        Self {
+            x: if self.x.abs() < delta { 0.0 } else { self.x },
+            y: if self.y.abs() < delta { 0.0 } else { self.y },
+            z: if self.z.abs() < delta { 0.0 } else { self.z },
+            w: if self.w.abs() < delta { 0.0 } else { self.w },
+        }
     }
 
     #[inline]

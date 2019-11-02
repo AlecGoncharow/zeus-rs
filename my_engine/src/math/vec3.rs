@@ -224,3 +224,32 @@ impl<T: Into<f64> + Copy> MulAssign<T> for Vec3 {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::math::*;
+
+    #[test]
+    fn test_norm() {
+        let vec = Vec3::new(0.1, 0.0, 0.0);
+
+        println!("{:#?}, {:#?}", vec, vec.make_unit_vector());
+
+        let vec = Vec3::new(0.1, 0.0, 0.1);
+
+        println!("{:#?}, {:#?}", vec, vec.make_unit_vector());
+        let vec = Vec3::new(0.1, 0.1, 0.1);
+
+        println!("{:#?}, {:#?}", vec, vec.make_unit_vector());
+        let vec = Vec3::new(10, 0.0, 0.0);
+
+        println!("{:#?}, {:#?}", vec, vec.make_unit_vector());
+
+        let vec = Vec3::new(10, 0.0, 10);
+
+        println!("{:#?}, {:#?}", vec, vec.make_unit_vector());
+        let vec = Vec3::new(10, 10, 10);
+
+        println!("{:#?}, {:#?}", vec, vec.make_unit_vector());
+    }
+}
