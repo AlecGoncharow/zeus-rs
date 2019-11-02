@@ -60,8 +60,9 @@ pub struct GraphicsContext {
 #[derive(Default, Debug, Clone)]
 struct Vertex {
     position: [f32; 3],
+    color: [f32; 3],
 }
-vulkano::impl_vertex!(Vertex, position);
+vulkano::impl_vertex!(Vertex, position, color);
 
 impl GraphicsContext {
     pub fn new_default(events_loop: &EventsLoop) -> Self {
@@ -374,6 +375,7 @@ fn verts_from_vec(verts: Vec<Vec3>) -> Vec<Vertex> {
         .into_iter()
         .map(|point| Vertex {
             position: [point.x, point.y, point.z],
+            color: [0.0, 1.0, 0.0],
         })
         .collect()
 }
