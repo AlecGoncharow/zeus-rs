@@ -9,9 +9,9 @@ use winit::MouseCursor;
 /// Stores state information for the mouse.
 #[derive(Clone, Debug)]
 pub struct MouseContext {
-    last_position: Vec2,
-    last_delta: Vec2,
-    buttons_pressed: HashMap<MouseButton, bool>,
+    pub last_position: Vec2,
+    pub last_delta: Vec2,
+    pub buttons_pressed: HashMap<MouseButton, bool>,
     cursor_type: MouseCursor,
     cursor_grabbed: bool,
     cursor_hidden: bool,
@@ -41,7 +41,7 @@ impl MouseContext {
         let _ = self.buttons_pressed.insert(button, pressed);
     }
 
-    fn button_pressed(&self, button: MouseButton) -> bool {
+    pub fn button_pressed(&self, button: MouseButton) -> bool {
         *(self.buttons_pressed.get(&button).unwrap_or(&false))
     }
 }

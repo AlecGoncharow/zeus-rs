@@ -248,6 +248,37 @@ impl<T: Into<f64>> From<(((T, T, T, T), (T, T, T, T), (T, T, T, T), (T, T, T, T)
     }
 }
 
+impl From<Mat4> for [[f32; 4]; 4] {
+    fn from(mat: Mat4) -> [[f32; 4]; 4] {
+        [
+            [
+                mat.x.x as f32,
+                mat.x.y as f32,
+                mat.x.z as f32,
+                mat.x.w as f32,
+            ],
+            [
+                mat.y.x as f32,
+                mat.y.y as f32,
+                mat.y.z as f32,
+                mat.y.w as f32,
+            ],
+            [
+                mat.z.x as f32,
+                mat.z.y as f32,
+                mat.z.z as f32,
+                mat.z.w as f32,
+            ],
+            [
+                mat.w.x as f32,
+                mat.w.y as f32,
+                mat.w.z as f32,
+                mat.w.w as f32,
+            ],
+        ]
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::math::*;

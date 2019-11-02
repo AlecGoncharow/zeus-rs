@@ -28,8 +28,8 @@ pub trait EventHandler {
         &mut self,
         _ctx: &mut Context,
         _button: MouseButton,
-        _x: f32,
-        _y: f32,
+        _x: f64,
+        _y: f64,
     ) {
     }
 
@@ -38,18 +38,18 @@ pub trait EventHandler {
         &mut self,
         _ctx: &mut Context,
         _button: MouseButton,
-        _x: f32,
-        _y: f32,
+        _x: f64,
+        _y: f64,
     ) {
     }
 
     /// The mouse was moved; it provides both absolute x and y coordinates in the window,
     /// and relative x and y coordinates compared to its last position.
-    fn mouse_motion_event(&mut self, _ctx: &mut Context, _x: f32, _y: f32, _dx: f32, _dy: f32) {}
+    fn mouse_motion_event(&mut self, _ctx: &mut Context, _x: f64, _y: f64, _dx: f64, _dy: f64) {}
 
     /// The mousewheel was scrolled, vertically (y, positive away from and negative toward the user)
     /// or horizontally (x, positive to the right and negative to the left).
-    fn mouse_wheel_event(&mut self, _ctx: &mut Context, _x: f32, _y: f32) {}
+    fn mouse_wheel_event(&mut self, _ctx: &mut Context, _x: f64, _y: f64) {}
 
     /// A keyboard button was pressed.
     ///
@@ -160,9 +160,9 @@ where
                     }
                     WindowEvent::MouseWheel { delta, .. } => {
                         let (x, y) = match delta {
-                            MouseScrollDelta::LineDelta(x, y) => (x, y),
+                            MouseScrollDelta::LineDelta(x, y) => (x as f64, y as f64),
                             MouseScrollDelta::PixelDelta(dpi::LogicalPosition { x, y }) => {
-                                (x as f32, y as f32)
+                                (x as f64, y as f64)
                             }
                         };
                         state.mouse_wheel_event(&mut ctx, x, y);

@@ -1,27 +1,30 @@
-use vulkano::buffer::{BufferUsage, CpuAccessibleBuffer};
+use vulkano::buffer::{BufferUsage, CpuAccessibleBuffer, CpuBufferPool};
 use vulkano::command_buffer::{AutoCommandBufferBuilder, DynamicState};
 use vulkano::device::{Device, DeviceExtensions, Queue};
+use vulkano::format::Format;
 use vulkano::framebuffer::{Framebuffer, FramebufferAbstract, RenderPassAbstract, Subpass};
+use vulkano::image::attachment::AttachmentImage;
 use vulkano::image::SwapchainImage;
 use vulkano::instance::{Instance, PhysicalDevice};
 use vulkano::pipeline::viewport::Viewport;
 use vulkano::pipeline::GraphicsPipeline;
+use vulkano::pipeline::GraphicsPipelineAbstract;
 use vulkano::swapchain;
 use vulkano::swapchain::{
     AcquireError, PresentMode, Surface, SurfaceTransform, Swapchain, SwapchainCreationError,
 };
 use vulkano::sync;
 use vulkano::sync::{FlushError, GpuFuture};
-
-use vulkano::pipeline::GraphicsPipelineAbstract;
 use vulkano_win::VkSurfaceBuild;
-
 use winit::dpi::LogicalSize;
 use winit::EventsLoop;
 use winit::{Window, WindowBuilder};
 
+use vulkano::descriptor::descriptor_set::FixedSizeDescriptorSetsPool;
+
 use std::sync::Arc;
 
+use crate::graphics::CameraProjection;
 use crate::math::Vec3;
 
 mod vs {
@@ -49,12 +52,14 @@ pub struct GraphicsContext {
     surface: Arc<Surface<Window>>,
 
     graphics_pipeline: Arc<dyn GraphicsPipelineAbstract + Send + Sync>,
+    graphics_pool: FixedSizeDescriptorSetsPool<Arc<dyn GraphicsPipelineAbstract + Send + Sync>>,
     render_pass: Arc<dyn RenderPassAbstract + Send + Sync>,
     dynamic_state: DynamicState,
     framebuffers: Vec<Arc<dyn FramebufferAbstract + Send + Sync>>,
 
+    uniform_buffer: Arc<CpuBufferPool<vs::ty::Camera>>,
     vertex_buffer: Arc<CpuAccessibleBuffer<[Vertex]>>,
-    window_dims: LogicalSize,
+    pub window_dims: LogicalSize,
 }
 
 #[derive(Default, Debug, Clone)]
@@ -171,13 +176,18 @@ impl GraphicsContext {
                         store: Store,
                         format: swapchain.format(),
                         samples: 1,
+                    },
+                    depth: {
+                        load: Clear,
+                        store: DontCare,
+                        format: Format::D16Unorm,
+                        samples: 1,
                     }
-
                 },
                 pass: {
                     color: [color],
 
-                    depth_stencil: {}
+                    depth_stencil: {depth}
                 }
             )
             .unwrap(),
@@ -192,10 +202,15 @@ impl GraphicsContext {
                 .viewports_dynamic_scissors_irrelevant(1)
                 // frag shader
                 .fragment_shader(fs.main_entry_point(), ())
+                .depth_stencil_simple_depth()
                 .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
                 .build(device.clone())
                 .unwrap(),
         );
+
+        let graphics_pool: FixedSizeDescriptorSetsPool<
+            Arc<dyn GraphicsPipelineAbstract + Send + Sync>,
+        > = FixedSizeDescriptorSetsPool::new(graphics_pipeline.clone(), 0);
 
         // Dynamic viewports allow us to recreate just the viewport when the window is resized
         // Otherwise we would have to recreate the whole pipeline.
@@ -209,7 +224,12 @@ impl GraphicsContext {
         };
 
         let framebuffers =
-            window_size_dependent_setup(&images, render_pass.clone(), &mut dynamic_state);
+            window_size_dependent_setup(&device, &images, render_pass.clone(), &mut dynamic_state);
+
+        let uniform_buffer = Arc::new(CpuBufferPool::<vs::ty::Camera>::new(
+            device.clone(),
+            BufferUsage::all(),
+        ));
 
         let recreate_swapchain = false;
         let previous_frame_end = Some(Box::new(sync::now(device.clone())) as Box<dyn GpuFuture>);
@@ -223,15 +243,17 @@ impl GraphicsContext {
             surface,
 
             graphics_pipeline,
+            graphics_pool,
             render_pass,
             dynamic_state,
             framebuffers,
             vertex_buffer,
+            uniform_buffer,
             window_dims,
         }
     }
 
-    pub fn render(&mut self) {
+    pub fn render(&mut self, camera: impl CameraProjection) {
         let window = self.surface.window();
 
         self.previous_frame_end.as_mut().unwrap().cleanup_finished();
@@ -264,6 +286,7 @@ impl GraphicsContext {
             // Because framebuffers contains an Arc on the old swapchain, we need to
             // recreate framebuffers as well.
             self.framebuffers = window_size_dependent_setup(
+                &self.device,
                 &new_images,
                 self.render_pass.clone(),
                 &mut self.dynamic_state,
@@ -283,7 +306,23 @@ impl GraphicsContext {
                 Err(err) => panic!("{:?}", err),
             };
 
-        let clear_values = vec![[0.0, 0.0, 1.0, 1.0].into()];
+        let set = {
+            use crate::math::Mat4;
+            let data = vs::ty::Camera {
+                //projection_view_matrix: Mat4::identity().into(),
+                projection_view_matrix: camera.projection_view_matrix().into(),
+            };
+
+            let sub_buffer = self.uniform_buffer.next(data).unwrap();
+            self.graphics_pool
+                .next()
+                .add_buffer(sub_buffer)
+                .unwrap()
+                .build()
+                .unwrap()
+        };
+
+        let clear_values = vec![[0.0, 0.0, 1.0, 1.0].into(), 1f32.into()];
         let graphics_command_buffer = AutoCommandBufferBuilder::primary_one_time_submit(
             self.device.clone(),
             self.queue.family(),
@@ -296,7 +335,7 @@ impl GraphicsContext {
             &self.dynamic_state,
             //@TODO fix
             vec![self.vertex_buffer.clone()],
-            (),
+            set,
             (),
         )
         .unwrap()
@@ -338,16 +377,14 @@ impl GraphicsContext {
             CpuAccessibleBuffer::from_iter(
                 self.device.clone(),
                 BufferUsage::all(),
-                verts_from_vec(normalize_vec_to_ndc(verts, self.window_dims))
-                    .iter()
-                    .cloned(),
+                verts_from_vec(verts).iter().cloned(),
             )
             .unwrap()
         };
     }
 }
 
-fn normalize_vec_to_ndc(verts: &Vec<Vec3>, dims: LogicalSize) -> Vec<Vec3> {
+fn _normalize_vec_to_ndc(verts: &Vec<Vec3>, dims: LogicalSize) -> Vec<Vec3> {
     let max_x = dims.width as f64;
     let max_y = dims.height as f64;
 
@@ -370,7 +407,7 @@ fn normalize_vec_to_ndc(verts: &Vec<Vec3>, dims: LogicalSize) -> Vec<Vec3> {
     ret
 }
 
-fn verts_from_vec(verts: Vec<Vec3>) -> Vec<Vertex> {
+fn verts_from_vec(verts: &Vec<Vec3>) -> Vec<Vertex> {
     verts
         .into_iter()
         .map(|point| Vertex {
@@ -381,12 +418,14 @@ fn verts_from_vec(verts: Vec<Vec3>) -> Vec<Vertex> {
 }
 
 fn window_size_dependent_setup(
+    device: &Arc<Device>,
     images: &[Arc<SwapchainImage<Window>>],
     render_pass: Arc<dyn RenderPassAbstract + Send + Sync>,
     dynamic_state: &mut DynamicState,
 ) -> Vec<Arc<dyn FramebufferAbstract + Send + Sync>> {
     let dimensions = images[0].dimensions();
-
+    let depth_buffer =
+        AttachmentImage::transient(device.clone(), dimensions, Format::D16Unorm).unwrap();
     let viewport = Viewport {
         origin: [0.0, 0.0],
         dimensions: [dimensions[0] as f32, dimensions[1] as f32],
@@ -400,6 +439,8 @@ fn window_size_dependent_setup(
             Arc::new(
                 Framebuffer::start(render_pass.clone())
                     .add(image.clone())
+                    .unwrap()
+                    .add(depth_buffer.clone())
                     .unwrap()
                     .build()
                     .unwrap(),

@@ -90,7 +90,7 @@ impl Context {
         };
     }
 
-    pub fn render(&mut self) {
-        self.gfx_context.render();
+    pub fn render(&mut self, camera: impl crate::graphics::CameraProjection) {
+        self.gfx_context.render(camera);
     }
 }
