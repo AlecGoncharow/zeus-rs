@@ -331,6 +331,12 @@ mod tests {
          */
 
         println!("{:#?}", lhs * rhs);
+
+        let vec = Vec4::new(1.0, 2, 3.0, 1);
+
+        let mat = Mat4::translation(4, 10, 25);
+
+        println!("trans: {:#?}", mat * vec);
     }
 
     #[test]

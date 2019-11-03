@@ -19,7 +19,7 @@ const FAR_PLANE: f64 = 2500.0;
 
 const Y_OFFSET: f64 = 5.0;
 
-const TERRAIN_SIZE: f64 = 100.0;
+const TERRAIN_SIZE: f64 = 0.5;
 
 #[derive(Debug)]
 pub struct Camera {

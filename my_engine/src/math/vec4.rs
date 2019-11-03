@@ -161,6 +161,12 @@ impl<T: Into<f64>> From<(T, T, T, T)> for Vec4 {
     }
 }
 
+impl From<Vec4> for [f32; 4] {
+    fn from(vec: Vec4) -> Self {
+        [vec.x as f32, vec.y as f32, vec.z as f32, vec.w as f32]
+    }
+}
+
 impl Add for Vec4 {
     type Output = Self;
 

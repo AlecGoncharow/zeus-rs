@@ -2,6 +2,7 @@ use my_engine::context::Context;
 use my_engine::event::EventHandler;
 use my_engine::winit::MouseButton;
 
+use my_engine::math::Mat4;
 use my_engine::math::Vec2;
 use my_engine::math::Vec3;
 
@@ -12,10 +13,15 @@ struct State {
     points: Vec<(Vec3, Vec3)>,
     camera: camera::Camera,
     mouse_down: bool,
+    theta: f64,
 }
 
 impl EventHandler for State {
     fn draw(&mut self, ctx: &mut Context) -> Result<(), ()> {
+        // @TODO figure out a way around this command holding thing
+        self.theta += 1.0;
+        let mut command = ctx.start_drawing((0, 0, 0, 1).into());
+
         self.frame += 1;
         if self.frame < 10 {
             println!(
@@ -23,10 +29,26 @@ impl EventHandler for State {
                 self.camera.projection_matrix * self.camera.view_matrix
             );
         }
-        //println!("{:#?}", self.camera.position);
-        ctx.gfx_context.set_verts(&self.points);
 
-        ctx.render(&self.camera);
+        ctx.gfx_context.projection_transform = (
+            (1.0, 0.0, 0.0, 0.0),
+            (0.0, -1.0, 0.0, 0.0),
+            (0.0, 0.0, 0.5, 0.5),
+            (0.0, 0.0, 0.0, 1.0),
+        )
+            .into();
+
+        //println!("{:#?}", self.camera.position);
+        ctx.gfx_context.model_transform = Mat4::rotation_from_degrees(self.theta, (0, 1, 0).into());
+        command = ctx.draw(command, &self.points);
+
+        ctx.gfx_context.model_transform = Mat4::translation(-0.5, -0.5, 0.0)
+            * Mat4::rotation_from_degrees(self.theta, (0, 1, 0).into())
+            * Mat4::rotation_from_degrees(self.theta, (1, 0, 0).into())
+            * Mat4::scalar_from_one(0.5);
+        command = ctx.draw(command, &self.points);
+
+        ctx.render(command);
         Ok(())
     }
 
@@ -137,6 +159,7 @@ fn main() {
         points: generate_cube(),
         camera: camera::Camera::new(&ctx),
         mouse_down: false,
+        theta: 0.0,
     };
 
     println!("{:#?}", my_game.points);

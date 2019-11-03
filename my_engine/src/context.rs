@@ -8,7 +8,10 @@ use winit::EventsLoop;
 use winit::KeyboardInput;
 use winit::WindowEvent;
 
-use crate::math::vec2::Vec2;
+use crate::graphics::context::GraphicsCommand;
+use crate::math::Vec2;
+use crate::math::Vec3;
+use std::sync::Arc;
 
 pub struct Context {
     pub continuing: bool,
@@ -22,11 +25,13 @@ impl Context {
     pub fn new() -> (Self, EventsLoop) {
         let event_loop = EventsLoop::new();
 
+        let (gfx_context, _) = graphics::context::GraphicsContext::new_default(&event_loop);
+
         let ctx = Self {
             continuing: true,
             keyboard_context: keyboard::KeyboardContext::new(),
             mouse_context: mouse::MouseContext::new(),
-            gfx_context: graphics::context::GraphicsContext::new_default(&event_loop),
+            gfx_context,
             timer_context: timer::TimeContext::new(),
         };
 
@@ -90,7 +95,36 @@ impl Context {
         };
     }
 
-    pub fn render(&mut self, camera: impl crate::graphics::CameraProjection) {
-        self.gfx_context.render(camera);
+    pub fn set_camera(&mut self, camera: Arc<impl crate::graphics::CameraProjection + 'static>) {
+        self.gfx_context.projection_transform = camera.projection_matrix();
+        self.gfx_context.view_transform = camera.view_matrix();
+    }
+
+    pub fn set_model_projection(
+        &mut self,
+        model_matrix: Arc<impl crate::graphics::ModelProjection + 'static>,
+    ) {
+        self.gfx_context.model_transform = model_matrix.model_matrix();
+    }
+
+    pub fn start_drawing(&mut self, clear_color: crate::math::Vec4) -> GraphicsCommand {
+        loop {
+            match self.gfx_context.start(clear_color) {
+                Some(c) => return c,
+                None => {
+                    println!("resizing");
+                    continue;
+                }
+            }
+        }
+    }
+
+    pub fn draw(&mut self, command: GraphicsCommand, verts: &Vec<(Vec3, Vec3)>) -> GraphicsCommand {
+        self.gfx_context.set_verts(verts);
+        self.gfx_context.draw(command)
+    }
+
+    pub fn render(&mut self, gfx_command: crate::graphics::context::GraphicsCommand) {
+        self.gfx_context.render(gfx_command);
     }
 }
