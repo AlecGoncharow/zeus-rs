@@ -1,6 +1,10 @@
 use my_engine::context::Context;
 use my_engine::event::EventHandler;
+use my_engine::input::keyboard;
+use my_engine::input::mouse;
+use my_engine::winit::ModifiersState;
 use my_engine::winit::MouseButton;
+use my_engine::winit::VirtualKeyCode;
 
 use my_engine::math::Mat4;
 use my_engine::math::Vec2;
@@ -11,7 +15,7 @@ mod camera;
 struct State {
     frame: u32,
     points: Vec<(Vec3, Vec3)>,
-    camera: camera::Camera,
+    camera: camera::my_camera::Camera,
     mouse_down: bool,
     theta: f64,
 }
@@ -24,10 +28,10 @@ impl EventHandler for State {
 
         self.frame += 1;
         if self.frame < 10 {
-            println!(
-                "{:#?}",
-                self.camera.projection_matrix * self.camera.view_matrix
-            );
+            // println!(
+            //     "{:#?}",
+            //     ctx.gfx_context.projection_transform * ctx.gfx_context.view_transform
+            // );
         }
 
         //println!("{:#?}", self.camera.position);
@@ -45,17 +49,27 @@ impl EventHandler for State {
     }
 
     fn update(&mut self, ctx: &mut Context) -> Result<(), ()> {
-        self.camera.update();
-        if self.mouse_down {
-            self.camera.update_pitch_and_angle(ctx);
+        //self.camera.update();
+        //if self.mouse_down {
+        //    self.camera.update_pitch_and_angle(ctx);
+        //}
+        for key in keyboard::pressed_keys(ctx).iter() {
+            self.camera.process_keypress(*key);
         }
+
+        if self.mouse_down {
+            let delta = mouse::delta(ctx);
+            self.camera
+                .process_mouse_move((delta.x * -1.0, delta.y).into());
+        }
+
+        ctx.gfx_context.view_transform = self.camera.view_matrix();
         Ok(())
     }
 
     fn mouse_button_down_event(&mut self, ctx: &mut Context, button: MouseButton, x: f64, y: f64) {
         println!("Mouse button pressed: {:?}, x: {}, y: {}", button, x, y);
         //self.points.push(Vec3::new(x, y, 0.0));
-        self.camera.update_pitch_and_angle(ctx);
 
         self.mouse_down = true;
     }
@@ -63,19 +77,44 @@ impl EventHandler for State {
     fn mouse_button_up_event(&mut self, ctx: &mut Context, button: MouseButton, x: f64, y: f64) {
         println!("Mouse button pressed: {:?}, x: {}, y: {}", button, x, y);
         //self.points.push(Vec3::new(x, y, 0.0));
-        self.camera.update_pitch_and_angle(ctx);
+        //self.camera.update_pitch_and_angle(ctx);
 
         self.mouse_down = false;
     }
 
     fn mouse_wheel_event(&mut self, _ctx: &mut Context, x: f64, y: f64) {
         println!("Mouse wheel scrolled: x: {}, y: {}", x, y);
-        self.camera.update_zoom(Vec2::new(x, y));
+        //self.camera.update_zoom(Vec2::new(x, y));
     }
 
+    /*
+    fn key_down_event(
+        &mut self,
+        ctx: &mut Context,
+        keycode: VirtualKeyCode,
+        _keymods: ModifiersState,
+        _repeat: bool,
+    ) {
+        self.camera.process_keypress(keycode);
+        ctx.gfx_context.view_transform = self.camera.view_matrix();
+    }
+    */
+
     fn resize_event(&mut self, ctx: &mut Context, width: f64, height: f64) {
+        // prevent degenerate case where things go wrong if resize while moving camera orientation
+        self.mouse_down = false;
+
         println!("resize_event: width: {}, height: {}", width, height);
-        self.camera.projection_matrix = camera::Camera::create_projection_matrix(ctx);
+        self.camera = camera::my_camera::Camera::new(
+            self.camera.origin,
+            self.camera.w,
+            self.camera.world_up,
+            70.0,
+            width,
+            height,
+        );
+        ctx.gfx_context.view_transform = self.camera.view_matrix();
+
         let mut projection_matrix = Mat4::identity();
         let near_plane = 0.0;
         let far_plane = 1.0;
@@ -104,7 +143,6 @@ impl EventHandler for State {
             .into();
 
         ctx.gfx_context.projection_transform = to_vk_ndc * projection_matrix;
-        ctx.gfx_context.view_transform = Mat4::translation(0.0, 0.0, -1.5);
     }
 }
 
@@ -190,7 +228,14 @@ fn main() {
         frame: 0,
         //points: generate_grid(50),
         points: generate_cube(),
-        camera: camera::Camera::new(&ctx),
+        camera: camera::my_camera::Camera::new(
+            Vec3::new_from_one(1),
+            Vec3::new_from_one(0),
+            (0, 1, 0).into(),
+            70.0,
+            100.0,
+            100.0,
+        ),
         mouse_down: false,
         theta: 0.0,
     };

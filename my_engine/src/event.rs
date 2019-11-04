@@ -140,6 +140,7 @@ where
                         ..
                     } => {
                         let repeat = keyboard::is_key_repeated(&mut ctx);
+
                         state.key_down_event(&mut ctx, keycode, modifiers.into(), repeat);
                     }
                     WindowEvent::KeyboardInput {
@@ -196,6 +197,9 @@ where
         });
         let _ = state.update(&mut ctx);
         let _ = state.draw(&mut ctx);
+
+        // CLEAR VALUES
+        ctx.mouse_context.set_last_delta((0, 0).into());
     }
     Ok(())
 }
