@@ -8,26 +8,33 @@ use my_engine::winit::VirtualKeyCode;
 //const PITCH_DEFAULT: f64 = 0.0;
 const MOVE_DEFAULT: f64 = 0.1;
 const MOUSE_DEFAULT: f64 = 0.5;
-const ZOOM_DEFAULT: f64 = 45.0;
 
 #[derive(Debug)]
 pub struct Camera {
     pub origin: Vec3,
-    pub lower_left_corner: Vec3,
-    pub horizontal: Vec3,
-    pub vertical: Vec3,
     pub u: Vec3,
     pub v: Vec3,
     pub w: Vec3,
-
     pub world_up: Vec3,
 
+    // these seem useful but idk what yet
+    pub lower_left_corner: Vec3,
+    pub horizontal: Vec3,
+    pub vertical: Vec3,
+
+    // rotation things
     pub yaw: f64,
     pub pitch: f64,
 
+    // control things
     pub move_speed: f64,
     pub mouse_speed: f64,
-    pub zoom: f64,
+
+    // projection matric things, not sure if it should be here
+    pub aspect: f64,
+    pub vfov: f64,
+    pub near_plane: f64,
+    pub far_plane: f64,
 }
 
 impl Camera {
@@ -38,8 +45,8 @@ impl Camera {
         vfov: f64,
         width: f64,
         height: f64,
-        //near_plane: f64,
-        //far_plane: f64,
+        near_plane: f64,
+        far_plane: f64,
     ) -> Self {
         let theta = vfov.to_radians();
         let aspect = width / height;
@@ -72,20 +79,25 @@ impl Camera {
 
         Self {
             origin,
-            lower_left_corner,
-            horizontal,
-            vertical,
             u,
             v,
             w,
             world_up,
+
+            lower_left_corner,
+            horizontal,
+            vertical,
 
             yaw,
             pitch,
 
             move_speed: MOVE_DEFAULT,
             mouse_speed: MOUSE_DEFAULT,
-            zoom: ZOOM_DEFAULT,
+
+            aspect,
+            vfov,
+            near_plane,
+            far_plane,
         }
     }
 
@@ -101,6 +113,42 @@ impl Camera {
         let translation = Mat4::translation(negative_from.x, negative_from.y, negative_from.z);
 
         rotation * translation
+    }
+
+    pub fn projection_matrix(&self) -> Mat4 {
+        let mut projection_matrix = Mat4::identity();
+        let near_plane = self.near_plane;
+        let far_plane = self.far_plane;
+        let fov: f64 = self.vfov;
+        let aspect_ratio = self.aspect;
+
+        let y_scale = 1.0 / (fov / 2.0).to_radians().tan();
+        let x_scale = y_scale / aspect_ratio;
+        let fustrum_length = far_plane - near_plane;
+
+        println!("scale {}, {}", x_scale, y_scale);
+
+        projection_matrix.x.x = x_scale;
+        projection_matrix.y.y = y_scale;
+        projection_matrix.z.z = (far_plane + near_plane) / fustrum_length;
+        projection_matrix.w.z = (2.0 * near_plane * far_plane) / fustrum_length;
+        projection_matrix.w.z = -1.0;
+        projection_matrix.w.w = 0.0;
+
+        /*
+         * converts gl coords to vulkan
+        let to_vk_ndc: Mat4 = (
+            (1.0, 0.0, 0.0, 0.0),
+            (0.0, -1.0, 0.0, 0.0),
+            (0.0, 0.0, 0.5, 0.5),
+            (0.0, 0.0, 0.0, 1.0),
+        )
+            .into();
+
+        let gl = to_vk_ndc * projection_matrix;
+        */
+
+        projection_matrix
     }
 
     // reference https://learnopengl.com/code_viewer_gh.php?code=includes/learnopengl/camera.h

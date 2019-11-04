@@ -2,12 +2,9 @@ use my_engine::context::Context;
 use my_engine::event::EventHandler;
 use my_engine::input::keyboard;
 use my_engine::input::mouse;
-use my_engine::winit::ModifiersState;
 use my_engine::winit::MouseButton;
-use my_engine::winit::VirtualKeyCode;
 
 use my_engine::math::Mat4;
-use my_engine::math::Vec2;
 use my_engine::math::Vec3;
 
 mod camera;
@@ -15,6 +12,7 @@ mod camera;
 struct State {
     frame: u32,
     points: Vec<(Vec3, Vec3)>,
+    plane: Vec<(Vec3, Vec3)>,
     camera: camera::my_camera::Camera,
     mouse_down: bool,
     theta: f64,
@@ -34,8 +32,13 @@ impl EventHandler for State {
             // );
         }
 
+        ctx.gfx_context.model_transform = Mat4::identity();
+        command = ctx.draw(command, &self.plane);
+        command = ctx.draw(command, &self.points);
+
         //println!("{:#?}", self.camera.position);
-        ctx.gfx_context.model_transform = Mat4::rotation_from_degrees(self.theta, (0, 1, 0).into());
+        ctx.gfx_context.model_transform = Mat4::translation(1.5, 1.5, 5.0)
+            * Mat4::rotation_from_degrees(self.theta, (0, 1, 0).into());
         command = ctx.draw(command, &self.points);
 
         ctx.gfx_context.model_transform = Mat4::translation(-0.5, -0.5, 0.0)
@@ -60,21 +63,21 @@ impl EventHandler for State {
         if self.mouse_down {
             let delta = mouse::delta(ctx);
             self.camera
-                .process_mouse_move((delta.x * -1.0, delta.y).into());
+                .process_mouse_move((delta.x * 1.0, delta.y * 1.0).into());
         }
 
         ctx.gfx_context.view_transform = self.camera.view_matrix();
         Ok(())
     }
 
-    fn mouse_button_down_event(&mut self, ctx: &mut Context, button: MouseButton, x: f64, y: f64) {
+    fn mouse_button_down_event(&mut self, _ctx: &mut Context, button: MouseButton, x: f64, y: f64) {
         println!("Mouse button pressed: {:?}, x: {}, y: {}", button, x, y);
         //self.points.push(Vec3::new(x, y, 0.0));
 
         self.mouse_down = true;
     }
 
-    fn mouse_button_up_event(&mut self, ctx: &mut Context, button: MouseButton, x: f64, y: f64) {
+    fn mouse_button_up_event(&mut self, _ctx: &mut Context, button: MouseButton, x: f64, y: f64) {
         println!("Mouse button pressed: {:?}, x: {}, y: {}", button, x, y);
         //self.points.push(Vec3::new(x, y, 0.0));
         //self.camera.update_pitch_and_angle(ctx);
@@ -112,56 +115,21 @@ impl EventHandler for State {
             70.0,
             width,
             height,
+            self.camera.near_plane,
+            self.camera.far_plane,
         );
         ctx.gfx_context.view_transform = self.camera.view_matrix();
-
-        let mut projection_matrix = Mat4::identity();
-        let near_plane = 0.0;
-        let far_plane = 1.0;
-        let fov: f64 = 70.0;
-
-        let aspect_ratio = width / height;
-        let y_scale = 1.0 / (fov / 2.0).to_radians().tan();
-        let x_scale = y_scale / aspect_ratio;
-        let fustrum_length = far_plane - near_plane;
-
-        println!("scale {}, {}", x_scale, y_scale);
-
-        projection_matrix.x.x = x_scale;
-        projection_matrix.y.y = y_scale;
-        projection_matrix.z.z = (far_plane + near_plane) / fustrum_length;
-        projection_matrix.w.z = (2.0 * near_plane * far_plane) / fustrum_length;
-        projection_matrix.w.z = -1.0;
-        projection_matrix.w.w = 0.0;
-
-        let to_vk_ndc: Mat4 = (
-            (1.0, 0.0, 0.0, 0.0),
-            (0.0, -1.0, 0.0, 0.0),
-            (0.0, 0.0, 0.5, 0.5),
-            (0.0, 0.0, 0.0, 1.0),
-        )
-            .into();
-
-        ctx.gfx_context.projection_transform = to_vk_ndc * projection_matrix;
+        ctx.gfx_context.projection_transform = self.camera.projection_matrix();
     }
 }
 
 #[allow(dead_code)]
 fn get_corner_positions(row: f32, col: f32) -> [(Vec3, Vec3); 4] {
     [
-        ((50.0 / col, 0.0, 50.0 / row).into(), (0, 0, 0).into()),
-        (
-            (50.0 / col, 0.0, 50.0 / (row + 1.0)).into(),
-            (0, 0, 1).into(),
-        ),
-        (
-            (50.0 / (col + 1.0), 0.0, 50.0 / row).into(),
-            (1, 1, 0).into(),
-        ),
-        (
-            (50.0 / (col + 1.0), 0.0, 50.0 / (row + 1.0)).into(),
-            (1, 0, 0).into(),
-        ),
+        ((col, -5.0f32, row).into(), Vec3::new(1, 0, 0)),
+        ((col, -5.0f32, row + 1.0).into(), Vec3::new(0, 1, 0)),
+        ((col + 1.0, -5.0f32, row).into(), Vec3::new(1, 0, 1)),
+        ((col + 1.0, -5.0f32, row + 1.0).into(), Vec3::new(0, 1, 1)),
     ]
 }
 
@@ -226,15 +194,17 @@ fn main() {
     let (ctx, event_loop) = Context::new();
     let my_game = State {
         frame: 0,
-        //points: generate_grid(50),
+        plane: generate_grid(50),
         points: generate_cube(),
         camera: camera::my_camera::Camera::new(
             Vec3::new_from_one(1),
             Vec3::new_from_one(0),
-            (0, 1, 0).into(),
+            (0, -10, 0).into(),
             70.0,
             100.0,
             100.0,
+            -10.0,
+            10.0,
         ),
         mouse_down: false,
         theta: 0.0,
