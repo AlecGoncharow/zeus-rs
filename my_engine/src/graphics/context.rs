@@ -113,7 +113,11 @@ impl GraphicsContext {
             physical.ty()
         );
 
+        let dims = LogicalSize::from((1080, 1080));
         let surface = WindowBuilder::new()
+            .with_dimensions(dims)
+            .with_title("real game engine window")
+            .with_maximized(true)
             .build_vk_surface(events_loop, instance.clone())
             .unwrap();
         let window = surface.window();
@@ -440,7 +444,7 @@ fn verts_from_vec(verts: &Vec<(Vec3, Vec3)>) -> Vec<Vertex> {
         .into_iter()
         .map(|(point, col)| Vertex {
             position: [point.x as f32, point.y as f32, point.z as f32],
-            color: [col.x as f32, col.y as f32, col.y as f32],
+            color: [col.x as f32, col.y as f32, col.z as f32],
         })
         .collect()
 }
@@ -480,6 +484,7 @@ fn window_size_dependent_setup(
             .vertex_input_single_buffer::<Vertex>()
             .vertex_shader(vs.main_entry_point(), ())
             .triangle_list()
+            .polygon_mode_line()
             .viewports_dynamic_scissors_irrelevant(1)
             .viewports(iter::once(Viewport {
                 origin: [0.0, 0.0],

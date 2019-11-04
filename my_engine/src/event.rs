@@ -94,7 +94,7 @@ pub trait EventHandler {
 
     /// Called when the user resizes the window, or when it is resized
     /// via [`graphics::set_mode()`](../graphics/fn.set_mode.html).
-    fn resize_event(&mut self, _ctx: &mut Context, _width: f32, _height: f32) {}
+    fn resize_event(&mut self, _ctx: &mut Context, _width: f64, _height: f64) {}
 }
 
 pub fn quit(ctx: &mut Context) {
@@ -116,11 +116,7 @@ where
                 Event::WindowEvent { event, .. } => match event {
                     WindowEvent::Resized(logical_size) => {
                         // let actual_size = logical_size;
-                        state.resize_event(
-                            &mut ctx,
-                            logical_size.width as f32,
-                            logical_size.height as f32,
-                        );
+                        state.resize_event(&mut ctx, logical_size.width, logical_size.height);
                     }
                     WindowEvent::CloseRequested => {
                         if !state.quit_event(&mut ctx) {

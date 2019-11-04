@@ -40,26 +40,31 @@ impl Mat4 {
     /// https://sites.google.com/site/glennmurray/Home/rotation-matrices-and-formulas/rotation-about-an-arbitrary-axis-in-3-dimensions
     pub fn rotation(theta: f64, axis: Vec3) -> Self {
         let axis = axis.make_unit_vector();
+        let u = axis.x;
+        let v = axis.y;
+        let w = axis.z;
+        let sin_theta = theta.sin();
+        let cos_theta = theta.cos();
 
         Self {
             x: Vec4::new(
-                axis.x * axis.x + (1.0 - axis.x * axis.x) * theta.cos(),
-                axis.x * axis.y * (1.0 - theta.cos()) - axis.z * theta.sin(),
-                axis.x * axis.z * (1.0 - theta.cos()) + axis.y * theta.sin(),
+                u * u + (1.0 - u * u) * cos_theta,
+                u * v * (1.0 - cos_theta) - w * sin_theta,
+                u * w * (1.0 - cos_theta) + v * sin_theta,
                 0.0,
             )
             .zero_out_insignificant(0.00005),
             y: Vec4::new(
-                axis.x * axis.y * (1.0 - theta.cos()) + axis.z * theta.sin(),
-                axis.y * axis.y + (1.0 - axis.y * axis.y) * theta.cos(),
-                axis.y * axis.z * (1.0 - theta.cos()) - axis.x * theta.sin(),
+                v * u * (1.0 - cos_theta) + w * sin_theta,
+                v * v + (1.0 - v * v) * cos_theta,
+                v * w * (1.0 - cos_theta) - u * sin_theta,
                 0.0,
             )
             .zero_out_insignificant(0.00005),
             z: Vec4::new(
-                axis.x * axis.z * (1.0 - theta.cos()) - axis.y * theta.sin(),
-                axis.y * axis.z * (1.0 - theta.cos()) + axis.x * theta.sin(),
-                axis.z * axis.z + (1.0 - axis.z * axis.z) * theta.cos(),
+                w * u * (1.0 - cos_theta) - v * sin_theta,
+                w * v * (1.0 - cos_theta) + u * sin_theta,
+                w * w + (1.0 - w * w) * cos_theta,
                 0.0,
             )
             .zero_out_insignificant(0.00005),
@@ -68,9 +73,7 @@ impl Mat4 {
     }
 
     pub fn rotation_from_degrees(degrees: f64, axis: Vec3) -> Self {
-        use std::f64::consts::PI;
-
-        Self::rotation(degrees * PI / 180.0, axis)
+        Self::rotation(degrees.to_radians(), axis)
     }
     #[inline]
     pub fn scalar(

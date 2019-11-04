@@ -30,14 +30,6 @@ impl EventHandler for State {
             );
         }
 
-        ctx.gfx_context.projection_transform = (
-            (1.0, 0.0, 0.0, 0.0),
-            (0.0, -1.0, 0.0, 0.0),
-            (0.0, 0.0, 0.5, 0.5),
-            (0.0, 0.0, 0.0, 1.0),
-        )
-            .into();
-
         //println!("{:#?}", self.camera.position);
         ctx.gfx_context.model_transform = Mat4::rotation_from_degrees(self.theta, (0, 1, 0).into());
         command = ctx.draw(command, &self.points);
@@ -81,27 +73,67 @@ impl EventHandler for State {
         self.camera.update_zoom(Vec2::new(x, y));
     }
 
-    fn resize_event(&mut self, ctx: &mut Context, width: f32, height: f32) {
+    fn resize_event(&mut self, ctx: &mut Context, width: f64, height: f64) {
         println!("resize_event: width: {}, height: {}", width, height);
         self.camera.projection_matrix = camera::Camera::create_projection_matrix(ctx);
+        let mut projection_matrix = Mat4::identity();
+        let near_plane = 0.0;
+        let far_plane = 1.0;
+        let fov: f64 = 70.0;
+
+        let aspect_ratio = width / height;
+        let y_scale = 1.0 / (fov / 2.0).to_radians().tan();
+        let x_scale = y_scale / aspect_ratio;
+        let fustrum_length = far_plane - near_plane;
+
+        println!("scale {}, {}", x_scale, y_scale);
+
+        projection_matrix.x.x = x_scale;
+        projection_matrix.y.y = y_scale;
+        projection_matrix.z.z = (far_plane + near_plane) / fustrum_length;
+        projection_matrix.w.z = (2.0 * near_plane * far_plane) / fustrum_length;
+        projection_matrix.w.z = -1.0;
+        projection_matrix.w.w = 0.0;
+
+        let to_vk_ndc: Mat4 = (
+            (1.0, 0.0, 0.0, 0.0),
+            (0.0, -1.0, 0.0, 0.0),
+            (0.0, 0.0, 0.5, 0.5),
+            (0.0, 0.0, 0.0, 1.0),
+        )
+            .into();
+
+        ctx.gfx_context.projection_transform = to_vk_ndc * projection_matrix;
+        ctx.gfx_context.view_transform = Mat4::translation(0.0, 0.0, -1.5);
     }
 }
 
-fn _get_corner_positions(row: i32, col: i32) -> [Vec3; 4] {
+#[allow(dead_code)]
+fn get_corner_positions(row: f32, col: f32) -> [(Vec3, Vec3); 4] {
     [
-        (col, -5, row).into(),
-        (col, -5, row + 1).into(),
-        (col + 1, -5, row).into(),
-        (col + 1, -5, row + 1).into(),
+        ((50.0 / col, 0.0, 50.0 / row).into(), (0, 0, 0).into()),
+        (
+            (50.0 / col, 0.0, 50.0 / (row + 1.0)).into(),
+            (0, 0, 1).into(),
+        ),
+        (
+            (50.0 / (col + 1.0), 0.0, 50.0 / row).into(),
+            (1, 1, 0).into(),
+        ),
+        (
+            (50.0 / (col + 1.0), 0.0, 50.0 / (row + 1.0)).into(),
+            (1, 0, 0).into(),
+        ),
     ]
 }
 
-fn _generate_grid(size: i32) -> Vec<Vec3> {
-    let mut grid: Vec<Vec3> = vec![];
+#[allow(dead_code)]
+fn generate_grid(size: i32) -> Vec<(Vec3, Vec3)> {
+    let mut grid: Vec<(Vec3, Vec3)> = vec![];
 
     for row in -size..size {
         for col in -size..size {
-            let pos = _get_corner_positions(row, col);
+            let pos = get_corner_positions(row as f32, col as f32);
             grid.push(pos[0]);
             grid.push(pos[1]);
             grid.push(pos[2]);
@@ -156,13 +188,12 @@ fn main() {
     let (ctx, event_loop) = Context::new();
     let my_game = State {
         frame: 0,
+        //points: generate_grid(50),
         points: generate_cube(),
         camera: camera::Camera::new(&ctx),
         mouse_down: false,
         theta: 0.0,
     };
-
-    println!("{:#?}", my_game.points);
 
     let _ = my_engine::event::run(event_loop, ctx, my_game);
 }
