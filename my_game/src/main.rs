@@ -27,13 +27,21 @@ impl EventHandler for State {
         ctx.start_drawing((0, 0, 0, 1).into());
 
         self.frame += 1;
+        /*
         println!(
             "{:#?}",
             ctx.gfx_context.projection_transform
                 * ctx.gfx_context.view_transform
                 * Mat4::identity()
                 * Vec4::from_vec3(self.points[0].0)
+                * (1.0
+                    / (ctx.gfx_context.projection_transform
+                        * ctx.gfx_context.view_transform
+                        * Mat4::identity()
+                        * Vec4::from_vec3(self.points[0].0))
+                    .w)
         );
+        */
 
         let line_mode = Topology::TriangleList(PolygonMode::Line);
         let fill_mode = Topology::TriangleList(PolygonMode::Fill);
@@ -41,11 +49,10 @@ impl EventHandler for State {
         ctx.gfx_context.model_transform = Mat4::identity();
         ctx.draw(&fill_mode, &self.points);
 
-        /*
         //println!("{:#?}", self.camera.position);
         ctx.gfx_context.model_transform = Mat4::translation(1.5, 1.5, 5.0)
             * Mat4::rotation_from_degrees(self.theta, (0, 1, 0).into());
-        ctx.draw(&fill_mode, &self.points);
+        ctx.draw(&point_mode, &self.points);
 
         ctx.gfx_context.model_transform = Mat4::translation(-0.5, -0.5, 0.0)
             * Mat4::rotation_from_degrees(self.theta, (0, 1, 0).into())
@@ -53,9 +60,7 @@ impl EventHandler for State {
             * Mat4::scalar_from_one(0.5);
         ctx.draw(&line_mode, &self.points);
         ctx.gfx_context.model_transform = Mat4::identity();
-        ctx.draw(&fill_mode, &self.points);
-        ctx.draw(&point_mode, &self.plane);
-        */
+        ctx.draw(&line_mode, &self.plane);
 
         ctx.render();
         Ok(())
@@ -77,6 +82,8 @@ impl EventHandler for State {
         }
 
         ctx.gfx_context.view_transform = self.camera.view_matrix();
+        //ctx.gfx_context.view_transform = Mat4::identity();
+        //ctx.gfx_context.projection_transform = Mat4::identity();
         Ok(())
     }
 
@@ -122,12 +129,15 @@ impl EventHandler for State {
             self.camera.origin,
             self.camera.w,
             self.camera.world_up,
-            70.0,
+            30.0,
             width,
             height,
             self.camera.near_plane,
             self.camera.far_plane,
         );
+        self.camera.update_orientation();
+        println!("new camera: {:#?}", self.camera);
+        println!("view_matrix: {:#?}", self.camera.view_matrix());
         ctx.gfx_context.view_transform = self.camera.view_matrix();
         ctx.gfx_context.projection_transform = self.camera.projection_matrix();
     }
@@ -213,8 +223,8 @@ fn main() {
             50.0,
             100.0,
             100.0,
-            0.5,
-            15.0,
+            1.0,
+            10.0,
         ),
         mouse_down: false,
         theta: 0.0,

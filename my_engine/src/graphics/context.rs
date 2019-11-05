@@ -23,7 +23,6 @@ use winit::EventsLoop;
 use winit::{Window, WindowBuilder};
 
 use vulkano::descriptor::descriptor_set::FixedSizeDescriptorSetsPool;
-use vulkano::format::ClearValue;
 
 use std::sync::Arc;
 
@@ -554,7 +553,6 @@ fn window_size_dependent_setup(
 
         use std::u32;
         for top in Topology::iterator() {
-            println!("NEW PIPELINE: {:#?}", top);
             let pipeline_builder = GraphicsPipeline::start()
                 .vertex_input_single_buffer::<Vertex>()
                 .vertex_shader(vs.main_entry_point(), ())

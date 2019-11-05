@@ -55,6 +55,7 @@ impl Camera {
         let half_width = aspect * half_height;
 
         let origin = look_from;
+        // todo thinkabout camera change on resize
         let w = (look_from - look_at).make_unit_vector();
         let u = (w.cross(&world_up)).make_unit_vector();
         let v = u.cross(&w).make_unit_vector();
@@ -121,19 +122,37 @@ impl Camera {
         let far_plane = self.far_plane;
         let fov: f64 = self.vfov;
         let aspect_ratio = self.aspect;
+        let right = self.lower_left_corner.x + self.horizontal.magnitude();
+        let left = self.lower_left_corner.x;
+        let top = self.lower_left_corner.y + self.vertical.magnitude();
+        let bottom = self.lower_left_corner.y;
 
         let y_scale = 1.0 / (fov / 2.0).to_radians().tan();
         let x_scale = y_scale / aspect_ratio;
-        let fustrum_length = near_plane - far_plane;
+        let fustrum_length = far_plane - near_plane;
 
         println!("scale {}, {}", x_scale, y_scale);
 
+        projection_matrix.x.x = 2.0 * near_plane / (right - left);
+        projection_matrix.y.y = 2.0 * near_plane / (top - bottom);
+
+        projection_matrix.z.z = -(far_plane + near_plane) / fustrum_length;
+        projection_matrix.z.w = -1.0;
+
+        projection_matrix.w.z = -2.0 * (far_plane * near_plane) / fustrum_length;
+        projection_matrix.w.w = 0.0;
+        println!("initial projection: {:#?}", projection_matrix);
+
+        projection_matrix = Mat4::identity();
         projection_matrix.x.x = x_scale;
         projection_matrix.y.y = y_scale;
-        projection_matrix.z.z = (near_plane - far_plane) / fustrum_length;
-        projection_matrix.z.w = (2.0 * near_plane * far_plane) / fustrum_length;
-        projection_matrix.w.z = -1.0;
+        projection_matrix.z.z = -(near_plane + far_plane) / fustrum_length;
+        projection_matrix.z.w = -near_plane;
+
+        projection_matrix.w.z = -(2.0 * near_plane * far_plane) / fustrum_length;
         projection_matrix.w.w = 0.0;
+
+        println!("new projection: {:#?}", projection_matrix);
 
         let to_vk_ndc: Mat4 = (
             (1.0, 0.0, 0.0, 0.0),
