@@ -1,4 +1,8 @@
 pub mod context;
+pub mod topology;
+
+pub use topology::PolygonMode;
+pub use topology::Topology;
 
 use crate::math::Mat4;
 

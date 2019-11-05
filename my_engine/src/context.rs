@@ -8,7 +8,7 @@ use winit::EventsLoop;
 use winit::KeyboardInput;
 use winit::WindowEvent;
 
-use crate::graphics::context::GraphicsCommand;
+use crate::graphics::Topology;
 use crate::math::Vec2;
 use crate::math::Vec3;
 use std::sync::Arc;
@@ -25,7 +25,7 @@ impl Context {
     pub fn new() -> (Self, EventsLoop) {
         let event_loop = EventsLoop::new();
 
-        let (gfx_context, _) = graphics::context::GraphicsContext::new_default(&event_loop);
+        let gfx_context = graphics::context::GraphicsContext::new_default(&event_loop);
 
         let ctx = Self {
             continuing: true,
@@ -107,24 +107,23 @@ impl Context {
         self.gfx_context.model_transform = model_matrix.model_matrix();
     }
 
-    pub fn start_drawing(&mut self, clear_color: crate::math::Vec4) -> GraphicsCommand {
+    pub fn start_drawing(&mut self, clear_color: crate::math::Vec4) {
         loop {
-            match self.gfx_context.start(clear_color) {
-                Some(c) => return c,
-                None => {
-                    println!("resizing");
-                    continue;
-                }
+            self.gfx_context.start(clear_color);
+            if self.gfx_context.graphics_command_buffer.is_some() {
+                break;
+            } else {
+                println!("resizing");
             }
         }
     }
 
-    pub fn draw(&mut self, command: GraphicsCommand, verts: &Vec<(Vec3, Vec3)>) -> GraphicsCommand {
+    pub fn draw(&mut self, mode: &Topology, verts: &Vec<(Vec3, Vec3)>) {
         self.gfx_context.set_verts(verts);
-        self.gfx_context.draw(command)
+        self.gfx_context.draw(mode);
     }
 
-    pub fn render(&mut self, gfx_command: crate::graphics::context::GraphicsCommand) {
-        self.gfx_context.render(gfx_command);
+    pub fn render(&mut self) {
+        self.gfx_context.render();
     }
 }

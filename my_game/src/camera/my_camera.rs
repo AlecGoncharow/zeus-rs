@@ -135,8 +135,8 @@ impl Camera {
         projection_matrix.w.z = -1.0;
         projection_matrix.w.w = 0.0;
 
+        // * converts gl coords to vulkan
         /*
-         * converts gl coords to vulkan
         let to_vk_ndc: Mat4 = (
             (1.0, 0.0, 0.0, 0.0),
             (0.0, -1.0, 0.0, 0.0),

@@ -1,5 +1,7 @@
 use my_engine::context::Context;
 use my_engine::event::EventHandler;
+use my_engine::graphics::PolygonMode;
+use my_engine::graphics::Topology;
 use my_engine::input::keyboard;
 use my_engine::input::mouse;
 use my_engine::winit::MouseButton;
@@ -20,9 +22,8 @@ struct State {
 
 impl EventHandler for State {
     fn draw(&mut self, ctx: &mut Context) -> Result<(), ()> {
-        // @TODO figure out a way around this command holding thing
         self.theta += 1.0;
-        let mut command = ctx.start_drawing((0, 0, 0, 1).into());
+        ctx.start_drawing((0, 0, 0, 1).into());
 
         self.frame += 1;
         if self.frame < 10 {
@@ -32,22 +33,27 @@ impl EventHandler for State {
             // );
         }
 
+        let line_mode = Topology::TriangleList(PolygonMode::Line);
+        let fill_mode = Topology::TriangleList(PolygonMode::Fill);
+        let point_mode = Topology::TriangleList(PolygonMode::Point);
         ctx.gfx_context.model_transform = Mat4::identity();
-        command = ctx.draw(command, &self.plane);
-        command = ctx.draw(command, &self.points);
-
         //println!("{:#?}", self.camera.position);
         ctx.gfx_context.model_transform = Mat4::translation(1.5, 1.5, 5.0)
             * Mat4::rotation_from_degrees(self.theta, (0, 1, 0).into());
-        command = ctx.draw(command, &self.points);
+        ctx.draw(&fill_mode, &self.points);
 
         ctx.gfx_context.model_transform = Mat4::translation(-0.5, -0.5, 0.0)
             * Mat4::rotation_from_degrees(self.theta, (0, 1, 0).into())
             * Mat4::rotation_from_degrees(self.theta, (1, 0, 0).into())
             * Mat4::scalar_from_one(0.5);
-        command = ctx.draw(command, &self.points);
+        ctx.draw(&line_mode, &self.points);
 
-        ctx.render(command);
+        ctx.gfx_context.model_transform = Mat4::identity();
+
+        ctx.draw(&line_mode, &self.plane);
+        ctx.draw(&line_mode, &self.points);
+
+        ctx.render();
         Ok(())
     }
 
@@ -203,8 +209,8 @@ fn main() {
             70.0,
             100.0,
             100.0,
-            -10.0,
             10.0,
+            -10.0,
         ),
         mouse_down: false,
         theta: 0.0,

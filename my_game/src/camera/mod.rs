@@ -1,4 +1,4 @@
-pub mod tm;
-pub use tm::Camera;
-
 pub mod my_camera;
+pub mod tm;
+
+pub use my_camera::Camera;
