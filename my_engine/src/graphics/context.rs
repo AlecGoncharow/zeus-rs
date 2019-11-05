@@ -24,6 +24,7 @@ use winit::EventsLoop;
 use winit::{Window, WindowBuilder};
 
 use vulkano::descriptor::descriptor_set::FixedSizeDescriptorSetsPool;
+use vulkano::format::ClearValue;
 
 use std::sync::Arc;
 
@@ -32,6 +33,12 @@ use crate::math::Vec3;
 use crate::math::Vec4;
 use std::collections::HashMap;
 use std::iter;
+
+use vulkano::pipeline::depth_stencil::Compare;
+use vulkano::pipeline::depth_stencil::DepthBounds;
+use vulkano::pipeline::depth_stencil::DepthStencil;
+use vulkano::pipeline::depth_stencil::Stencil;
+use vulkano::pipeline::depth_stencil::StencilOp;
 
 use crate::graphics::PolygonMode;
 use crate::graphics::Topology;
@@ -72,7 +79,8 @@ pub struct GraphicsContext {
     render_pass: Arc<dyn RenderPassAbstract + Send + Sync>,
     framebuffers: Vec<Arc<dyn FramebufferAbstract + Send + Sync>>,
 
-    depth_buffer: Arc<AttachmentImage>,
+    //depth_buffer: Arc<AttachmentImage>,
+    //color_buffer: Arc<AttachmentImage>,
     uniform_buffer: Arc<CpuBufferPool<vs::ty::Data>>,
     vertex_buffer: Arc<CpuAccessibleBuffer<[Vertex]>>,
 
@@ -197,93 +205,84 @@ impl GraphicsContext {
                 .unwrap()
         };
 
-        /*
         let render_pass = Arc::new(
-        vulkano::single_pass_renderpass!(
-        device.clone(),
-        attachments: {
-        color: {
-        load: Clear,
-        store: Store,
-        format: swapchain.format(),
-        samples: 1,
-        },
-        depth: {
-        load: Clear,
-        store: DontCare,
-        format: Format::D16Unorm,
-        samples: 1,
-        }
-        },
-        pass: {
-        color: [color],
-
-        depth_stencil: {depth}
-        }
-        )
-        .unwrap(),
-        );
-        */
-
-        let render_pass = Arc::new(
-            vulkano::ordered_passes_renderpass!(
+            vulkano::single_pass_renderpass!(
                 device.clone(),
                 attachments: {
-                    // The image that will contain the final rendering (in this example the swapchain
-                    // image, but it could be another image).
                     color: {
                         load: Clear,
                         store: Store,
                         format: swapchain.format(),
                         samples: 1,
                     },
-                    // Will be bound to `self.depth_buffer`.
                     depth: {
                         load: Clear,
-                        store: DontCare,
-                        format: Format::D16Unorm,
+                        store: Store,
+                        format: Format::D32Sfloat_S8Uint,
                         samples: 1,
-            }
-                },
-                passes: [
-                // Write to the diffuse, normals and depth attachments.
-                {
-                    color: [],
-                    depth_stencil: {depth},
-                    input: []
-                },
-                // Apply lighting by reading these three attachments and writing to `final_color`.
-                {
-                    color: [color],
-                    depth_stencil: {},
-                    input: [depth]
                 }
-                ]
-                    )
+                },
+                pass: {
+                    color: [color],
+
+                    depth_stencil: {depth}
+                }
+            )
+            .unwrap(),
+        );
+        /*
+
+        let render_pass = Arc::new(
+            vulkano::ordered_passes_renderpass!(
+            device.clone(),
+            attachments: {
+                // The image that will contain the final rendering (in this example the swapchain
+                // image, but it could be another image).
+                final_color: {
+                    load: Clear,
+                    store: Store,
+                    format: swapchain.format(),
+                    samples: 1,
+                },
+                // Will be bound to `self.depth_buffer`.
+                depth: {
+                    load: Clear,
+                    store: DontCare,
+                    format: Format::D16Unorm,
+                    samples: 1,
+                },
+                initial_color: {
+                    load: Clear,
+                    store: Store,
+                    format: swapchain.format(),
+                    samples: 1,
+                }
+            },
+            passes: [
+                // Write to the diffuse, normals and depth attachments.
+            {
+                color: [initial_color],
+                depth_stencil: {depth},
+                input: []
+            },
+            // Apply lighting by reading these three attachments and writing to `final_color`.
+            {
+                color: [final_color],
+                depth_stencil: {},
+                input: [depth, initial_color]
+            }
+            ]
+                )
             .unwrap(),
         );
 
-        let atch_usage = ImageUsage {
-            transient_attachment: true,
-            input_attachment: true,
-            ..ImageUsage::none()
-        };
-
-        let depth_buffer = AttachmentImage::with_usage(
-            device.clone(),
-            images[0].dimensions(),
-            Format::D16Unorm,
-            atch_usage,
-        )
-        .unwrap();
-
+        */
         let (graphics_pipelines, framebuffers) = window_size_dependent_setup(
             &device,
             &vertex_shader,
             &frag_shader,
             &images,
             render_pass.clone(),
-            depth_buffer.clone(),
         );
 
         // iterate over pipelines and make descriptors
@@ -338,7 +337,6 @@ impl GraphicsContext {
             render_pass,
             framebuffers,
 
-            depth_buffer,
             vertex_buffer,
             uniform_buffer,
             window_dims,
@@ -390,7 +388,6 @@ impl GraphicsContext {
                 &self.frag_shader,
                 &new_images,
                 self.render_pass.clone(),
-                self.depth_buffer.clone(),
             );
 
             self.graphics_pipelines = new_pipelines;
@@ -411,14 +408,14 @@ impl GraphicsContext {
             };
 
         let clear_color: [f32; 4] = clear_color.into();
-        let clear_values = vec![clear_color.into(), 1f32.into()];
+        let clear_values = vec![clear_color.into(), ClearValue::DepthStencil((1f32, 1u32))];
         self.graphics_command_buffer = Some(
             AutoCommandBufferBuilder::primary_one_time_submit(
                 self.device.clone(),
                 self.queue.family(),
             )
             .unwrap()
-            .begin_render_pass(self.framebuffers[image_num].clone(), true, clear_values)
+            .begin_render_pass(self.framebuffers[image_num].clone(), false, clear_values)
             .unwrap(),
         );
 
@@ -530,13 +527,13 @@ fn window_size_dependent_setup(
     fs: &fs::Shader,
     images: &[Arc<SwapchainImage<Window>>],
     render_pass: Arc<dyn RenderPassAbstract + Send + Sync>,
-    depth_buffer: Arc<AttachmentImage>,
 ) -> (
     HashMap<Topology, Arc<dyn GraphicsPipelineAbstract + Send + Sync>>,
     Vec<Arc<dyn FramebufferAbstract + Send + Sync>>,
 ) {
     let dimensions = images[0].dimensions();
-
+    let depth_buffer =
+        AttachmentImage::transient(device.clone(), dimensions, Format::D32Sfloat_S8Uint).unwrap();
     let framebuffers = images
         .iter()
         .map(|image| {
@@ -556,6 +553,7 @@ fn window_size_dependent_setup(
         let mut map: HashMap<Topology, Arc<dyn GraphicsPipelineAbstract + Send + Sync>> =
             HashMap::new();
 
+        use std::u32;
         for top in Topology::iterator() {
             println!("NEW PIPELINE: {:#?}", top);
             let pipeline_builder = GraphicsPipeline::start()
@@ -575,10 +573,32 @@ fn window_size_dependent_setup(
                     .viewports(iter::once(Viewport {
                         origin: [0.0, 0.0],
                         dimensions: [dimensions[0] as f32, dimensions[1] as f32],
-                        depth_range: 0.0..1.0,
+                        depth_range: -1.0..1.0,
                     }))
                     .fragment_shader(fs.main_entry_point(), ())
-                    .depth_stencil_simple_depth()
+                    .depth_stencil(DepthStencil {
+                        depth_write: true,
+                        depth_compare: Compare::Less,
+                        depth_bounds_test: DepthBounds::Disabled,
+                        stencil_front: Stencil {
+                            compare: Compare::Less,
+                            pass_op: StencilOp::Keep,
+                            fail_op: StencilOp::Keep,
+                            depth_fail_op: StencilOp::Keep,
+                            compare_mask: Some(u32::MAX),
+                            write_mask: Some(u32::MAX),
+                            reference: Some(u32::MAX),
+                        },
+                        stencil_back: Stencil {
+                            compare: Compare::Less,
+                            pass_op: StencilOp::Keep,
+                            fail_op: StencilOp::Keep,
+                            depth_fail_op: StencilOp::Keep,
+                            compare_mask: Some(u32::MAX),
+                            write_mask: Some(u32::MAX),
+                            reference: Some(u32::MAX),
+                        },
+                    })
                     .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
                     .build(device.clone())
                     .unwrap(),
