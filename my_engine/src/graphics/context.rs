@@ -5,7 +5,6 @@ use vulkano::device::{Device, DeviceExtensions, Queue};
 use vulkano::format::Format;
 use vulkano::framebuffer::{Framebuffer, FramebufferAbstract, RenderPassAbstract, Subpass};
 use vulkano::image::attachment::AttachmentImage;
-use vulkano::image::ImageUsage;
 use vulkano::image::SwapchainImage;
 use vulkano::instance::{Instance, PhysicalDevice};
 use vulkano::pipeline::viewport::Viewport;
@@ -218,7 +217,7 @@ impl GraphicsContext {
                     depth: {
                         load: Clear,
                         store: Store,
-                        format: Format::D32Sfloat_S8Uint,
+                        format: Format::D16Unorm,
                         samples: 1,
                 }
                 },
@@ -408,7 +407,7 @@ impl GraphicsContext {
             };
 
         let clear_color: [f32; 4] = clear_color.into();
-        let clear_values = vec![clear_color.into(), ClearValue::DepthStencil((1f32, 1u32))];
+        let clear_values = vec![clear_color.into(), 1f32.into()]; //ClearValue::DepthStencil((1f32, 1u32))];
         self.graphics_command_buffer = Some(
             AutoCommandBufferBuilder::primary_one_time_submit(
                 self.device.clone(),
@@ -533,7 +532,7 @@ fn window_size_dependent_setup(
 ) {
     let dimensions = images[0].dimensions();
     let depth_buffer =
-        AttachmentImage::transient(device.clone(), dimensions, Format::D32Sfloat_S8Uint).unwrap();
+        AttachmentImage::transient(device.clone(), dimensions, Format::D16Unorm).unwrap();
     let framebuffers = images
         .iter()
         .map(|image| {
@@ -573,7 +572,7 @@ fn window_size_dependent_setup(
                     .viewports(iter::once(Viewport {
                         origin: [0.0, 0.0],
                         dimensions: [dimensions[0] as f32, dimensions[1] as f32],
-                        depth_range: -1.0..1.0,
+                        depth_range: 0.0..1.0,
                     }))
                     .fragment_shader(fs.main_entry_point(), ())
                     .depth_stencil(DepthStencil {
@@ -581,7 +580,7 @@ fn window_size_dependent_setup(
                         depth_compare: Compare::Less,
                         depth_bounds_test: DepthBounds::Disabled,
                         stencil_front: Stencil {
-                            compare: Compare::Less,
+                            compare: Compare::Never,
                             pass_op: StencilOp::Keep,
                             fail_op: StencilOp::Keep,
                             depth_fail_op: StencilOp::Keep,
@@ -590,7 +589,7 @@ fn window_size_dependent_setup(
                             reference: Some(u32::MAX),
                         },
                         stencil_back: Stencil {
-                            compare: Compare::Less,
+                            compare: Compare::Never,
                             pass_op: StencilOp::Keep,
                             fail_op: StencilOp::Keep,
                             depth_fail_op: StencilOp::Keep,

@@ -8,6 +8,7 @@ use my_engine::winit::MouseButton;
 
 use my_engine::math::Mat4;
 use my_engine::math::Vec3;
+use my_engine::math::Vec4;
 
 mod camera;
 
@@ -26,18 +27,21 @@ impl EventHandler for State {
         ctx.start_drawing((0, 0, 0, 1).into());
 
         self.frame += 1;
-        if self.frame < 10 {
-            // println!(
-            //     "{:#?}",
-            //     ctx.gfx_context.projection_transform * ctx.gfx_context.view_transform
-            // );
-        }
+        println!(
+            "{:#?}",
+            ctx.gfx_context.projection_transform
+                * ctx.gfx_context.view_transform
+                * Mat4::identity()
+                * Vec4::from_vec3(self.points[0].0)
+        );
 
         let line_mode = Topology::TriangleList(PolygonMode::Line);
         let fill_mode = Topology::TriangleList(PolygonMode::Fill);
         let point_mode = Topology::TriangleList(PolygonMode::Point);
         ctx.gfx_context.model_transform = Mat4::identity();
+        ctx.draw(&fill_mode, &self.points);
 
+        /*
         //println!("{:#?}", self.camera.position);
         ctx.gfx_context.model_transform = Mat4::translation(1.5, 1.5, 5.0)
             * Mat4::rotation_from_degrees(self.theta, (0, 1, 0).into());
@@ -51,6 +55,7 @@ impl EventHandler for State {
         ctx.gfx_context.model_transform = Mat4::identity();
         ctx.draw(&fill_mode, &self.points);
         ctx.draw(&point_mode, &self.plane);
+        */
 
         ctx.render();
         Ok(())
@@ -204,12 +209,12 @@ fn main() {
         camera: camera::my_camera::Camera::new(
             Vec3::new_from_one(1),
             Vec3::new_from_one(0),
-            (0, -10, 0).into(),
-            70.0,
+            (0, -1, 0).into(),
+            50.0,
             100.0,
             100.0,
-            -10.0,
-            10.0,
+            0.5,
+            15.0,
         ),
         mouse_down: false,
         theta: 0.0,

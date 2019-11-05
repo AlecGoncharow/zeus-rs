@@ -124,19 +124,17 @@ impl Camera {
 
         let y_scale = 1.0 / (fov / 2.0).to_radians().tan();
         let x_scale = y_scale / aspect_ratio;
-        let fustrum_length = far_plane - near_plane;
+        let fustrum_length = near_plane - far_plane;
 
         println!("scale {}, {}", x_scale, y_scale);
 
         projection_matrix.x.x = x_scale;
         projection_matrix.y.y = y_scale;
-        projection_matrix.z.z = (far_plane + near_plane) / fustrum_length;
-        projection_matrix.w.z = (2.0 * near_plane * far_plane) / fustrum_length;
+        projection_matrix.z.z = (near_plane - far_plane) / fustrum_length;
+        projection_matrix.z.w = (2.0 * near_plane * far_plane) / fustrum_length;
         projection_matrix.w.z = -1.0;
         projection_matrix.w.w = 0.0;
 
-        // * converts gl coords to vulkan
-        /*
         let to_vk_ndc: Mat4 = (
             (1.0, 0.0, 0.0, 0.0),
             (0.0, -1.0, 0.0, 0.0),
@@ -146,8 +144,6 @@ impl Camera {
             .into();
 
         let gl = to_vk_ndc * projection_matrix;
-        */
-
         projection_matrix
     }
 
