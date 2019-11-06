@@ -100,13 +100,6 @@ impl Context {
         self.gfx_context.view_transform = camera.view_matrix();
     }
 
-    pub fn set_model_projection(
-        &mut self,
-        model_matrix: Arc<impl crate::graphics::ModelProjection + 'static>,
-    ) {
-        self.gfx_context.model_transform = model_matrix.model_matrix();
-    }
-
     pub fn start_drawing(&mut self, clear_color: crate::math::Vec4) {
         loop {
             self.gfx_context.start(clear_color);
@@ -119,8 +112,11 @@ impl Context {
     }
 
     pub fn draw(&mut self, mode: &Topology, verts: &Vec<(Vec3, Vec3)>) {
-        self.gfx_context.set_verts(verts);
-        self.gfx_context.draw(mode);
+        self.gfx_context.draw(mode, verts);
+    }
+
+    pub fn draw_indexed(&mut self, mode: &Topology, verts: &Vec<(Vec3, Vec3)>, indices: &[u16]) {
+        self.gfx_context.draw_indexed(mode, verts, indices);
     }
 
     pub fn render(&mut self) {

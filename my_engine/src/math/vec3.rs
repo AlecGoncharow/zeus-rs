@@ -1,3 +1,4 @@
+use crate::math::Vec4;
 use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
 
 #[derive(Clone, Copy, Debug)]
@@ -144,6 +145,36 @@ impl Vec3 {
 impl<T: Into<f64>> From<(T, T, T)> for Vec3 {
     fn from(tuple: (T, T, T)) -> Self {
         Self::new(tuple.0, tuple.1, tuple.2)
+    }
+}
+
+impl From<Vec3> for (f64, f64, f64) {
+    fn from(vec: Vec3) -> Self {
+        (vec.x, vec.y, vec.z)
+    }
+}
+
+impl From<Vec3> for (f32, f32, f32) {
+    fn from(vec: Vec3) -> Self {
+        (vec.x as f32, vec.y as f32, vec.z as f32)
+    }
+}
+
+impl From<Vec3> for [f64; 3] {
+    fn from(vec: Vec3) -> Self {
+        [vec.x, vec.y, vec.z]
+    }
+}
+
+impl From<Vec3> for [f32; 3] {
+    fn from(vec: Vec3) -> Self {
+        [vec.x as f32, vec.y as f32, vec.z as f32]
+    }
+}
+
+impl From<Vec3> for Vec4 {
+    fn from(vec: Vec3) -> Self {
+        Self::new(vec.x, vec.y, vec.z, 1.0)
     }
 }
 

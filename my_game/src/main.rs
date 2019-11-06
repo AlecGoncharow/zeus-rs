@@ -6,24 +6,27 @@ use my_engine::input::keyboard;
 use my_engine::input::mouse;
 use my_engine::winit::MouseButton;
 
+use my_engine::graphics::Drawable;
 use my_engine::math::*;
+use rand::prelude::*;
 
 mod camera;
+mod entity;
+
+use entity::cube::Cuboid;
 
 struct State {
     frame: u32,
-    points: Vec<(Vec3, Vec3)>,
+    drawables: Vec<Box<dyn Drawable>>,
     plane: Vec<(Vec3, Vec3)>,
     camera: camera::my_camera::Camera,
     mouse_down: bool,
-    theta: f64,
 }
 
 impl EventHandler for State {
     fn draw(&mut self, ctx: &mut Context) -> Result<(), ()> {
-        self.theta += 1.0;
         ctx.start_drawing((0, 0, 0, 1).into());
-
+        let mut rng = rand::thread_rng();
         self.frame += 1;
         /*
         println!(
@@ -41,24 +44,20 @@ impl EventHandler for State {
         );
         */
 
-        let line_mode = Topology::TriangleList(PolygonMode::Line);
         let fill_mode = Topology::TriangleList(PolygonMode::Fill);
-        let point_mode = Topology::TriangleList(PolygonMode::Point);
-        ctx.gfx_context.model_transform = Mat4::identity();
-        ctx.draw(&fill_mode, &self.points);
-
-        //println!("{:#?}", self.camera.position);
-        ctx.gfx_context.model_transform = Mat4::translation(1.5, 1.5, 5.0)
-            * Mat4::rotation_from_degrees(self.theta, (0, 1, 0).into());
-        ctx.draw(&point_mode, &self.points);
-
-        ctx.gfx_context.model_transform = Mat4::translation(-0.5, -0.5, 0.0)
-            * Mat4::rotation_from_degrees(self.theta, (0, 1, 0).into())
-            * Mat4::rotation_from_degrees(self.theta, (1, 0, 0).into())
-            * Mat4::scalar_from_one(0.5);
-        ctx.draw(&line_mode, &self.points);
         ctx.gfx_context.model_transform = Mat4::identity();
         ctx.draw(&fill_mode, &self.plane);
+
+        for thing in self.drawables.iter_mut() {
+            thing.rotate(0.1, (rng.gen::<f64>(), rng.gen(), rng.gen()).into());
+            ctx.gfx_context.model_transform = thing.model_matrix();
+
+            if let Some(indices) = thing.indices() {
+                ctx.draw_indexed(&thing.draw_mode(), thing.vertices(), indices);
+            } else {
+                ctx.draw(&thing.draw_mode(), thing.vertices());
+            }
+        }
 
         ctx.render();
         Ok(())
@@ -169,50 +168,38 @@ fn generate_grid(size: i32) -> Vec<(Vec3, Vec3)> {
     grid
 }
 
-#[inline]
-fn cube_verts() -> [(Vec3, Vec3); 8] {
-    [
-        (Vec3::new(-0.25, -0.25, 0.25), Vec3::new(0, 0, 0)),
-        (Vec3::new(-0.25, 0.25, 0.25), Vec3::new(1, 0, 0)),
-        (Vec3::new(0.25, 0.25, 0.25), Vec3::new(1, 1, 0)),
-        (Vec3::new(0.25, -0.25, 0.25), Vec3::new(0, 1, 0)),
-        (Vec3::new(-0.25, -0.25, -0.25), Vec3::new(0, 0, 1)),
-        (Vec3::new(-0.25, 0.25, -0.25), Vec3::new(1, 0, 1)),
-        (Vec3::new(0.25, 0.25, -0.25), Vec3::new(1, 1, 1)),
-        (Vec3::new(0.25, -0.25, -0.25), Vec3::new(0, 1, 1)),
-    ]
-}
+fn generate_cubes(state: &mut State) {
+    let cube = Cuboid::cube(1.0, (0, 0, 0).into(), None);
+    state.drawables.push(Box::new(cube));
 
-fn generate_cube() -> Vec<(Vec3, Vec3)> {
-    let mut verts = vec![];
-    push_quad(&mut verts, [1, 0, 3, 2]);
-    push_quad(&mut verts, [2, 3, 7, 6]);
-    push_quad(&mut verts, [3, 0, 4, 7]);
-    push_quad(&mut verts, [6, 5, 1, 2]);
-    push_quad(&mut verts, [4, 5, 6, 7]);
-    push_quad(&mut verts, [5, 4, 0, 1]);
+    let cube = Cuboid::cube(1.0, (10, 0, 10).into(), None);
+    state.drawables.push(Box::new(cube));
 
-    verts
-}
+    let cube = Cuboid::cube(1.0, (0, 0, 10).into(), None);
+    state.drawables.push(Box::new(cube));
 
-fn push_quad(verts: &mut Vec<(Vec3, Vec3)>, indices: [usize; 4]) {
-    let cube_verts = cube_verts();
+    let cube = Cuboid::cube(1.0, (10, 0, 0).into(), None);
+    state.drawables.push(Box::new(cube));
 
-    let indices = [
-        indices[0], indices[1], indices[2], indices[0], indices[2], indices[3],
-    ];
+    let cube = Cuboid::cube(1.0, (10, 10, 10).into(), None);
+    state.drawables.push(Box::new(cube));
 
-    for index in indices.iter() {
-        verts.push(cube_verts[*index]);
-    }
+    let cube = Cuboid::cube(1.0, (0, 10, 10).into(), None);
+    state.drawables.push(Box::new(cube));
+
+    let cube = Cuboid::cube(1.0, (10, 10, 0).into(), None);
+    state.drawables.push(Box::new(cube));
+
+    let cube = Cuboid::cube(1.0, (0, 10, 0).into(), None);
+    state.drawables.push(Box::new(cube));
 }
 
 fn main() {
     let (ctx, event_loop) = Context::new();
-    let my_game = State {
+    let mut my_game = State {
         frame: 0,
+        drawables: vec![],
         plane: generate_grid(50),
-        points: generate_cube(),
         camera: camera::my_camera::Camera::new(
             Vec3::new_from_one(1),
             Vec3::new_from_one(0),
@@ -224,8 +211,9 @@ fn main() {
             10.0,
         ),
         mouse_down: false,
-        theta: 0.0,
     };
+
+    generate_cubes(&mut my_game);
 
     let _ = my_engine::event::run(event_loop, ctx, my_game);
 }

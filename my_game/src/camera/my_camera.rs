@@ -98,7 +98,7 @@ impl Camera {
         );
 
         let negative_from = -1.0 * self.origin;
-        let translation = Mat4::translation(negative_from.x, negative_from.y, negative_from.z);
+        let translation = Mat4::translation::<f64>(negative_from.into());
 
         rotation * translation
     }

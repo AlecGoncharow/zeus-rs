@@ -8,3 +8,4 @@ edition = "2018"
 
 [dependencies]
 my_engine = { path = "../my_engine" }
+rand = "0.7.2"

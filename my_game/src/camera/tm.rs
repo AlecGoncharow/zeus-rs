@@ -100,7 +100,7 @@ impl Camera {
 
         let negative_camera = -1.0 * self.position;
         let camera_trans =
-            Mat4::translation(negative_camera.x, negative_camera.y, negative_camera.z);
+            Mat4::translation((negative_camera.x, negative_camera.y, negative_camera.z));
         view_matrix = camera_trans * view_matrix;
         //println!("{:#?}", view_matrix);
 

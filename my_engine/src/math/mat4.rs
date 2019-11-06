@@ -95,7 +95,7 @@ impl Mat4 {
     }
 
     #[inline]
-    pub fn translation<T>(x_tr: T, y_tr: T, z_tr: T) -> Self
+    pub fn translation<T>((x_tr, y_tr, z_tr): (T, T, T)) -> Self
     where
         T: Into<f64>,
     {

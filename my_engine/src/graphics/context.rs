@@ -77,27 +77,22 @@ pub struct GraphicsContext {
     render_pass: Arc<dyn RenderPassAbstract + Send + Sync>,
     framebuffers: Vec<Arc<dyn FramebufferAbstract + Send + Sync>>,
 
-    //depth_buffer: Arc<AttachmentImage>,
-    //color_buffer: Arc<AttachmentImage>,
     uniform_buffer: Arc<CpuBufferPool<vs::ty::Data>>,
-    vertex_buffer: Arc<CpuAccessibleBuffer<[Vertex]>>,
 
     pub(crate) graphics_command_buffer: Option<AutoCommandBufferBuilder>,
     acquire_future: Option<SwapchainAcquireFuture<winit::Window>>,
     image_num: usize,
 
     pub window_dims: LogicalSize,
-    //pub camera_projection: Arc<dyn CameraProjection>,
     pub projection_transform: Mat4,
     pub view_transform: Mat4,
     pub model_transform: Mat4,
-    //pub model_projection: Arc<dyn ModelProjection>,
 }
 
 #[derive(Default, Debug, Clone)]
-struct Vertex {
-    position: [f32; 3],
-    color: [f32; 3],
+pub struct Vertex {
+    pub position: [f32; 3],
+    pub color: [f32; 3],
 }
 vulkano::impl_vertex!(Vertex, position, color);
 
@@ -175,8 +170,6 @@ impl GraphicsContext {
                 [0, 0]
             };
 
-            println!("{:#?}", initial_dimensions);
-            // Please take a look at the docs for the meaning of the parameters we didn't mention.
             Swapchain::new(
                 device.clone(),
                 surface.clone(),
@@ -197,11 +190,6 @@ impl GraphicsContext {
 
         let vertex_shader = vs::Shader::load(device.clone()).unwrap();
         let frag_shader = fs::Shader::load(device.clone()).unwrap();
-
-        let vertex_buffer = {
-            CpuAccessibleBuffer::from_iter(device.clone(), BufferUsage::all(), [].iter().cloned())
-                .unwrap()
-        };
 
         let render_pass = Arc::new(
             vulkano::single_pass_renderpass!(
@@ -228,53 +216,7 @@ impl GraphicsContext {
             )
             .unwrap(),
         );
-        /*
 
-        let render_pass = Arc::new(
-            vulkano::ordered_passes_renderpass!(
-            device.clone(),
-            attachments: {
-                // The image that will contain the final rendering (in this example the swapchain
-                // image, but it could be another image).
-                final_color: {
-                    load: Clear,
-                    store: Store,
-                    format: swapchain.format(),
-                    samples: 1,
-                },
-                // Will be bound to `self.depth_buffer`.
-                depth: {
-                    load: Clear,
-                    store: DontCare,
-                    format: Format::D16Unorm,
-                    samples: 1,
-                },
-                initial_color: {
-                    load: Clear,
-                    store: Store,
-                    format: swapchain.format(),
-                    samples: 1,
-                }
-            },
-            passes: [
-                // Write to the diffuse, normals and depth attachments.
-            {
-                color: [initial_color],
-                depth_stencil: {depth},
-                input: []
-            },
-            // Apply lighting by reading these three attachments and writing to `final_color`.
-            {
-                color: [final_color],
-                depth_stencil: {},
-                input: [depth, initial_color]
-            }
-            ]
-                )
-            .unwrap(),
-        );
-
-        */
         let (graphics_pipelines, framebuffers) = window_size_dependent_setup(
             &device,
             &vertex_shader,
@@ -310,9 +252,6 @@ impl GraphicsContext {
         let recreate_swapchain = false;
         let previous_frame_end = Some(Box::new(sync::now(device.clone())) as Box<dyn GpuFuture>);
 
-        //let camera_projection = Arc::new(crate::graphics::DefaultCamera {});
-        //let model_projection = Arc::new(crate::graphics::DefaultModelProjecton {});
-
         let (image_num, acquire_future) =
             match swapchain::acquire_next_image(swapchain.clone(), None) {
                 Ok((n, f)) => (n, Some(f)),
@@ -335,7 +274,6 @@ impl GraphicsContext {
             render_pass,
             framebuffers,
 
-            vertex_buffer,
             uniform_buffer,
             window_dims,
 
@@ -421,7 +359,7 @@ impl GraphicsContext {
         self.image_num = image_num;
     }
 
-    pub fn draw(&mut self, pipeline_key: &Topology) {
+    pub fn draw(&mut self, pipeline_key: &Topology, verts: &Vec<(Vec3, Vec3)>) {
         let set = {
             let data = vs::ty::Data {
                 model: self.model_transform.transpose().into(),
@@ -440,7 +378,17 @@ impl GraphicsContext {
                 .unwrap()
         };
 
-        // @TODO FIXME Index into pipelines
+        let verts = {
+            let buffer_data = verts_from_vec(verts);
+
+            CpuAccessibleBuffer::from_iter(
+                self.device.clone(),
+                BufferUsage::all(),
+                buffer_data.iter().cloned(),
+            )
+            .unwrap()
+        };
+
         let pipeline = self.graphics_pipelines.get(pipeline_key).unwrap();
         self.graphics_command_buffer = {
             Some(
@@ -450,7 +398,68 @@ impl GraphicsContext {
                     .draw(
                         pipeline.clone(),
                         &DynamicState::none(),
-                        vec![self.vertex_buffer.clone()],
+                        vec![verts.clone()],
+                        set,
+                        (),
+                    )
+                    .unwrap(),
+            )
+        };
+    }
+
+    pub fn draw_indexed(
+        &mut self,
+        pipeline_key: &Topology,
+        verts: &Vec<(Vec3, Vec3)>,
+        indices: &[u16],
+    ) {
+        let set = {
+            let data = vs::ty::Data {
+                model: self.model_transform.transpose().into(),
+                view: self.view_transform.transpose().into(),
+                projection: self.projection_transform.transpose().into(),
+            };
+
+            let sub_buffer = self.uniform_buffer.next(data).unwrap();
+            self.graphics_pool
+                .get_mut(pipeline_key)
+                .unwrap()
+                .next()
+                .add_buffer(sub_buffer)
+                .unwrap()
+                .build()
+                .unwrap()
+        };
+
+        let vertex_buffer = {
+            let buffer_data = verts_from_vec(verts);
+
+            CpuAccessibleBuffer::from_iter(
+                self.device.clone(),
+                BufferUsage::all(),
+                buffer_data.iter().cloned(),
+            )
+            .unwrap()
+        };
+
+        let index_buffer = CpuAccessibleBuffer::from_iter(
+            self.device.clone(),
+            BufferUsage::all(),
+            indices.iter().cloned(),
+        )
+        .unwrap();
+
+        let pipeline = self.graphics_pipelines.get(pipeline_key).unwrap();
+        self.graphics_command_buffer = {
+            Some(
+                self.graphics_command_buffer
+                    .take()
+                    .unwrap()
+                    .draw_indexed(
+                        pipeline.clone(),
+                        &DynamicState::none(),
+                        vec![vertex_buffer.clone()],
+                        index_buffer.clone(),
                         set,
                         (),
                     )
@@ -497,15 +506,13 @@ impl GraphicsContext {
         }
     }
 
-    pub fn set_verts(&mut self, verts: &Vec<(Vec3, Vec3)>) {
-        self.vertex_buffer = {
-            CpuAccessibleBuffer::from_iter(
-                self.device.clone(),
-                BufferUsage::all(),
-                verts_from_vec(verts).iter().cloned(),
-            )
-            .unwrap()
-        };
+    pub fn set_verts(&mut self, verts: &Vec<(Vec3, Vec3)>) -> Arc<CpuAccessibleBuffer<[Vertex]>> {
+        CpuAccessibleBuffer::from_iter(
+            self.device.clone(),
+            BufferUsage::all(),
+            verts_from_vec(verts).iter().cloned(),
+        )
+        .unwrap()
     }
 }
 
