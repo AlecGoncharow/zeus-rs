@@ -6,7 +6,7 @@ use my_engine::winit::VirtualKeyCode;
 
 //const YAW_DEFAULT: f64 = -90.0;
 //const PITCH_DEFAULT: f64 = 0.0;
-const MOVE_DEFAULT: f64 = 0.1;
+const MOVE_DEFAULT: f64 = 0.05;
 const MOUSE_DEFAULT: f64 = 0.5;
 
 #[derive(Debug)]
@@ -23,6 +23,7 @@ pub struct Camera {
 
     // control things
     pub move_speed: f64,
+    pub fast_move: bool,
     pub mouse_speed: f64,
 
     // projection matric things, not sure if it should be here
@@ -76,6 +77,7 @@ impl Camera {
             pitch,
 
             move_speed: MOVE_DEFAULT,
+            fast_move: false,
             mouse_speed: MOUSE_DEFAULT,
 
             aspect,
@@ -118,21 +120,6 @@ impl Camera {
         let x_scale = y_scale / aspect_ratio;
         let fustrum_length = far_plane - near_plane;
 
-        /*
-         * debug matrix
-        println!("scale {}, {}", x_scale, y_scale);
-
-        projection_matrix.x.x = 2.0 * near_plane / (right - left);
-        projection_matrix.y.y = 2.0 * near_plane / (top - bottom);
-
-        projection_matrix.z.z = -(far_plane + near_plane) / fustrum_length;
-        projection_matrix.z.w = -1.0;
-
-        projection_matrix.w.z = -2.0 * (far_plane * near_plane) / fustrum_length;
-        projection_matrix.w.w = 0.0;
-        println!("initial projection: {:#?}", projection_matrix);
-        */
-
         projection_matrix.x.x = x_scale;
         projection_matrix.y.y = y_scale;
         projection_matrix.z.z = -(near_plane + far_plane) / fustrum_length;
@@ -170,7 +157,11 @@ impl Camera {
     }
 
     pub fn process_keypress(&mut self, key: VirtualKeyCode) {
-        let speed = 0.05;
+        let speed = if self.fast_move {
+            self.move_speed * 5.0
+        } else {
+            self.move_speed
+        };
 
         match key {
             VirtualKeyCode::W => {
@@ -184,6 +175,18 @@ impl Camera {
             }
             VirtualKeyCode::D => {
                 self.origin += speed * self.u;
+            }
+            VirtualKeyCode::LShift => {
+                self.fast_move = true;
+            }
+            _ => (),
+        }
+    }
+
+    pub fn process_keyrelease(&mut self, key: VirtualKeyCode) {
+        match key {
+            VirtualKeyCode::LShift => {
+                self.fast_move = false;
             }
             _ => (),
         }

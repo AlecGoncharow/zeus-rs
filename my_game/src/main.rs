@@ -1,13 +1,19 @@
 use my_engine::context::Context;
 use my_engine::event::EventHandler;
-use my_engine::graphics::PolygonMode;
-use my_engine::graphics::Topology;
-use my_engine::input::keyboard;
-use my_engine::input::mouse;
-use my_engine::winit::MouseButton;
 
 use my_engine::graphics::Drawable;
+use my_engine::graphics::PolygonMode;
+use my_engine::graphics::Topology;
+
+use my_engine::input::keyboard;
+use my_engine::input::mouse;
+
+use my_engine::winit::ModifiersState;
+use my_engine::winit::MouseButton;
+use my_engine::winit::VirtualKeyCode;
+
 use my_engine::math::*;
+
 use rand::prelude::*;
 
 mod camera;
@@ -82,6 +88,15 @@ impl EventHandler for State {
         //ctx.gfx_context.view_transform = Mat4::identity();
         //ctx.gfx_context.projection_transform = Mat4::identity();
         Ok(())
+    }
+
+    fn key_up_event(
+        &mut self,
+        _ctx: &mut Context,
+        keycode: VirtualKeyCode,
+        _keymods: ModifiersState,
+    ) {
+        self.camera.process_keyrelease(keycode);
     }
 
     fn mouse_button_down_event(&mut self, _ctx: &mut Context, button: MouseButton, x: f64, y: f64) {
@@ -191,6 +206,12 @@ fn generate_cubes(state: &mut State) {
     state.drawables.push(Box::new(cube));
 
     let cube = Cuboid::cube(1.0, (0, 10, 0).into(), None);
+    state.drawables.push(Box::new(cube));
+
+    let cube = Cuboid::cube(5.0, (5, 5, 5).into(), None);
+    state.drawables.push(Box::new(cube));
+
+    let cube = Cuboid::cube(100.0, (0, -105, 0).into(), None);
     state.drawables.push(Box::new(cube));
 }
 
