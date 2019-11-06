@@ -17,11 +17,6 @@ pub struct Camera {
     pub w: Vec3,
     pub world_up: Vec3,
 
-    // these seem useful but idk what yet
-    pub lower_left_corner: Vec3,
-    pub horizontal: Vec3,
-    pub vertical: Vec3,
-
     // rotation things
     pub yaw: f64,
     pub pitch: f64,
@@ -48,11 +43,7 @@ impl Camera {
         near_plane: f64,
         far_plane: f64,
     ) -> Self {
-        let theta = vfov.to_radians();
         let aspect = width / height;
-
-        let half_height = (theta / 2.0).tan();
-        let half_width = aspect * half_height;
 
         let origin = look_from;
         // todo thinkabout camera change on resize
@@ -74,20 +65,12 @@ impl Camera {
         let pitch = pitch.to_degrees();
         println!("pitch: {:#?}, yaw: {:#?}", pitch, yaw);
 
-        let lower_left_corner = origin - half_width * u - half_height * v - w;
-        let horizontal = 2.0 * half_width * u;
-        let vertical = 2.0 * half_height * v;
-
         Self {
             origin,
             u,
             v,
             w,
             world_up,
-
-            lower_left_corner,
-            horizontal,
-            vertical,
 
             yaw,
             pitch,
@@ -100,6 +83,10 @@ impl Camera {
             near_plane,
             far_plane,
         }
+    }
+
+    pub fn set_aspect(&mut self, (width, height): (f64, f64)) {
+        self.aspect = width / height;
     }
 
     pub fn view_matrix(&self) -> Mat4 {
@@ -122,15 +109,17 @@ impl Camera {
         let far_plane = self.far_plane;
         let fov: f64 = self.vfov;
         let aspect_ratio = self.aspect;
-        let right = self.lower_left_corner.x + self.horizontal.magnitude();
-        let left = self.lower_left_corner.x;
-        let top = self.lower_left_corner.y + self.vertical.magnitude();
-        let bottom = self.lower_left_corner.y;
+        //let right = self.lower_left_corner.x + self.horizontal.magnitude();
+        //let left = self.lower_left_corner.x;
+        //let top = self.lower_left_corner.y + self.vertical.magnitude();
+        //let bottom = self.lower_left_corner.y;
 
         let y_scale = 1.0 / (fov / 2.0).to_radians().tan();
         let x_scale = y_scale / aspect_ratio;
         let fustrum_length = far_plane - near_plane;
 
+        /*
+         * debug matrix
         println!("scale {}, {}", x_scale, y_scale);
 
         projection_matrix.x.x = 2.0 * near_plane / (right - left);
@@ -142,18 +131,19 @@ impl Camera {
         projection_matrix.w.z = -2.0 * (far_plane * near_plane) / fustrum_length;
         projection_matrix.w.w = 0.0;
         println!("initial projection: {:#?}", projection_matrix);
+        */
 
-        projection_matrix = Mat4::identity();
         projection_matrix.x.x = x_scale;
         projection_matrix.y.y = y_scale;
         projection_matrix.z.z = -(near_plane + far_plane) / fustrum_length;
-        projection_matrix.z.w = -near_plane;
+        projection_matrix.z.w = -1.0;
 
         projection_matrix.w.z = -(2.0 * near_plane * far_plane) / fustrum_length;
         projection_matrix.w.w = 0.0;
 
         println!("new projection: {:#?}", projection_matrix);
 
+        /*
         let to_vk_ndc: Mat4 = (
             (1.0, 0.0, 0.0, 0.0),
             (0.0, -1.0, 0.0, 0.0),
@@ -163,6 +153,7 @@ impl Camera {
             .into();
 
         let gl = to_vk_ndc * projection_matrix;
+        */
         projection_matrix
     }
 

@@ -6,9 +6,7 @@ use my_engine::input::keyboard;
 use my_engine::input::mouse;
 use my_engine::winit::MouseButton;
 
-use my_engine::math::Mat4;
-use my_engine::math::Vec3;
-use my_engine::math::Vec4;
+use my_engine::math::*;
 
 mod camera;
 
@@ -60,7 +58,7 @@ impl EventHandler for State {
             * Mat4::scalar_from_one(0.5);
         ctx.draw(&line_mode, &self.points);
         ctx.gfx_context.model_transform = Mat4::identity();
-        ctx.draw(&line_mode, &self.plane);
+        ctx.draw(&fill_mode, &self.plane);
 
         ctx.render();
         Ok(())
@@ -125,17 +123,7 @@ impl EventHandler for State {
         self.mouse_down = false;
 
         println!("resize_event: width: {}, height: {}", width, height);
-        self.camera = camera::my_camera::Camera::new(
-            self.camera.origin,
-            self.camera.w,
-            self.camera.world_up,
-            30.0,
-            width,
-            height,
-            self.camera.near_plane,
-            self.camera.far_plane,
-        );
-        self.camera.update_orientation();
+        self.camera.set_aspect((width, height));
         println!("new camera: {:#?}", self.camera);
         println!("view_matrix: {:#?}", self.camera.view_matrix());
         ctx.gfx_context.view_transform = self.camera.view_matrix();
@@ -146,11 +134,20 @@ impl EventHandler for State {
 #[allow(dead_code)]
 fn get_corner_positions(row: f32, col: f32) -> [(Vec3, Vec3); 4] {
     [
+        ((col, -5.0f32, row).into(), Vec3::new(0.7, 0.7, 0.7)),
+        ((col, -5.0f32, row + 1.0).into(), Vec3::new(0.8, 0.8, 0.8)),
+        ((col + 1.0, -5.0f32, row).into(), Vec3::new(0.9, 0.9, 0.9)),
+        ((col + 1.0, -5.0f32, row + 1.0).into(), Vec3::new(1, 1, 1)),
+    ]
+
+    /*
+    [
         ((col, -5.0f32, row).into(), Vec3::new(1, 0, 0)),
         ((col, -5.0f32, row + 1.0).into(), Vec3::new(0, 1, 0)),
         ((col + 1.0, -5.0f32, row).into(), Vec3::new(1, 0, 1)),
         ((col + 1.0, -5.0f32, row + 1.0).into(), Vec3::new(0, 1, 1)),
     ]
+        */
 }
 
 #[allow(dead_code)]
