@@ -118,14 +118,14 @@ impl Camera {
 
         let y_scale = 1.0 / (fov / 2.0).to_radians().tan();
         let x_scale = y_scale / aspect_ratio;
-        let fustrum_length = far_plane - near_plane;
+        let frustrum_length = far_plane - near_plane;
 
         projection_matrix.x.x = x_scale;
         projection_matrix.y.y = y_scale;
-        projection_matrix.z.z = -(near_plane + far_plane) / fustrum_length;
+        projection_matrix.z.z = -(near_plane + far_plane) / frustrum_length;
         projection_matrix.z.w = -1.0;
 
-        projection_matrix.w.z = -(2.0 * near_plane * far_plane) / fustrum_length;
+        projection_matrix.w.z = -(2.0 * near_plane * far_plane) / frustrum_length;
         projection_matrix.w.w = 0.0;
 
         println!("new projection: {:#?}", projection_matrix);
