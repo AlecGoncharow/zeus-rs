@@ -1,3 +1,4 @@
+use super::Dim;
 use crate::math::Vec3;
 use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
 
@@ -151,6 +152,15 @@ impl Vec4 {
             } else {
                 self.w
             },
+        }
+    }
+
+    pub fn truncate(&self, dim: Dim) -> Vec3 {
+        match dim {
+            Dim::X => (self.y, self.z, self.w).into(),
+            Dim::Y => (self.x, self.z, self.w).into(),
+            Dim::Z => (self.x, self.y, self.w).into(),
+            Dim::W => (self.x, self.y, self.z).into(),
         }
     }
 }

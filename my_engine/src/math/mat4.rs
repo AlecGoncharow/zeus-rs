@@ -1,3 +1,5 @@
+use super::Dim;
+use super::Mat3;
 use crate::math::Vec3;
 use crate::math::Vec4;
 use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
@@ -133,6 +135,159 @@ impl Mat4 {
             z: Vec4::new(0.0, 0.0, 1.0, 0.0),
             w: Vec4::new(x_tr, y_tr, z_tr, 1.0),
         }
+    }
+
+    #[inline]
+    pub fn matrix_of_minors(&self) -> Self {
+        Self {
+            x: Vec4 {
+                x: Mat3::new(
+                    self.y.truncate(Dim::X),
+                    self.z.truncate(Dim::X),
+                    self.w.truncate(Dim::X),
+                )
+                .determinate(),
+                y: Mat3::new(
+                    self.y.truncate(Dim::Y),
+                    self.z.truncate(Dim::Y),
+                    self.w.truncate(Dim::Y),
+                )
+                .determinate(),
+
+                z: Mat3::new(
+                    self.y.truncate(Dim::Z),
+                    self.z.truncate(Dim::Z),
+                    self.w.truncate(Dim::Z),
+                )
+                .determinate(),
+                w: Mat3::new(
+                    self.y.truncate(Dim::W),
+                    self.z.truncate(Dim::W),
+                    self.w.truncate(Dim::W),
+                )
+                .determinate(),
+            },
+
+            y: Vec4 {
+                x: Mat3::new(
+                    self.x.truncate(Dim::X),
+                    self.z.truncate(Dim::X),
+                    self.w.truncate(Dim::X),
+                )
+                .determinate(),
+                y: Mat3::new(
+                    self.x.truncate(Dim::Y),
+                    self.z.truncate(Dim::Y),
+                    self.w.truncate(Dim::Y),
+                )
+                .determinate(),
+
+                z: Mat3::new(
+                    self.x.truncate(Dim::Z),
+                    self.z.truncate(Dim::Z),
+                    self.w.truncate(Dim::Z),
+                )
+                .determinate(),
+                w: Mat3::new(
+                    self.x.truncate(Dim::W),
+                    self.z.truncate(Dim::W),
+                    self.w.truncate(Dim::W),
+                )
+                .determinate(),
+            },
+
+            z: Vec4 {
+                x: Mat3::new(
+                    self.x.truncate(Dim::X),
+                    self.y.truncate(Dim::X),
+                    self.w.truncate(Dim::X),
+                )
+                .determinate(),
+                y: Mat3::new(
+                    self.x.truncate(Dim::Y),
+                    self.y.truncate(Dim::Y),
+                    self.w.truncate(Dim::Y),
+                )
+                .determinate(),
+
+                z: Mat3::new(
+                    self.x.truncate(Dim::Z),
+                    self.y.truncate(Dim::Z),
+                    self.w.truncate(Dim::Z),
+                )
+                .determinate(),
+                w: Mat3::new(
+                    self.x.truncate(Dim::W),
+                    self.y.truncate(Dim::W),
+                    self.w.truncate(Dim::W),
+                )
+                .determinate(),
+            },
+
+            w: Vec4 {
+                x: Mat3::new(
+                    self.x.truncate(Dim::X),
+                    self.y.truncate(Dim::X),
+                    self.z.truncate(Dim::X),
+                )
+                .determinate(),
+                y: Mat3::new(
+                    self.x.truncate(Dim::Y),
+                    self.y.truncate(Dim::Y),
+                    self.z.truncate(Dim::Y),
+                )
+                .determinate(),
+
+                z: Mat3::new(
+                    self.x.truncate(Dim::Z),
+                    self.y.truncate(Dim::Z),
+                    self.z.truncate(Dim::Z),
+                )
+                .determinate(),
+                w: Mat3::new(
+                    self.x.truncate(Dim::W),
+                    self.y.truncate(Dim::W),
+                    self.z.truncate(Dim::W),
+                )
+                .determinate(),
+            },
+        }
+    }
+
+    #[inline]
+    pub fn matrix_of_cofactors(&self) -> Self {
+        let mut mat = *self;
+
+        mat.x.y *= -1.0;
+        mat.x.w *= -1.0;
+
+        mat.y.x *= -1.0;
+        mat.y.z *= -1.0;
+
+        mat.z.y *= -1.0;
+        mat.z.w *= -1.0;
+
+        mat.w.x *= -1.0;
+        mat.w.z *= -1.0;
+
+        mat
+    }
+
+    // based on https://www.mathsisfun.com/algebra/matrix-inverse-minors-cofactors-adjugate.html
+    pub fn invert(&self) -> Option<Self> {
+        let minors = self.matrix_of_minors();
+        let cofactors = minors.matrix_of_cofactors();
+
+        let determinate = self.x.x * cofactors.x.x
+            + self.y.x * cofactors.y.x
+            + self.z.x * cofactors.z.x
+            + self.w.x * cofactors.w.x;
+
+        if determinate == 0.0 {
+            return None;
+        }
+
+        Some(1.0 / determinate * cofactors.transpose())
     }
 }
 
@@ -364,7 +519,7 @@ mod tests {
 
         let vec = Vec4::new(1.0, 2, 3.0, 1);
 
-        let mat = Mat4::translation(4, 10, 25);
+        let mat = Mat4::translation((4, 10, 25).into());
 
         println!("trans: {:#?}", mat * vec);
     }
@@ -390,5 +545,25 @@ mod tests {
             rotation,
             rotation * vec
         );
+    }
+
+    #[test]
+    fn invert() {
+        let mat: Mat4 = (
+            (4.0, 0.0, 0.0, 1.0),
+            (0.0, 0.0, 1.0, 0.0),
+            (0.0, 2.0, 2.0, 0.0),
+            (0.0, 0.0, 0.0, 1.0),
+        )
+            .into();
+
+        /*
+         *  should output:
+         *  [ 0.25, 0.0, 0.0, 0.0]
+         *  [ 0.0 ,-1.0, 1.0, 0.0]
+         *  [ 0.0 , 0.5, 0.0, 0.0]
+         *  [-0.25, 0.0, 0.0, 1.0]
+         */
+        println!("invert: {:#?}, out: {:#?}", mat, mat.invert());
     }
 }
