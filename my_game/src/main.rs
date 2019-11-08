@@ -31,21 +31,6 @@ impl EventHandler for State {
     fn draw(&mut self, ctx: &mut Context) -> Result<(), ()> {
         ctx.start_drawing((0, 0, 0, 1).into());
         self.frame += 1;
-        /*
-        println!(
-            "{:#?}",
-            ctx.gfx_context.projection_transform
-                * ctx.gfx_context.view_transform
-                * Mat4::identity()
-                * Vec4::from_vec3(self.points[0].0)
-                * (1.0
-                    / (ctx.gfx_context.projection_transform
-                        * ctx.gfx_context.view_transform
-                        * Mat4::identity()
-                        * Vec4::from_vec3(self.points[0].0))
-                    .w)
-        );
-        */
 
         let fill_mode = Topology::TriangleList(PolygonMode::Fill);
         ctx.gfx_context.model_transform = Mat4::identity();

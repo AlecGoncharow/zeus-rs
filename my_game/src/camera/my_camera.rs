@@ -93,15 +93,16 @@ impl Camera {
 
     pub fn view_matrix(&self) -> Mat4 {
         let rotation = Mat4::new(
-            Vec4::new(self.u.x, self.u.y, self.u.z, 0.0),
-            Vec4::new(self.v.x, self.v.y, self.v.z, 0.0),
-            Vec4::new(self.w.x, self.w.y, self.w.z, 0.0),
+            Vec4::new(self.u.x, self.v.x, self.w.x, 0.0),
+            Vec4::new(self.u.y, self.v.y, self.w.y, 0.0),
+            Vec4::new(self.u.z, self.v.z, self.w.z, 0.0),
             (0, 0, 0, 1).into(),
         );
 
         let negative_from = -1.0 * self.origin;
         let translation = Mat4::translation::<f64>(negative_from.into());
 
+        println!("{:#?}", rotation * translation);
         rotation * translation
     }
 
@@ -121,11 +122,13 @@ impl Camera {
         let frustrum_length = far_plane - near_plane;
 
         projection_matrix.x.x = x_scale;
-        projection_matrix.y.y = y_scale;
-        projection_matrix.z.z = -(near_plane + far_plane) / frustrum_length;
-        projection_matrix.z.w = -1.0;
 
-        projection_matrix.w.z = -(2.0 * near_plane * far_plane) / frustrum_length;
+        projection_matrix.y.y = y_scale;
+
+        projection_matrix.z.z = -(near_plane + far_plane) / frustrum_length;
+        projection_matrix.z.w = -(2.0 * near_plane * far_plane) / frustrum_length;
+
+        projection_matrix.w.z = -1.0;
         projection_matrix.w.w = 0.0;
 
         println!("new projection: {:#?}", projection_matrix);

@@ -2,7 +2,7 @@ use crate::math::Vec3;
 use crate::math::Vec4;
 use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
 
-/// Row major xyzw
+/// Column major xyzw
 #[derive(Clone, Copy, Debug)]
 pub struct Mat4 {
     pub x: Vec4,
@@ -46,6 +46,7 @@ impl Mat4 {
         let sin_theta = theta.sin();
         let cos_theta = theta.cos();
 
+        /* ROW MAJOR
         Self {
             x: Vec4::new(
                 u * u + (1.0 - u * u) * cos_theta,
@@ -64,6 +65,33 @@ impl Mat4 {
             z: Vec4::new(
                 w * u * (1.0 - cos_theta) - v * sin_theta,
                 w * v * (1.0 - cos_theta) + u * sin_theta,
+                w * w + (1.0 - w * w) * cos_theta,
+                0.0,
+            )
+            .zero_out_insignificant(0.00005),
+            w: Vec4::new(0, 0, 0, 1),
+        }
+        */
+
+        // column major
+        Self {
+            x: Vec4::new(
+                u * u + (1.0 - u * u) * cos_theta,
+                v * u * (1.0 - cos_theta) + w * sin_theta,
+                w * u * (1.0 - cos_theta) - v * sin_theta,
+                0.0,
+            )
+            .zero_out_insignificant(0.00005),
+            y: Vec4::new(
+                u * v * (1.0 - cos_theta) - w * sin_theta,
+                v * v + (1.0 - v * v) * cos_theta,
+                w * v * (1.0 - cos_theta) + u * sin_theta,
+                0.0,
+            )
+            .zero_out_insignificant(0.00005),
+            z: Vec4::new(
+                u * w * (1.0 - cos_theta) + v * sin_theta,
+                v * w * (1.0 - cos_theta) - u * sin_theta,
                 w * w + (1.0 - w * w) * cos_theta,
                 0.0,
             )
@@ -100,10 +128,10 @@ impl Mat4 {
         T: Into<f64>,
     {
         Self {
-            x: Vec4::new(1.0, 0.0, 0.0, x_tr),
-            y: Vec4::new(0.0, 1.0, 0.0, y_tr),
-            z: Vec4::new(0.0, 0.0, 1.0, z_tr),
-            w: Vec4::new(0.0, 0.0, 0.0, 1.0),
+            x: Vec4::new(1.0, 0.0, 0.0, 0.0),
+            y: Vec4::new(0.0, 1.0, 0.0, 0.0),
+            z: Vec4::new(0.0, 0.0, 1.0, 0.0),
+            w: Vec4::new(x_tr, y_tr, z_tr, 1.0),
         }
     }
 }
@@ -198,17 +226,16 @@ impl Mul<Mat4> for Mat4 {
 
     fn mul(self, rhs: Self) -> Self {
         // transpose rhs matrix to make multiplication simpler
-        let tr_rhs = rhs.transpose();
+        let tr_lhs = self.transpose();
         // this is multiplying the rows of self by columns of rhs
         let tr_product = Self {
-            x: &self * tr_rhs.x,
-            y: &self * tr_rhs.y,
-            z: &self * tr_rhs.z,
-            w: &self * tr_rhs.w,
+            x: &tr_lhs * rhs.x,
+            y: &tr_lhs * rhs.y,
+            z: &tr_lhs * rhs.z,
+            w: &tr_lhs * rhs.w,
         };
 
-        // transpose back to get proper output
-        tr_product.transpose()
+        tr_product
     }
 }
 

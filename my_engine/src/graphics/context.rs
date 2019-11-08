@@ -362,9 +362,9 @@ impl GraphicsContext {
     pub fn draw(&mut self, pipeline_key: &Topology, verts: &Vec<(Vec3, Vec3)>) {
         let set = {
             let data = vs::ty::Data {
-                model: self.model_transform.transpose().into(),
-                view: self.view_transform.transpose().into(),
-                projection: self.projection_transform.transpose().into(),
+                model: self.model_transform.into(),
+                view: self.view_transform.into(),
+                projection: self.projection_transform.into(),
             };
 
             let sub_buffer = self.uniform_buffer.next(data).unwrap();
@@ -415,9 +415,9 @@ impl GraphicsContext {
     ) {
         let set = {
             let data = vs::ty::Data {
-                model: self.model_transform.transpose().into(),
-                view: self.view_transform.transpose().into(),
-                projection: self.projection_transform.transpose().into(),
+                model: self.model_transform.into(),
+                view: self.view_transform.into(),
+                projection: self.projection_transform.into(),
             };
 
             let sub_buffer = self.uniform_buffer.next(data).unwrap();
