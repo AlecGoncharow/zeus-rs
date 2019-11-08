@@ -1,7 +1,6 @@
 use my_engine::context::Context;
 use my_engine::event::EventHandler;
 
-use my_engine::graphics::Drawable;
 use my_engine::graphics::PolygonMode;
 use my_engine::graphics::Topology;
 
@@ -13,8 +12,6 @@ use my_engine::winit::MouseButton;
 use my_engine::winit::VirtualKeyCode;
 
 use my_engine::math::*;
-
-use rand::prelude::*;
 
 mod camera;
 mod entity;
@@ -33,7 +30,6 @@ struct State {
 impl EventHandler for State {
     fn draw(&mut self, ctx: &mut Context) -> Result<(), ()> {
         ctx.start_drawing((0, 0, 0, 1).into());
-        let mut rng = rand::thread_rng();
         self.frame += 1;
         /*
         println!(

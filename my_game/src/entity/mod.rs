@@ -5,6 +5,7 @@ use component::AsComponent;
 
 pub mod cube;
 
+#[allow(dead_code)]
 enum Message {
     Foo,
     Bar,
@@ -15,6 +16,7 @@ pub trait Entity: AsComponent {
     fn update(&mut self, ctx: &mut Context);
 }
 
+#[allow(dead_code)]
 pub struct EntityManager {
     entities: Vec<Box<dyn Entity>>,
     commands: Vec<Box<dyn Command>>,
