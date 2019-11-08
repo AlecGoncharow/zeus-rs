@@ -1,3 +1,6 @@
+use super::component::*;
+use super::Entity;
+use my_engine::context::Context;
 use my_engine::graphics::Drawable;
 use my_engine::graphics::PolygonMode;
 use my_engine::graphics::Topology;
@@ -100,6 +103,26 @@ impl Cuboid {
             position,
             rotation: Mat4::identity(),
         }
+    }
+}
+
+impl Entity for Cuboid {
+    fn update(&mut self, _ctx: &mut Context) {}
+}
+
+impl DrawComponent for Cuboid {
+    fn draw(&mut self, ctx: &mut Context) {
+        ctx.gfx_context.model_transform = self.model_matrix();
+        ctx.draw_indexed(&self.draw_mode(), self.vertices(), self.indices().unwrap());
+    }
+}
+
+impl AsComponent for Cuboid {}
+impl AsMouseable for Cuboid {}
+
+impl AsDrawable for Cuboid {
+    fn as_drawable(&mut self) -> Option<&mut dyn DrawComponent> {
+        Some(self)
     }
 }
 

@@ -20,10 +20,11 @@ mod camera;
 mod entity;
 
 use entity::cube::Cuboid;
+use entity::EntityManager;
 
 struct State {
     frame: u32,
-    drawables: Vec<Box<dyn Drawable>>,
+    entity_manager: EntityManager,
     plane: Vec<(Vec3, Vec3)>,
     camera: camera::my_camera::Camera,
     mouse_down: bool,
@@ -54,16 +55,7 @@ impl EventHandler for State {
         ctx.gfx_context.model_transform = Mat4::identity();
         ctx.draw(&fill_mode, &self.plane);
 
-        for thing in self.drawables.iter_mut() {
-            thing.rotate(0.1, (rng.gen::<f64>(), rng.gen(), rng.gen()).into());
-            ctx.gfx_context.model_transform = thing.model_matrix();
-
-            if let Some(indices) = thing.indices() {
-                ctx.draw_indexed(&thing.draw_mode(), thing.vertices(), indices);
-            } else {
-                ctx.draw(&thing.draw_mode(), thing.vertices());
-            }
-        }
+        self.entity_manager.draw(ctx);
 
         ctx.render();
         Ok(())
@@ -87,6 +79,7 @@ impl EventHandler for State {
         ctx.gfx_context.view_transform = self.camera.view_matrix();
         //ctx.gfx_context.view_transform = Mat4::identity();
         //ctx.gfx_context.projection_transform = Mat4::identity();
+        self.entity_manager.update(ctx);
         Ok(())
     }
 
@@ -185,41 +178,41 @@ fn generate_grid(size: i32) -> Vec<(Vec3, Vec3)> {
 
 fn generate_cubes(state: &mut State) {
     let cube = Cuboid::cube(1.0, (0, 0, 0).into(), None);
-    state.drawables.push(Box::new(cube));
+    state.entity_manager.push_entity(cube);
 
     let cube = Cuboid::cube(1.0, (10, 0, 10).into(), None);
-    state.drawables.push(Box::new(cube));
+    state.entity_manager.push_entity(cube);
 
     let cube = Cuboid::cube(1.0, (0, 0, 10).into(), None);
-    state.drawables.push(Box::new(cube));
+    state.entity_manager.push_entity(cube);
 
     let cube = Cuboid::cube(1.0, (10, 0, 0).into(), None);
-    state.drawables.push(Box::new(cube));
+    state.entity_manager.push_entity(cube);
 
     let cube = Cuboid::cube(1.0, (10, 10, 10).into(), None);
-    state.drawables.push(Box::new(cube));
+    state.entity_manager.push_entity(cube);
 
     let cube = Cuboid::cube(1.0, (0, 10, 10).into(), None);
-    state.drawables.push(Box::new(cube));
+    state.entity_manager.push_entity(cube);
 
     let cube = Cuboid::cube(1.0, (10, 10, 0).into(), None);
-    state.drawables.push(Box::new(cube));
+    state.entity_manager.push_entity(cube);
 
     let cube = Cuboid::cube(1.0, (0, 10, 0).into(), None);
-    state.drawables.push(Box::new(cube));
+    state.entity_manager.push_entity(cube);
 
     let cube = Cuboid::cube(5.0, (5, 5, 5).into(), None);
-    state.drawables.push(Box::new(cube));
+    state.entity_manager.push_entity(cube);
 
     let cube = Cuboid::cube(100.0, (0, -105, 0).into(), None);
-    state.drawables.push(Box::new(cube));
+    state.entity_manager.push_entity(cube);
 }
 
 fn main() {
     let (ctx, event_loop) = Context::new();
     let mut my_game = State {
         frame: 0,
-        drawables: vec![],
+        entity_manager: EntityManager::new(),
         plane: generate_grid(50),
         camera: camera::my_camera::Camera::new(
             Vec3::new_from_one(1),

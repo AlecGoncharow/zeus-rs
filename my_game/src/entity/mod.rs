@@ -1,5 +1,7 @@
 use my_engine::context::Context;
-use std::any::Any;
+
+pub mod component;
+use component::AsComponent;
 
 pub mod cube;
 
@@ -8,21 +10,9 @@ enum Message {
     Bar,
 }
 
-pub trait Entity: Any {
+pub trait Entity: AsComponent {
     // TODO add callback message function
     fn update(&mut self, ctx: &mut Context);
-}
-
-pub trait DrawComponent {
-    fn draw(&mut self, ctx: &mut Context);
-}
-
-/// this is useful because it allows 3D picking to ignore entities which aren't part of the
-/// clickable environment
-pub trait MouseComponent {
-    // TODO think about x/y/z and hover events
-    fn click_start(&mut self, ctx: &mut Context);
-    fn click_end(&mut self, ctx: &mut Context);
 }
 
 pub struct EntityManager {
@@ -48,5 +38,17 @@ impl EntityManager {
         self.entities
             .iter_mut()
             .for_each(|entity| entity.update(ctx));
+    }
+
+    pub fn draw(&mut self, ctx: &mut Context) {
+        self.entities.iter_mut().for_each(|entity| {
+            if let Some(drawable) = entity.as_drawable() {
+                drawable.draw(ctx);
+            }
+        });
+    }
+
+    pub fn push_entity(&mut self, entity: impl Entity + 'static) {
+        self.entities.push(Box::new(entity));
     }
 }
