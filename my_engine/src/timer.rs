@@ -6,6 +6,7 @@ pub struct TimeContext {
     init_instant: time::Instant,
     last_instant: time::Instant,
     residual_update_dt: time::Duration,
+    delta_since_last_instant: time::Duration,
     frame_count: usize,
 }
 
@@ -16,6 +17,7 @@ impl TimeContext {
             init_instant: time::Instant::now(),
             last_instant: time::Instant::now(),
             residual_update_dt: time::Duration::from_secs(0),
+            delta_since_last_instant: time::Duration::from_secs(0),
             frame_count: 0,
         }
     }
@@ -34,5 +36,13 @@ impl TimeContext {
         self.frame_count += 1;
 
         self.residual_update_dt += time_since_last;
+        self.delta_since_last_instant = time_since_last;
+    }
+
+    pub fn delta_time(&self) -> f64 {
+        let seconds = self.delta_since_last_instant.as_secs() as f64;
+        let nanos = f64::from(self.delta_since_last_instant.subsec_nanos());
+
+        seconds + (nanos * 1e-9)
     }
 }

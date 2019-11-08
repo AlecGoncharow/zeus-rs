@@ -195,6 +195,8 @@ where
                 _ => (),
             }
         });
+
+        ctx.timer_context.tick();
         let _ = state.update(&mut ctx);
         let _ = state.draw(&mut ctx);
 
