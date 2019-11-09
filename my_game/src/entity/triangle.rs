@@ -12,6 +12,7 @@ impl Triangle {
         Self { p1, p2, p3 }
     }
 
+    #[allow(dead_code)]
     pub fn plane(&self) -> Option<Plane> {
         Plane::new(self.p1, self.p2, self.p3)
     }

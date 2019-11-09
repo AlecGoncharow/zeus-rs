@@ -81,7 +81,7 @@ impl EntityManager {
         );
 
         let camera_origin = self.camera.origin;
-        let mut closest: Option<(&mut dyn MouseComponent, Vec3)> = None;
+        let mut closest: Option<(&mut dyn MouseComponent, Vec3, f64)> = None;
         self.entities.iter_mut().for_each(|entity| {
             entity.update(ctx);
             if let Some(mouse_ray) = mouse_ray {
@@ -104,7 +104,7 @@ impl EntityManager {
         });
 
         if let Some(hit) = closest {
-            println!("hit pos : {:#?} ", hit.1);
+            println!("hit pos : {:#?}, t: {:#?} ", hit.1, hit.2);
             hit.0.mouse_over(hit.1);
         }
     }

@@ -159,6 +159,18 @@ impl DrawComponent for Cuboid {
             ctx.gfx_context.model_transform = self.model_matrix() * Mat4::scalar_from_one(1.1);
         }
 
+        let mut plane_verts = vec![];
+        for (_plane, tri_one, tri_two) in self.planes.iter() {
+            plane_verts.push((tri_one.p1, (1, 1, 1).into()));
+            plane_verts.push((tri_one.p2, (1, 1, 1).into()));
+            plane_verts.push((tri_one.p3, (1, 1, 1).into()));
+            plane_verts.push((tri_two.p1, (1, 1, 1).into()));
+            plane_verts.push((tri_two.p2, (1, 1, 1).into()));
+            plane_verts.push((tri_two.p3, (1, 1, 1).into()));
+        }
+
+        ctx.draw(&Topology::TriangleList(PolygonMode::Line), &plane_verts);
+
         ctx.draw_indexed(&self.draw_mode(), self.vertices(), self.indices().unwrap());
     }
 }
@@ -177,8 +189,9 @@ impl MouseComponent for Cuboid {
         &mut self,
         camera_origin: Vec3,
         mouse_direction: Vec3,
-    ) -> Option<(&mut dyn MouseComponent, Vec3)> {
+    ) -> Option<(&mut dyn MouseComponent, Vec3, f64)> {
         let mut to_return: Option<Vec3> = None;
+        let mut final_t = 0.0;
         let model = self.model_matrix();
         for (plane, tri_one, tri_two) in self.planes.iter_mut() {
             let plane_point = model * Vec4::from_vec3(plane.point);
@@ -264,15 +277,17 @@ impl MouseComponent for Cuboid {
                 if let Some(other) = to_return {
                     if (point - camera_origin).magnitude() < (other - camera_origin).magnitude() {
                         to_return = Some(point);
+                        final_t = t;
                     }
                 } else {
                     to_return = Some(point);
+                    final_t = t;
                 }
             }
         }
 
         if let Some(point) = to_return {
-            Some((self, point))
+            Some((self, point, final_t))
         } else {
             None
         }

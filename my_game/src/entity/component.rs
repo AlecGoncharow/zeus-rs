@@ -24,7 +24,7 @@ pub trait MouseComponent {
         &mut self,
         camera_origin: Vec3,
         mouse_direction: Vec3,
-    ) -> Option<(&mut dyn MouseComponent, Vec3)>;
+    ) -> Option<(&mut dyn MouseComponent, Vec3, f64)>;
 }
 
 pub trait AsMouseable {
