@@ -380,17 +380,12 @@ impl Mul<Mat4> for Mat4 {
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self {
-        // transpose rhs matrix to make multiplication simpler
-        let tr_lhs = self.transpose();
-        // this is multiplying the rows of self by columns of rhs
-        let tr_product = Self {
-            x: &tr_lhs * rhs.x,
-            y: &tr_lhs * rhs.y,
-            z: &tr_lhs * rhs.z,
-            w: &tr_lhs * rhs.w,
-        };
-
-        tr_product
+        Self {
+            x: &self * rhs.x,
+            y: &self * rhs.y,
+            z: &self * rhs.z,
+            w: &self * rhs.w,
+        }
     }
 }
 
@@ -399,24 +394,27 @@ impl Mul<Vec4> for &Mat4 {
     type Output = Vec4;
 
     fn mul(self, rhs: Vec4) -> Vec4 {
+        let self_tr = self.transpose();
         Vec4 {
-            x: self.x.dot(&rhs),
-            y: self.y.dot(&rhs),
-            z: self.z.dot(&rhs),
-            w: self.w.dot(&rhs),
+            x: self_tr.x.dot(&rhs),
+            y: self_tr.y.dot(&rhs),
+            z: self_tr.z.dot(&rhs),
+            w: self_tr.w.dot(&rhs),
         }
     }
 }
 
+// TODO think about how expensive this op is
 impl Mul<Vec4> for Mat4 {
     type Output = Vec4;
 
     fn mul(self, rhs: Vec4) -> Vec4 {
+        let self_tr = self.transpose();
         Vec4 {
-            x: self.x.dot(&rhs),
-            y: self.y.dot(&rhs),
-            z: self.z.dot(&rhs),
-            w: self.w.dot(&rhs),
+            x: self_tr.x.dot(&rhs),
+            y: self_tr.y.dot(&rhs),
+            z: self_tr.z.dot(&rhs),
+            w: self_tr.w.dot(&rhs),
         }
     }
 }

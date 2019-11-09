@@ -1,4 +1,8 @@
 use my_engine::context::Context;
+use my_engine::input::mouse;
+use my_engine::math::Dim;
+use my_engine::math::Vec3;
+use my_engine::math::Vec4;
 
 pub mod component;
 use component::AsComponent;
@@ -36,7 +40,36 @@ impl EntityManager {
         }
     }
 
+    fn get_mouse_ray(ctx: &mut Context) -> Option<Vec3> {
+        let mouse_pos = mouse::position(ctx);
+        let ndc_x = (2.0 * mouse_pos.x) / ctx.gfx_context.window_dims.width - 1.0;
+        let ndc_y = (2.0 * mouse_pos.y) / ctx.gfx_context.window_dims.height - 1.0;
+
+        println!("NDC COORD {:?}, {:?}", ndc_x, ndc_y);
+
+        let clip = Vec4::new(ndc_x, ndc_y, -1.0, 1.0);
+        let mut eye = if let Some(inv_proj) = ctx.gfx_context.projection_transform.invert() {
+            inv_proj * clip
+        } else {
+            return None;
+        };
+
+        eye.z = -1.0;
+        eye.w = 0.0;
+
+        let world = if let Some(inv_view) = ctx.gfx_context.view_transform.invert() {
+            inv_view * eye
+        } else {
+            return None;
+        };
+
+        Some(world.truncate(Dim::W).make_unit_vector())
+    }
+
     pub fn update(&mut self, ctx: &mut Context) {
+        let mouse_ray = Self::get_mouse_ray(ctx);
+        println!("mouse ray {:#?}", mouse_ray);
+
         self.entities
             .iter_mut()
             .for_each(|entity| entity.update(ctx));

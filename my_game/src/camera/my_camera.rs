@@ -102,7 +102,6 @@ impl Camera {
         let negative_from = -1.0 * self.origin;
         let translation = Mat4::translation::<f64>(negative_from.into());
 
-        println!("{:#?}", rotation * translation);
         rotation * translation
     }
 
