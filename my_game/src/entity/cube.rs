@@ -80,7 +80,7 @@ pub fn cuboid_default_colors() -> [Vec3; 8] {
 
 pub struct Cuboid {
     vertices: Vec<(Vec3, Vec3)>,
-    planes: [(Plane, Triangle, Triangle); 6],
+    planes: [(Triangle, Triangle); 6],
     indices: [u16; 36],
     pub draw_mode: PolygonMode,
     pub position: Vec3,
@@ -102,32 +102,26 @@ impl Cuboid {
 
         let planes = [
             (
-                Plane::new(pos[0], pos[1], pos[2]).unwrap(),
                 Triangle::new(pos[0], pos[1], pos[2]),
                 Triangle::new(pos[2], pos[3], pos[0]),
             ),
             (
-                Plane::new(pos[1], pos[5], pos[6]).unwrap(),
                 Triangle::new(pos[1], pos[5], pos[6]),
                 Triangle::new(pos[6], pos[2], pos[1]),
             ),
             (
-                Plane::new(pos[7], pos[6], pos[5]).unwrap(),
                 Triangle::new(pos[7], pos[6], pos[5]),
                 Triangle::new(pos[5], pos[4], pos[7]),
             ),
             (
-                Plane::new(pos[4], pos[0], pos[3]).unwrap(),
                 Triangle::new(pos[4], pos[0], pos[3]),
                 Triangle::new(pos[3], pos[7], pos[4]),
             ),
             (
-                Plane::new(pos[4], pos[5], pos[1]).unwrap(),
                 Triangle::new(pos[4], pos[5], pos[1]),
                 Triangle::new(pos[1], pos[0], pos[4]),
             ),
             (
-                Plane::new(pos[3], pos[2], pos[6]).unwrap(),
                 Triangle::new(pos[3], pos[2], pos[6]),
                 Triangle::new(pos[6], pos[7], pos[3]),
             ),
@@ -155,18 +149,19 @@ impl DrawComponent for Cuboid {
     fn draw(&mut self, ctx: &mut Context) {
         ctx.gfx_context.model_transform = self.model_matrix();
 
+        let mut color = (0, 0, 0).into();
         if self.moused_over {
-            ctx.gfx_context.model_transform = self.model_matrix() * Mat4::scalar_from_one(1.1);
+            color = (1, 1, 1).into();
         }
 
         let mut plane_verts = vec![];
-        for (_plane, tri_one, tri_two) in self.planes.iter() {
-            plane_verts.push((tri_one.p1, (1, 1, 1).into()));
-            plane_verts.push((tri_one.p2, (1, 1, 1).into()));
-            plane_verts.push((tri_one.p3, (1, 1, 1).into()));
-            plane_verts.push((tri_two.p1, (1, 1, 1).into()));
-            plane_verts.push((tri_two.p2, (1, 1, 1).into()));
-            plane_verts.push((tri_two.p3, (1, 1, 1).into()));
+        for (tri_one, tri_two) in self.planes.iter() {
+            plane_verts.push((tri_one.p0, color));
+            plane_verts.push((tri_one.p1, color));
+            plane_verts.push((tri_one.p2, color));
+            plane_verts.push((tri_two.p0, color));
+            plane_verts.push((tri_two.p1, color));
+            plane_verts.push((tri_two.p2, color));
         }
 
         ctx.draw(&Topology::TriangleList(PolygonMode::Line), &plane_verts);
@@ -193,7 +188,16 @@ impl MouseComponent for Cuboid {
         let mut to_return: Option<Vec3> = None;
         let mut final_t = 0.0;
         let model = self.model_matrix();
-        for (plane, tri_one, tri_two) in self.planes.iter_mut() {
+        for (tri_one, tri_two) in self.planes.iter_mut() {
+            let p0 = model * Vec4::from_vec3(tri_two.p0);
+            let p1 = model * Vec4::from_vec3(tri_two.p1);
+            let p2 = model * Vec4::from_vec3(tri_two.p2);
+            println!("p0: {:#?}", p0);
+            let p0 = p0.truncate(Dim::W);
+            let p1 = p1.truncate(Dim::W);
+            let p2 = p2.truncate(Dim::W);
+            let plane = Plane::new(p0, p1, p2).unwrap();
+
             let plane_point = model * Vec4::from_vec3(plane.point);
             let t = -((camera_origin.dot(&plane.norm))
                 + (plane.norm.dot(&plane_point.truncate(Dim::W))))
@@ -202,73 +206,56 @@ impl MouseComponent for Cuboid {
             if t > 0.0 {
                 // On plane, check for triangle bounds
                 let point = t * mouse_direction + camera_origin;
+                let p0 = model * Vec4::from_vec3(tri_one.p0);
                 let p1 = model * Vec4::from_vec3(tri_one.p1);
                 let p2 = model * Vec4::from_vec3(tri_one.p2);
-                let p3 = model * Vec4::from_vec3(tri_one.p3);
-                let mut in_bounds = true; // this gets flipped to false if fail for first triangle
+                let p0 = p0.truncate(Dim::W);
                 let p1 = p1.truncate(Dim::W);
                 let p2 = p2.truncate(Dim::W);
-                let p3 = p3.truncate(Dim::W);
 
-                // edge 1
-                let edge = p2 - p1;
-                let vp = point - p1;
-                let cross = edge.cross(&vp);
-                if plane.norm.dot(&cross) < 0.0 {
-                    in_bounds = false;
-                }
+                // BARYCENTRIC TEST
+                // ref http://blackpawn.com/texts/pointinpoly/default.html
+                // and https://en.wikipedia.org/wiki/Barycentric_coordinate_system
+                let v0 = p2 - p0;
+                let v1 = p1 - p0;
+                let v2 = point - p0;
 
-                // edge 2
-                let edge = p3 - p2;
-                let vp = point - p2;
-                let cross = edge.cross(&vp);
-                if plane.norm.dot(&cross) < 0.0 {
-                    in_bounds = false;
-                }
+                let dot00 = v0.dot(&v0);
+                let dot01 = v0.dot(&v1);
+                let dot02 = v0.dot(&v2);
+                let dot11 = v1.dot(&v1);
+                let dot12 = v1.dot(&v2);
 
-                // edge 3
-                let edge = p1 - p3;
-                let vp = point - p3;
-                let cross = edge.cross(&vp);
-                if plane.norm.dot(&cross) < 0.0 {
-                    in_bounds = false;
-                }
+                let inv_denom = 1.0 / ((dot00 * dot11) - (dot01 * dot01));
 
-                if !in_bounds {
+                let u = ((dot11 * dot02) - (dot01 * dot12)) * inv_denom;
+                let v = ((dot00 * dot12) - (dot01 * dot02)) * inv_denom;
+
+                if u < 0.0 || v < 0.0 || (u + v > 1.0) {
                     // not in first
+                    let p0 = model * Vec4::from_vec3(tri_two.p0);
                     let p1 = model * Vec4::from_vec3(tri_two.p1);
                     let p2 = model * Vec4::from_vec3(tri_two.p2);
-                    let p3 = model * Vec4::from_vec3(tri_two.p3);
-                    let mut in_bounds = true;
+                    let p0 = p0.truncate(Dim::W);
                     let p1 = p1.truncate(Dim::W);
                     let p2 = p2.truncate(Dim::W);
-                    let p3 = p3.truncate(Dim::W);
 
-                    // edge 1
-                    let edge = p2 - p1;
-                    let vp = point - p1;
-                    let cross = edge.cross(&vp);
-                    if plane.norm.dot(&cross) < 0.0 {
-                        in_bounds = false;
-                    }
+                    let v0 = p2 - p0;
+                    let v1 = p1 - p0;
+                    let v2 = point - p0;
 
-                    // edge 2
-                    let edge = p3 - p2;
-                    let vp = point - p2;
-                    let cross = edge.cross(&vp);
-                    if plane.norm.dot(&cross) < 0.0 {
-                        in_bounds = false;
-                    }
+                    let dot00 = v0.dot(&v0);
+                    let dot01 = v0.dot(&v1);
+                    let dot02 = v0.dot(&v2);
+                    let dot11 = v1.dot(&v1);
+                    let dot12 = v1.dot(&v2);
 
-                    // edge 3
-                    let edge = p1 - p3;
-                    let vp = point - p3;
-                    let cross = edge.cross(&vp);
-                    if plane.norm.dot(&cross) < 0.0 {
-                        in_bounds = false;
-                    }
+                    let inv_denom = 1.0 / ((dot00 * dot11) - (dot01 * dot01));
 
-                    if !in_bounds {
+                    let u = ((dot11 * dot02) - (dot01 * dot12)) * inv_denom;
+                    let v = ((dot00 * dot12) - (dot01 * dot02)) * inv_denom;
+
+                    if u < 0.0 || v < 0.0 || (u + v > 1.0) {
                         // both failed, continue
                         continue;
                     }
