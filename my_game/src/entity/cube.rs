@@ -1,4 +1,6 @@
 use super::component::*;
+use super::plane::Plane;
+use super::triangle::Triangle;
 use super::Entity;
 use my_engine::context::Context;
 use my_engine::graphics::Drawable;
@@ -78,10 +80,12 @@ pub fn cuboid_default_colors() -> [Vec3; 8] {
 
 pub struct Cuboid {
     vertices: Vec<(Vec3, Vec3)>,
+    planes: [(Plane, Triangle, Triangle); 6],
     indices: [u16; 36],
     pub draw_mode: PolygonMode,
     pub position: Vec3,
     pub rotation: Mat4,
+    pub moused_over: bool,
 }
 
 impl Cuboid {
@@ -96,29 +100,190 @@ impl Cuboid {
             vertices.push((pos[i], colors[i]));
         }
 
+        let planes = [
+            (
+                Plane::new(pos[0], pos[1], pos[2]).unwrap(),
+                Triangle::new(pos[0], pos[1], pos[2]),
+                Triangle::new(pos[2], pos[3], pos[0]),
+            ),
+            (
+                Plane::new(pos[1], pos[5], pos[6]).unwrap(),
+                Triangle::new(pos[1], pos[5], pos[6]),
+                Triangle::new(pos[6], pos[2], pos[1]),
+            ),
+            (
+                Plane::new(pos[7], pos[6], pos[5]).unwrap(),
+                Triangle::new(pos[7], pos[6], pos[5]),
+                Triangle::new(pos[5], pos[4], pos[7]),
+            ),
+            (
+                Plane::new(pos[4], pos[0], pos[3]).unwrap(),
+                Triangle::new(pos[4], pos[0], pos[3]),
+                Triangle::new(pos[3], pos[7], pos[4]),
+            ),
+            (
+                Plane::new(pos[4], pos[5], pos[1]).unwrap(),
+                Triangle::new(pos[4], pos[5], pos[1]),
+                Triangle::new(pos[1], pos[0], pos[4]),
+            ),
+            (
+                Plane::new(pos[3], pos[2], pos[6]).unwrap(),
+                Triangle::new(pos[3], pos[2], pos[6]),
+                Triangle::new(pos[6], pos[7], pos[3]),
+            ),
+        ];
+
         Cuboid {
             vertices,
+            planes,
             indices: cube_indices(),
             draw_mode: draw_mode.unwrap_or(PolygonMode::Fill),
             position,
             rotation: Mat4::identity(),
+            moused_over: false,
         }
     }
 }
 
 impl Entity for Cuboid {
-    fn update(&mut self, _ctx: &mut Context) {}
+    fn update(&mut self, _ctx: &mut Context) {
+        self.moused_over = false;
+    }
 }
 
 impl DrawComponent for Cuboid {
     fn draw(&mut self, ctx: &mut Context) {
         ctx.gfx_context.model_transform = self.model_matrix();
+
+        if self.moused_over {
+            ctx.gfx_context.model_transform = self.model_matrix() * Mat4::scalar_from_one(1.1);
+        }
+
         ctx.draw_indexed(&self.draw_mode(), self.vertices(), self.indices().unwrap());
     }
 }
 
 impl AsComponent for Cuboid {}
-impl AsMouseable for Cuboid {}
+
+impl MouseComponent for Cuboid {
+    fn click_start(&mut self, _ctx: &mut Context) {}
+    fn click_end(&mut self, _ctx: &mut Context) {}
+
+    fn mouse_over(&mut self, _pos: Vec3) {
+        self.moused_over = true;
+    }
+
+    fn check_collision(
+        &mut self,
+        camera_origin: Vec3,
+        mouse_direction: Vec3,
+    ) -> Option<(&mut dyn MouseComponent, Vec3)> {
+        let mut to_return: Option<Vec3> = None;
+        let model = self.model_matrix();
+        for (plane, tri_one, tri_two) in self.planes.iter_mut() {
+            let plane_point = model * Vec4::from_vec3(plane.point);
+            let t = -((camera_origin.dot(&plane.norm))
+                + (plane.norm.dot(&plane_point.truncate(Dim::W))))
+                / (mouse_direction.dot(&plane.norm));
+
+            if t > 0.0 {
+                // On plane, check for triangle bounds
+                let point = t * mouse_direction + camera_origin;
+                let p1 = model * Vec4::from_vec3(tri_one.p1);
+                let p2 = model * Vec4::from_vec3(tri_one.p2);
+                let p3 = model * Vec4::from_vec3(tri_one.p3);
+                let mut in_bounds = true; // this gets flipped to false if fail for first triangle
+                let p1 = p1.truncate(Dim::W);
+                let p2 = p2.truncate(Dim::W);
+                let p3 = p3.truncate(Dim::W);
+
+                // edge 1
+                let edge = p2 - p1;
+                let vp = point - p1;
+                let cross = edge.cross(&vp);
+                if plane.norm.dot(&cross) < 0.0 {
+                    in_bounds = false;
+                }
+
+                // edge 2
+                let edge = p3 - p2;
+                let vp = point - p2;
+                let cross = edge.cross(&vp);
+                if plane.norm.dot(&cross) < 0.0 {
+                    in_bounds = false;
+                }
+
+                // edge 3
+                let edge = p1 - p3;
+                let vp = point - p3;
+                let cross = edge.cross(&vp);
+                if plane.norm.dot(&cross) < 0.0 {
+                    in_bounds = false;
+                }
+
+                if !in_bounds {
+                    // not in first
+                    let p1 = model * Vec4::from_vec3(tri_two.p1);
+                    let p2 = model * Vec4::from_vec3(tri_two.p2);
+                    let p3 = model * Vec4::from_vec3(tri_two.p3);
+                    let mut in_bounds = true;
+                    let p1 = p1.truncate(Dim::W);
+                    let p2 = p2.truncate(Dim::W);
+                    let p3 = p3.truncate(Dim::W);
+
+                    // edge 1
+                    let edge = p2 - p1;
+                    let vp = point - p1;
+                    let cross = edge.cross(&vp);
+                    if plane.norm.dot(&cross) < 0.0 {
+                        in_bounds = false;
+                    }
+
+                    // edge 2
+                    let edge = p3 - p2;
+                    let vp = point - p2;
+                    let cross = edge.cross(&vp);
+                    if plane.norm.dot(&cross) < 0.0 {
+                        in_bounds = false;
+                    }
+
+                    // edge 3
+                    let edge = p1 - p3;
+                    let vp = point - p3;
+                    let cross = edge.cross(&vp);
+                    if plane.norm.dot(&cross) < 0.0 {
+                        in_bounds = false;
+                    }
+
+                    if !in_bounds {
+                        // both failed, continue
+                        continue;
+                    }
+                }
+
+                if let Some(other) = to_return {
+                    if (point - camera_origin).magnitude() < (other - camera_origin).magnitude() {
+                        to_return = Some(point);
+                    }
+                } else {
+                    to_return = Some(point);
+                }
+            }
+        }
+
+        if let Some(point) = to_return {
+            Some((self, point))
+        } else {
+            None
+        }
+    }
+}
+
+impl AsMouseable for Cuboid {
+    fn as_mouseable(&mut self) -> Option<&mut dyn MouseComponent> {
+        Some(self)
+    }
+}
 
 impl AsDrawable for Cuboid {
     fn as_drawable(&mut self) -> Option<&mut dyn DrawComponent> {

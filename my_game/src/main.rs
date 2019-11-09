@@ -14,6 +14,7 @@ use my_engine::winit::VirtualKeyCode;
 use my_engine::math::*;
 
 mod camera;
+use camera::my_camera::Camera;
 mod entity;
 
 use entity::cube::Cuboid;
@@ -23,7 +24,6 @@ struct State {
     frame: u32,
     entity_manager: EntityManager,
     plane: Vec<(Vec3, Vec3)>,
-    camera: camera::my_camera::Camera,
     mouse_down: bool,
 }
 
@@ -48,16 +48,17 @@ impl EventHandler for State {
         //    self.camera.update_pitch_and_angle(ctx);
         //}
         for key in keyboard::pressed_keys(ctx).iter() {
-            self.camera.process_keypress(*key);
+            self.entity_manager.camera.process_keypress(*key);
         }
 
         if self.mouse_down {
             let delta = mouse::delta(ctx);
-            self.camera
+            self.entity_manager
+                .camera
                 .process_mouse_move((delta.x * 1.0, delta.y * 1.0).into());
         }
 
-        ctx.gfx_context.view_transform = self.camera.view_matrix();
+        ctx.gfx_context.view_transform = self.entity_manager.camera.view_matrix();
         //ctx.gfx_context.view_transform = Mat4::identity();
         //ctx.gfx_context.projection_transform = Mat4::identity();
         self.entity_manager.update(ctx);
@@ -70,7 +71,7 @@ impl EventHandler for State {
         keycode: VirtualKeyCode,
         _keymods: ModifiersState,
     ) {
-        self.camera.process_keyrelease(keycode);
+        self.entity_manager.camera.process_keyrelease(keycode);
     }
 
     fn mouse_button_down_event(&mut self, _ctx: &mut Context, button: MouseButton, x: f64, y: f64) {
@@ -111,11 +112,14 @@ impl EventHandler for State {
         self.mouse_down = false;
 
         println!("resize_event: width: {}, height: {}", width, height);
-        self.camera.set_aspect((width, height));
-        println!("new camera: {:#?}", self.camera);
-        println!("view_matrix: {:#?}", self.camera.view_matrix());
-        ctx.gfx_context.view_transform = self.camera.view_matrix();
-        ctx.gfx_context.projection_transform = self.camera.projection_matrix();
+        self.entity_manager.camera.set_aspect((width, height));
+        println!("new camera: {:#?}", self.entity_manager.camera);
+        println!(
+            "view_matrix: {:#?}",
+            self.entity_manager.camera.view_matrix()
+        );
+        ctx.gfx_context.view_transform = self.entity_manager.camera.view_matrix();
+        ctx.gfx_context.projection_transform = self.entity_manager.camera.projection_matrix();
     }
 }
 
@@ -185,17 +189,15 @@ fn generate_cubes(state: &mut State) {
     let cube = Cuboid::cube(5.0, (5, 5, 5).into(), None);
     state.entity_manager.push_entity(cube);
 
-    let cube = Cuboid::cube(100.0, (0, -105, 0).into(), None);
-    state.entity_manager.push_entity(cube);
+    //let cube = Cuboid::cube(100.0, (0, -105, 0).into(), None);
+    //state.entity_manager.push_entity(cube);
 }
 
 fn main() {
     let (ctx, event_loop) = Context::new();
     let mut my_game = State {
         frame: 0,
-        entity_manager: EntityManager::new(),
-        plane: generate_grid(50),
-        camera: camera::my_camera::Camera::new(
+        entity_manager: EntityManager::new(Camera::new(
             Vec3::new_from_one(1),
             Vec3::new_from_one(0),
             (0, -1, 0).into(),
@@ -204,7 +206,9 @@ fn main() {
             100.0,
             0.5,
             100.0,
-        ),
+        )),
+        plane: generate_grid(50),
+
         mouse_down: false,
     };
 

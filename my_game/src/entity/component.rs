@@ -1,4 +1,5 @@
 use super::Context;
+use my_engine::math::Vec3;
 
 pub trait AsComponent: AsDrawable + AsMouseable {}
 
@@ -18,6 +19,12 @@ pub trait MouseComponent {
     // TODO think about x/y/z and hover events
     fn click_start(&mut self, ctx: &mut Context);
     fn click_end(&mut self, ctx: &mut Context);
+    fn mouse_over(&mut self, pos: Vec3);
+    fn check_collision(
+        &mut self,
+        camera_origin: Vec3,
+        mouse_direction: Vec3,
+    ) -> Option<(&mut dyn MouseComponent, Vec3)>;
 }
 
 pub trait AsMouseable {

@@ -4,10 +4,15 @@ use my_engine::math::Dim;
 use my_engine::math::Vec3;
 use my_engine::math::Vec4;
 
+use crate::camera::my_camera::Camera;
+
 pub mod component;
 use component::AsComponent;
+use component::MouseComponent;
 
 pub mod cube;
+pub mod plane;
+pub mod triangle;
 
 #[allow(dead_code)]
 enum Message {
@@ -22,6 +27,7 @@ pub trait Entity: AsComponent {
 
 #[allow(dead_code)]
 pub struct EntityManager {
+    pub camera: Camera,
     entities: Vec<Box<dyn Entity>>,
     commands: Vec<Box<dyn Command>>,
 }
@@ -33,8 +39,9 @@ pub trait Command {
 }
 
 impl EntityManager {
-    pub fn new() -> Self {
+    pub fn new(camera: Camera) -> Self {
         Self {
+            camera,
             entities: vec![],
             commands: vec![],
         }
@@ -47,7 +54,7 @@ impl EntityManager {
 
         println!("NDC COORD {:?}, {:?}", ndc_x, ndc_y);
 
-        let clip = Vec4::new(ndc_x, ndc_y, -1.0, 1.0);
+        let clip = Vec4::new(ndc_x, ndc_y, 0.0, 1.0);
         let mut eye = if let Some(inv_proj) = ctx.gfx_context.projection_transform.invert() {
             inv_proj * clip
         } else {
@@ -68,11 +75,38 @@ impl EntityManager {
 
     pub fn update(&mut self, ctx: &mut Context) {
         let mouse_ray = Self::get_mouse_ray(ctx);
-        println!("mouse ray {:#?}", mouse_ray);
+        println!(
+            "mouse ray {:#?}, camera_pos: {:#?}",
+            mouse_ray, self.camera.origin
+        );
 
-        self.entities
-            .iter_mut()
-            .for_each(|entity| entity.update(ctx));
+        let camera_origin = self.camera.origin;
+        let mut closest: Option<(&mut dyn MouseComponent, Vec3)> = None;
+        self.entities.iter_mut().for_each(|entity| {
+            entity.update(ctx);
+            if let Some(mouse_ray) = mouse_ray {
+                if let Some(mousable) = entity.as_mouseable() {
+                    if let Some(hit) = mousable.check_collision(camera_origin, mouse_ray) {
+                        if let Some(other) = &closest {
+                            if (hit.1 - camera_origin).magnitude()
+                                < (other.1 - camera_origin).magnitude()
+                            {
+                                // hit is closer
+                                closest = Some(hit);
+                            }
+                        } else {
+                            // no other hit yet
+                            closest = Some(hit);
+                        }
+                    }
+                }
+            }
+        });
+
+        if let Some(hit) = closest {
+            println!("hit pos : {:#?} ", hit.1);
+            hit.0.mouse_over(hit.1);
+        }
     }
 
     pub fn draw(&mut self, ctx: &mut Context) {
