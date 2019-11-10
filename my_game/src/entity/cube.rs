@@ -2,11 +2,14 @@ use super::component::*;
 use super::plane::Plane;
 use super::triangle::Triangle;
 use super::Entity;
+use crate::camera::my_camera::Camera;
 use my_engine::context::Context;
 use my_engine::graphics::Drawable;
 use my_engine::graphics::PolygonMode;
 use my_engine::graphics::Topology;
+use my_engine::input::mouse;
 use my_engine::math::*;
+use my_engine::winit::MouseButton;
 
 pub fn _get_unit_cube_verts() -> [Vec3; 8] {
     [
@@ -86,6 +89,9 @@ pub struct Cuboid {
     pub position: Vec3,
     pub rotation: Mat4,
     pub moused_over: bool,
+    pub debug_points: Vec<(Vec3, Vec3)>,
+    pub debug_col_lines: Vec<(Vec3, Vec3)>,
+    pub debug_lines: Vec<(Vec3, Vec3)>,
 }
 
 impl Cuboid {
@@ -135,6 +141,9 @@ impl Cuboid {
             position,
             rotation: Mat4::identity(),
             moused_over: false,
+            debug_points: vec![],
+            debug_col_lines: vec![],
+            debug_lines: vec![],
         }
     }
 }
@@ -147,8 +156,6 @@ impl Entity for Cuboid {
 
 impl DrawComponent for Cuboid {
     fn draw(&mut self, ctx: &mut Context) {
-        ctx.gfx_context.model_transform = self.model_matrix();
-
         let mut color = (0, 0, 0).into();
         if self.moused_over {
             color = (1, 1, 1).into();
@@ -164,6 +171,15 @@ impl DrawComponent for Cuboid {
             plane_verts.push((tri_two.p2, color));
         }
 
+        ctx.gfx_context.model_transform = Mat4::identity();
+        ctx.draw(&Topology::PointList(PolygonMode::Fill), &self.debug_points);
+        ctx.draw(&Topology::LineList(PolygonMode::Fill), &self.debug_lines);
+        ctx.draw(
+            &Topology::LineList(PolygonMode::Fill),
+            &self.debug_col_lines,
+        );
+
+        ctx.gfx_context.model_transform = self.model_matrix();
         ctx.draw(&Topology::TriangleList(PolygonMode::Line), &plane_verts);
 
         ctx.draw_indexed(&self.draw_mode(), self.vertices(), self.indices().unwrap());
@@ -176,36 +192,64 @@ impl MouseComponent for Cuboid {
     fn click_start(&mut self, _ctx: &mut Context) {}
     fn click_end(&mut self, _ctx: &mut Context) {}
 
-    fn mouse_over(&mut self, _pos: Vec3) {
+    fn mouse_over(&mut self, ctx: &mut Context, _pos: Vec3, camera: &Camera) {
         self.moused_over = true;
+
+        if mouse::button_pressed(ctx, MouseButton::Left) {
+            let delta = mouse::delta(ctx);
+
+            let delta_x = delta.x * camera.u;
+            let delta_y = delta.y * camera.v;
+            let trans = delta_x + delta_y;
+
+            self.translate(trans.into());
+        }
     }
 
     fn check_collision(
         &mut self,
+        ctx: &mut Context,
         camera_origin: Vec3,
         mouse_direction: Vec3,
     ) -> Option<(&mut dyn MouseComponent, Vec3, f64)> {
         let mut to_return: Option<Vec3> = None;
         let mut final_t = 0.0;
+        let mut plane_points = vec![];
+        let mut plane_col_lines = vec![];
+
+        plane_col_lines.push((camera_origin, (0, 0, 1).into()));
+        plane_col_lines.push((camera_origin + mouse_direction, (0, 1, 0).into()));
+
+        plane_points.push((camera_origin, (0, 0, 1).into()));
+        plane_points.push((camera_origin + mouse_direction, (0, 1, 0).into()));
+
+        let mut plane_lines = vec![];
         let model = self.model_matrix();
         for (tri_one, tri_two) in self.planes.iter_mut() {
             let p0 = model * Vec4::from_vec3(tri_two.p0);
             let p1 = model * Vec4::from_vec3(tri_two.p1);
             let p2 = model * Vec4::from_vec3(tri_two.p2);
-            println!("p0: {:#?}", p0);
             let p0 = p0.truncate(Dim::W);
             let p1 = p1.truncate(Dim::W);
             let p2 = p2.truncate(Dim::W);
             let plane = Plane::new(p0, p1, p2).unwrap();
+            println!(
+                "p0: {:#?}, norm: {:#?}, from: {:#?} dir: {:#?}",
+                plane.point, plane.norm, camera_origin, mouse_direction
+            );
 
-            let plane_point = model * Vec4::from_vec3(plane.point);
-            let t = -((camera_origin.dot(&plane.norm))
-                + (plane.norm.dot(&plane_point.truncate(Dim::W))))
+            plane_lines.push((plane.point, (1, 0, 0).into()));
+            plane_lines.push((plane.point + plane.norm, (1, 0, 0).into()));
+            let t = -((camera_origin.dot(&plane.norm)) - (plane.norm.dot(&plane.point)))
                 / (mouse_direction.dot(&plane.norm));
+            println!("D: {:?}", plane.norm.dot(&plane.point));
+
+            //-((camera_origin.dot(&plane.norm)) + plane.d) / (mouse_direction.dot(&plane.norm));
 
             if t > 0.0 {
                 // On plane, check for triangle bounds
-                let point = t * mouse_direction + camera_origin;
+                let point = (t * mouse_direction) + camera_origin;
+
                 let p0 = model * Vec4::from_vec3(tri_one.p0);
                 let p1 = model * Vec4::from_vec3(tri_one.p1);
                 let p2 = model * Vec4::from_vec3(tri_one.p2);
@@ -257,9 +301,15 @@ impl MouseComponent for Cuboid {
 
                     if u < 0.0 || v < 0.0 || (u + v > 1.0) {
                         // both failed, continue
+                        plane_points.push((point, (1, 0, 0).into()));
+                        plane_col_lines.push((point, (1, 0, 0).into()));
+                        plane_col_lines.push((point + plane.norm, (1, 0, 0).into()));
                         continue;
                     }
                 }
+                plane_points.push((point, (1, 1, 1).into()));
+                plane_col_lines.push((point, (1, 1, 1).into()));
+                plane_col_lines.push((point + plane.norm, (1, 1, 1).into()));
 
                 if let Some(other) = to_return {
                     if (point - camera_origin).magnitude() < (other - camera_origin).magnitude() {
@@ -272,6 +322,12 @@ impl MouseComponent for Cuboid {
                 }
             }
         }
+
+        if mouse::button_pressed(ctx, MouseButton::Middle) {
+            self.debug_points = plane_points;
+            self.debug_col_lines = plane_col_lines;
+        }
+        self.debug_lines = plane_lines;
 
         if let Some(point) = to_return {
             Some((self, point, final_t))

@@ -86,7 +86,7 @@ impl EntityManager {
             entity.update(ctx);
             if let Some(mouse_ray) = mouse_ray {
                 if let Some(mousable) = entity.as_mouseable() {
-                    if let Some(hit) = mousable.check_collision(camera_origin, mouse_ray) {
+                    if let Some(hit) = mousable.check_collision(ctx, camera_origin, mouse_ray) {
                         if let Some(other) = &closest {
                             if (hit.1 - camera_origin).magnitude()
                                 < (other.1 - camera_origin).magnitude()
@@ -105,7 +105,7 @@ impl EntityManager {
 
         if let Some(hit) = closest {
             println!("hit pos : {:#?}, t: {:#?} ", hit.1, hit.2);
-            hit.0.mouse_over(hit.1);
+            hit.0.mouse_over(ctx, hit.1, &self.camera);
         }
     }
 

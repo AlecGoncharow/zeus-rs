@@ -78,7 +78,10 @@ impl EventHandler for State {
         println!("Mouse button pressed: {:?}, x: {}, y: {}", button, x, y);
         //self.points.push(Vec3::new(x, y, 0.0));
 
-        self.mouse_down = true;
+        match button {
+            MouseButton::Right => self.mouse_down = true,
+            _ => (),
+        }
     }
 
     fn mouse_button_up_event(&mut self, _ctx: &mut Context, button: MouseButton, x: f64, y: f64) {
@@ -86,7 +89,10 @@ impl EventHandler for State {
         //self.points.push(Vec3::new(x, y, 0.0));
         //self.camera.update_pitch_and_angle(ctx);
 
-        self.mouse_down = false;
+        match button {
+            MouseButton::Right => self.mouse_down = false,
+            _ => (),
+        }
     }
 
     fn mouse_wheel_event(&mut self, _ctx: &mut Context, x: f64, y: f64) {
@@ -193,6 +199,14 @@ fn generate_cubes(state: &mut State) {
     //state.entity_manager.push_entity(cube);
 }
 
+fn generate_debug_cube(state: &mut State) {
+    let cube = Cuboid::cube(1.0, (0, 0, 0).into(), None);
+    state.entity_manager.push_entity(cube);
+
+    //let cube = Cuboid::cube(100.0, (0, -105, 0).into(), None);
+    //state.entity_manager.push_entity(cube);
+}
+
 fn main() {
     let (ctx, event_loop) = Context::new();
     let mut my_game = State {
@@ -212,7 +226,7 @@ fn main() {
         mouse_down: false,
     };
 
-    generate_cubes(&mut my_game);
+    generate_debug_cube(&mut my_game);
 
     let _ = my_engine::event::run(event_loop, ctx, my_game);
 }
