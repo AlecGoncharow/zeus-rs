@@ -1,4 +1,3 @@
-use my_engine::math::Mat3;
 use my_engine::math::Vec3;
 
 pub struct Plane {

@@ -199,14 +199,6 @@ fn generate_cubes(state: &mut State) {
     //state.entity_manager.push_entity(cube);
 }
 
-fn generate_debug_cube(state: &mut State) {
-    let cube = Cuboid::cube(1.0, (0, 0, 0).into(), None);
-    state.entity_manager.push_entity(cube);
-
-    //let cube = Cuboid::cube(100.0, (0, -105, 0).into(), None);
-    //state.entity_manager.push_entity(cube);
-}
-
 fn main() {
     let (ctx, event_loop) = Context::new();
     let mut my_game = State {
@@ -226,7 +218,7 @@ fn main() {
         mouse_down: false,
     };
 
-    generate_debug_cube(&mut my_game);
+    generate_cubes(&mut my_game);
 
     let _ = my_engine::event::run(event_loop, ctx, my_game);
 }
