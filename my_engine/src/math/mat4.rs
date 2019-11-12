@@ -153,7 +153,6 @@ impl Mat4 {
                     self.w.truncate(Dim::Y),
                 )
                 .determinate(),
-
                 z: Mat3::new(
                     self.y.truncate(Dim::Z),
                     self.z.truncate(Dim::Z),
@@ -209,7 +208,6 @@ impl Mat4 {
                     self.w.truncate(Dim::Y),
                 )
                 .determinate(),
-
                 z: Mat3::new(
                     self.x.truncate(Dim::Z),
                     self.y.truncate(Dim::Z),
@@ -237,7 +235,6 @@ impl Mat4 {
                     self.z.truncate(Dim::Y),
                 )
                 .determinate(),
-
                 z: Mat3::new(
                     self.x.truncate(Dim::Z),
                     self.y.truncate(Dim::Z),
