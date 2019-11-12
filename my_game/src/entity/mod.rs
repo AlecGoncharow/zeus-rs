@@ -52,8 +52,6 @@ impl EntityManager {
         let ndc_x = (2.0 * mouse_pos.x) / ctx.gfx_context.window_dims.width - 1.0;
         let ndc_y = (2.0 * mouse_pos.y) / ctx.gfx_context.window_dims.height - 1.0;
 
-        println!("NDC COORD {:?}, {:?}", ndc_x, ndc_y);
-
         let clip = Vec4::new(ndc_x, ndc_y, 0.0, 1.0);
         let mut eye = if let Some(inv_proj) = ctx.gfx_context.projection_transform.invert() {
             inv_proj * clip
@@ -75,10 +73,6 @@ impl EntityManager {
 
     pub fn update(&mut self, ctx: &mut Context) {
         let mouse_ray = Self::get_mouse_ray(ctx);
-        println!(
-            "mouse ray {:#?}, camera_pos: {:#?}",
-            mouse_ray, self.camera.origin
-        );
 
         let camera_origin = self.camera.origin;
         let mut closest: Option<(&mut dyn MouseComponent, Vec3, f64)> = None;
