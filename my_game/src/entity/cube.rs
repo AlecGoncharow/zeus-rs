@@ -178,14 +178,18 @@ impl MouseComponent for Cuboid {
     fn click_start(&mut self, _ctx: &mut Context) {}
     fn click_end(&mut self, _ctx: &mut Context) {}
 
-    fn mouse_over(&mut self, ctx: &mut Context, _pos: Vec3, camera: &Camera) {
+    fn mouse_over(&mut self, ctx: &mut Context, pos: Vec3, camera: &Camera) {
         self.moused_over = true;
 
         if mouse::button_pressed(ctx, MouseButton::Left) {
             let delta = mouse::delta(ctx);
+            println!("delta: {:#?}", delta);
 
-            let delta_x = delta.x * camera.u;
-            let delta_y = delta.y * camera.v;
+            let ndc_x = delta.x / ctx.gfx_context.window_dims.width;
+            let ndc_y = delta.y / ctx.gfx_context.window_dims.height;
+
+            let delta_x = (pos - camera.origin).magnitude() * ndc_x * camera.u;
+            let delta_y = (pos - camera.origin).magnitude() * ndc_y * camera.v;
             let trans = delta_x + delta_y;
 
             self.translate(trans.into());
