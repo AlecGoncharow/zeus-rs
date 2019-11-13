@@ -202,26 +202,22 @@ impl MouseComponent for Cuboid {
         let mut final_t = 0.0;
         let model = self.model_matrix();
         for (tri_one, tri_two) in self.planes.iter_mut() {
-            let p0 = model * Vec4::from_vec3(tri_two.p0);
-            let p1 = model * Vec4::from_vec3(tri_two.p1);
-            let p2 = model * Vec4::from_vec3(tri_two.p2);
+            let p0 = model * Vec4::from_vec3(tri_one.p0);
+            let p1 = model * Vec4::from_vec3(tri_one.p1);
+            let p2 = model * Vec4::from_vec3(tri_one.p2);
             let p0 = p0.truncate(Dim::W);
             let p1 = p1.truncate(Dim::W);
             let p2 = p2.truncate(Dim::W);
             let plane = Plane::new(p0, p1, p2).unwrap();
+            // http://antongerdelan.net/opengl/raycasting.html
+            // solve for t = -(O dot norm) + (d) / (norm dot direction)
+            // plane:  point dot norm + d = 0 -> point dot norm = -d
             let t = -((camera_origin.dot(&plane.norm)) - (plane.norm.dot(&plane.point)))
                 / (mouse_direction.dot(&plane.norm));
 
             if t > 0.0 {
                 // On plane, check for triangle bounds
                 let point = (t * mouse_direction) + camera_origin;
-
-                let p0 = model * Vec4::from_vec3(tri_one.p0);
-                let p1 = model * Vec4::from_vec3(tri_one.p1);
-                let p2 = model * Vec4::from_vec3(tri_one.p2);
-                let p0 = p0.truncate(Dim::W);
-                let p1 = p1.truncate(Dim::W);
-                let p2 = p2.truncate(Dim::W);
 
                 // BARYCENTRIC TEST
                 // ref http://blackpawn.com/texts/pointinpoly/default.html
