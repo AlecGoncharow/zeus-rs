@@ -111,11 +111,11 @@ impl Context {
         }
     }
 
-    pub fn draw(&mut self, mode: &Topology, verts: &Vec<(Vec3, Vec3)>) {
+    pub fn draw(&mut self, mode: Topology, verts: &[(Vec3, Vec3)]) {
         self.gfx_context.draw(mode, verts);
     }
 
-    pub fn draw_indexed(&mut self, mode: &Topology, verts: &Vec<(Vec3, Vec3)>, indices: &[u16]) {
+    pub fn draw_indexed(&mut self, mode: Topology, verts: &[(Vec3, Vec3)], indices: &[u16]) {
         self.gfx_context.draw_indexed(mode, verts, indices);
     }
 

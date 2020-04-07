@@ -46,3 +46,9 @@ impl TimeContext {
         seconds + (nanos * 1e-9)
     }
 }
+
+impl Default for TimeContext {
+    fn default() -> Self {
+        Self::new()
+    }
+}

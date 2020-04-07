@@ -72,12 +72,12 @@ pub fn cursor_hidden(ctx: &Context) -> bool {
 /// Complement to [`set_position()`](fn.set_position.html).
 /// Uses strictly window-only coordinates.
 pub fn position(ctx: &Context) -> Vec2 {
-    ctx.mouse_context.last_position.into()
+    ctx.mouse_context.last_position
 }
 
 /// Get the distance the cursor was moved during last frame, in pixels.
 pub fn delta(ctx: &Context) -> Vec2 {
-    ctx.mouse_context.last_delta.into()
+    ctx.mouse_context.last_delta
 }
 
 /// Returns whether or not the given mouse button is pressed.

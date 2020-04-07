@@ -20,7 +20,7 @@ pub enum Topology {
 }
 
 impl Topology {
-    pub fn inner(&self) -> PolygonMode {
+    pub fn inner(self) -> PolygonMode {
         match self {
             Topology::PointList(PolygonMode::Fill)
             | Topology::LineList(PolygonMode::Fill)
@@ -73,7 +73,7 @@ impl Topology {
             Topology::TriangleFan(PolygonMode::Point),
         ];
 
-        TOPOLOGIES.into_iter()
+        TOPOLOGIES.iter()
     }
 }
 

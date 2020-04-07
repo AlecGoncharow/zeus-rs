@@ -378,10 +378,10 @@ impl Mul<Mat4> for Mat4 {
 
     fn mul(self, rhs: Self) -> Self {
         Self {
-            x: &self * rhs.x,
-            y: &self * rhs.y,
-            z: &self * rhs.z,
-            w: &self * rhs.w,
+            x: self * rhs.x,
+            y: self * rhs.y,
+            z: self * rhs.z,
+            w: self * rhs.w,
         }
     }
 }
@@ -417,8 +417,9 @@ impl Mul<Vec4> for Mat4 {
 }
 
 ///T,T
-impl<T: Into<f64>> From<(((T, T, T, T), (T, T, T, T), (T, T, T, T), (T, T, T, T)))> for Mat4 {
-    fn from(tuple: ((T, T, T, T), (T, T, T, T), (T, T, T, T), (T, T, T, T))) -> Self {
+type TupleMat4<T> = ((T, T, T, T), (T, T, T, T), (T, T, T, T), (T, T, T, T));
+impl<T: Into<f64>> From<TupleMat4<T>> for Mat4 {
+    fn from(tuple: TupleMat4<T>) -> Self {
         Self::new(
             tuple.0.into(),
             tuple.1.into(),

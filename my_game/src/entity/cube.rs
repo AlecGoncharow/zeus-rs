@@ -166,9 +166,9 @@ impl DrawComponent for Cuboid {
         }
 
         ctx.gfx_context.model_transform = self.model_matrix();
-        ctx.draw(&Topology::TriangleList(PolygonMode::Line), &plane_verts);
+        ctx.draw(Topology::TriangleList(PolygonMode::Line), &plane_verts);
 
-        ctx.draw_indexed(&self.draw_mode(), self.vertices(), self.indices().unwrap());
+        ctx.draw_indexed(self.draw_mode(), self.vertices(), self.indices().unwrap());
     }
 }
 
@@ -188,8 +188,8 @@ impl MouseComponent for Cuboid {
             let ndc_x = delta.x / ctx.gfx_context.window_dims.width;
             let ndc_y = delta.y / ctx.gfx_context.window_dims.height;
 
-            let delta_x = (pos - camera.origin).magnitude() * ndc_x * camera.u;
-            let delta_y = (pos - camera.origin).magnitude() * ndc_y * camera.v;
+            let delta_x = 2.0 * (pos - camera.origin).magnitude() * ndc_x * camera.u;
+            let delta_y = 2.0 * (pos - camera.origin).magnitude() * ndc_y * camera.v;
             let trans = delta_x + delta_y;
 
             self.translate(trans.into());

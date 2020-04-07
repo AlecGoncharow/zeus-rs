@@ -34,7 +34,7 @@ impl EventHandler for State {
 
         let fill_mode = Topology::TriangleList(PolygonMode::Fill);
         ctx.gfx_context.model_transform = Mat4::identity();
-        ctx.draw(&fill_mode, &self.plane);
+        ctx.draw(fill_mode, &self.plane);
 
         self.entity_manager.draw(ctx);
 

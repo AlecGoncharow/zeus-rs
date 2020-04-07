@@ -139,9 +139,9 @@ where
                             },
                         ..
                     } => {
-                        let repeat = keyboard::is_key_repeated(&mut ctx);
+                        let repeat = keyboard::is_key_repeated(&ctx);
 
-                        state.key_down_event(&mut ctx, keycode, modifiers.into(), repeat);
+                        state.key_down_event(&mut ctx, keycode, modifiers, repeat);
                     }
                     WindowEvent::KeyboardInput {
                         input:
@@ -153,7 +153,7 @@ where
                             },
                         ..
                     } => {
-                        state.key_up_event(&mut ctx, keycode, modifiers.into());
+                        state.key_up_event(&mut ctx, keycode, modifiers);
                     }
                     WindowEvent::MouseWheel { delta, .. } => {
                         let (x, y) = match delta {
@@ -171,7 +171,7 @@ where
                         ..
                     } => {
                         println!("input detected");
-                        let position = mouse::position(&mut ctx);
+                        let position = mouse::position(&ctx);
                         match element_state {
                             ElementState::Pressed => state
                                 .mouse_button_down_event(&mut ctx, button, position.x, position.y),
@@ -180,8 +180,8 @@ where
                         }
                     }
                     WindowEvent::CursorMoved { .. } => {
-                        let position = mouse::position(&mut ctx);
-                        let delta = mouse::delta(&mut ctx);
+                        let position = mouse::position(&ctx);
+                        let delta = mouse::delta(&ctx);
                         state
                             .mouse_motion_event(&mut ctx, position.x, position.y, delta.x, delta.y);
                     }

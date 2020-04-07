@@ -55,6 +55,8 @@ mod fs {
     }
 }
 
+type TopologyPipelines = HashMap<Topology, Arc<dyn GraphicsPipelineAbstract + Send + Sync>>;
+
 pub struct GraphicsContext {
     pub recreate_swapchain: bool,
     previous_frame_end: Option<Box<dyn GpuFuture>>,
@@ -69,7 +71,7 @@ pub struct GraphicsContext {
     vertex_shader: vs::Shader,
     frag_shader: fs::Shader,
 
-    graphics_pipelines: HashMap<Topology, Arc<dyn GraphicsPipelineAbstract + Send + Sync>>,
+    graphics_pipelines: TopologyPipelines,
     graphics_pool: HashMap<
         Topology,
         FixedSizeDescriptorSetsPool<Arc<dyn GraphicsPipelineAbstract + Send + Sync>>,
@@ -101,7 +103,7 @@ impl GraphicsContext {
         let instance = {
             let extensions = vulkano_win::required_extensions();
 
-            Instance::new(None, &extensions.into(), None).unwrap()
+            Instance::new(None, &extensions, None).unwrap()
         };
 
         let physical = PhysicalDevice::enumerate(&instance)
@@ -359,7 +361,7 @@ impl GraphicsContext {
         self.image_num = image_num;
     }
 
-    pub fn draw(&mut self, pipeline_key: &Topology, verts: &Vec<(Vec3, Vec3)>) {
+    pub fn draw(&mut self, pipeline_key: Topology, verts: &[(Vec3, Vec3)]) {
         let set = {
             let data = vs::ty::Data {
                 model: self.model_transform.into(),
@@ -369,7 +371,7 @@ impl GraphicsContext {
 
             let sub_buffer = self.uniform_buffer.next(data).unwrap();
             self.graphics_pool
-                .get_mut(pipeline_key)
+                .get_mut(&pipeline_key)
                 .unwrap()
                 .next()
                 .add_buffer(sub_buffer)
@@ -389,7 +391,7 @@ impl GraphicsContext {
             .unwrap()
         };
 
-        let pipeline = self.graphics_pipelines.get(pipeline_key).unwrap();
+        let pipeline = self.graphics_pipelines.get(&pipeline_key).unwrap();
         self.graphics_command_buffer = {
             Some(
                 self.graphics_command_buffer
@@ -398,7 +400,7 @@ impl GraphicsContext {
                     .draw(
                         pipeline.clone(),
                         &DynamicState::none(),
-                        vec![verts.clone()],
+                        vec![verts],
                         set,
                         (),
                     )
@@ -409,8 +411,8 @@ impl GraphicsContext {
 
     pub fn draw_indexed(
         &mut self,
-        pipeline_key: &Topology,
-        verts: &Vec<(Vec3, Vec3)>,
+        pipeline_key: Topology,
+        verts: &[(Vec3, Vec3)],
         indices: &[u16],
     ) {
         let set = {
@@ -422,7 +424,7 @@ impl GraphicsContext {
 
             let sub_buffer = self.uniform_buffer.next(data).unwrap();
             self.graphics_pool
-                .get_mut(pipeline_key)
+                .get_mut(&pipeline_key)
                 .unwrap()
                 .next()
                 .add_buffer(sub_buffer)
@@ -449,7 +451,7 @@ impl GraphicsContext {
         )
         .unwrap();
 
-        let pipeline = self.graphics_pipelines.get(pipeline_key).unwrap();
+        let pipeline = self.graphics_pipelines.get(&pipeline_key).unwrap();
         self.graphics_command_buffer = {
             Some(
                 self.graphics_command_buffer
@@ -458,8 +460,8 @@ impl GraphicsContext {
                     .draw_indexed(
                         pipeline.clone(),
                         &DynamicState::none(),
-                        vec![vertex_buffer.clone()],
-                        index_buffer.clone(),
+                        vec![vertex_buffer],
+                        index_buffer,
                         set,
                         (),
                     )
@@ -506,7 +508,7 @@ impl GraphicsContext {
         }
     }
 
-    pub fn set_verts(&mut self, verts: &Vec<(Vec3, Vec3)>) -> Arc<CpuAccessibleBuffer<[Vertex]>> {
+    pub fn set_verts(&mut self, verts: &[(Vec3, Vec3)]) -> Arc<CpuAccessibleBuffer<[Vertex]>> {
         CpuAccessibleBuffer::from_iter(
             self.device.clone(),
             BufferUsage::all(),
@@ -516,9 +518,9 @@ impl GraphicsContext {
     }
 }
 
-fn verts_from_vec(verts: &Vec<(Vec3, Vec3)>) -> Vec<Vertex> {
+fn verts_from_vec(verts: &[(Vec3, Vec3)]) -> Vec<Vertex> {
     verts
-        .into_iter()
+        .iter()
         .map(|(point, col)| Vertex {
             position: [point.x as f32, point.y as f32, point.z as f32],
             color: [col.x as f32, col.y as f32, col.z as f32],
@@ -533,7 +535,7 @@ fn window_size_dependent_setup(
     images: &[Arc<SwapchainImage<Window>>],
     render_pass: Arc<dyn RenderPassAbstract + Send + Sync>,
 ) -> (
-    HashMap<Topology, Arc<dyn GraphicsPipelineAbstract + Send + Sync>>,
+    TopologyPipelines,
     Vec<Arc<dyn FramebufferAbstract + Send + Sync>>,
 ) {
     let dimensions = images[0].dimensions();
