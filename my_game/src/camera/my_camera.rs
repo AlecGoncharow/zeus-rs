@@ -39,10 +39,8 @@ impl Camera {
         look_at: Vec3,
         world_up: Vec3,
         vfov: f64,
-        width: f64,
-        height: f64,
-        near_plane: f64,
-        far_plane: f64,
+        (width, height): (f64, f64),
+        (near_plane, far_plane): (f64, f64),
     ) -> Self {
         let aspect = width / height;
 
@@ -186,12 +184,9 @@ impl Camera {
     }
 
     pub fn process_keyrelease(&mut self, key: VirtualKeyCode) {
-        match key {
-            VirtualKeyCode::LShift => {
-                self.fast_move = false;
-            }
-            _ => (),
-        }
+        if let VirtualKeyCode::LShift = key {
+            self.fast_move = false;
+        };
     }
 
     pub fn process_mouse_move(&mut self, delta: Vec2) {

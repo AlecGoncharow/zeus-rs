@@ -78,9 +78,8 @@ impl EventHandler for State {
         println!("Mouse button pressed: {:?}, x: {}, y: {}", button, x, y);
         //self.points.push(Vec3::new(x, y, 0.0));
 
-        match button {
-            MouseButton::Right => self.mouse_down = true,
-            _ => (),
+        if let MouseButton::Right = button {
+            self.mouse_down = true;
         }
     }
 
@@ -89,9 +88,8 @@ impl EventHandler for State {
         //self.points.push(Vec3::new(x, y, 0.0));
         //self.camera.update_pitch_and_angle(ctx);
 
-        match button {
-            MouseButton::Right => self.mouse_down = false,
-            _ => (),
+        if let MouseButton::Right = button {
+            self.mouse_down = false;
         }
     }
 
@@ -208,10 +206,8 @@ fn main() {
             Vec3::new_from_one(0),
             (0, -1, 0).into(),
             90.0,
-            100.0,
-            100.0,
-            0.5,
-            100.0,
+            (100.0, 100.0),
+            (0.5, 100.0),
         )),
         plane: generate_grid(50),
 
