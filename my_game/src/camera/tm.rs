@@ -33,7 +33,7 @@ pub struct Camera {
     pub angle_float: SmoothFloat,
     pub distance_float: SmoothFloat,
 
-    pub dims: LogicalSize,
+    pub dims: LogicalSize<f64>,
 }
 
 impl CameraProjection for &Camera {

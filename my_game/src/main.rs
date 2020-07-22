@@ -7,9 +7,9 @@ use my_engine::graphics::Topology;
 use my_engine::input::keyboard;
 use my_engine::input::mouse;
 
-use my_engine::winit::ModifiersState;
-use my_engine::winit::MouseButton;
-use my_engine::winit::VirtualKeyCode;
+use my_engine::winit::event::ModifiersState;
+use my_engine::winit::event::MouseButton;
+use my_engine::winit::event::VirtualKeyCode;
 
 use my_engine::math::*;
 

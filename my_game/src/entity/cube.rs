@@ -9,7 +9,7 @@ use my_engine::graphics::PolygonMode;
 use my_engine::graphics::Topology;
 use my_engine::input::mouse;
 use my_engine::math::*;
-use my_engine::winit::MouseButton;
+use my_engine::winit::event::MouseButton;
 
 pub fn _get_unit_cube_verts() -> [Vec3; 8] {
     [

@@ -13,14 +13,15 @@ use vulkano::pipeline::GraphicsPipelineAbstract;
 use vulkano::swapchain;
 use vulkano::swapchain::SwapchainAcquireFuture;
 use vulkano::swapchain::{
-    AcquireError, PresentMode, Surface, SurfaceTransform, Swapchain, SwapchainCreationError,
+    AcquireError, ColorSpace, FullscreenExclusive, PresentMode, Surface, SurfaceTransform,
+    Swapchain, SwapchainCreationError,
 };
 use vulkano::sync;
 use vulkano::sync::{FlushError, GpuFuture};
 use vulkano_win::VkSurfaceBuild;
 use winit::dpi::LogicalSize;
-use winit::EventsLoop;
-use winit::{Window, WindowBuilder};
+use winit::event_loop::EventLoop;
+use winit::window::{Window, WindowBuilder};
 
 use vulkano::descriptor::descriptor_set::FixedSizeDescriptorSetsPool;
 
@@ -61,7 +62,7 @@ pub struct GraphicsContext {
     pub recreate_swapchain: bool,
     previous_frame_end: Option<Box<dyn GpuFuture>>,
 
-    swapchain: Arc<Swapchain<winit::Window>>,
+    swapchain: Arc<Swapchain<winit::window::Window>>,
 
     queue: Arc<Queue>,
     device: Arc<Device>,
@@ -74,7 +75,7 @@ pub struct GraphicsContext {
     graphics_pipelines: TopologyPipelines,
     graphics_pool: HashMap<
         Topology,
-        FixedSizeDescriptorSetsPool<Arc<dyn GraphicsPipelineAbstract + Send + Sync>>,
+        FixedSizeDescriptorSetsPool, //<Arc<dyn GraphicsPipelineAbstract + Send + Sync>>,
     >,
     render_pass: Arc<dyn RenderPassAbstract + Send + Sync>,
     framebuffers: Vec<Arc<dyn FramebufferAbstract + Send + Sync>>,
@@ -82,10 +83,10 @@ pub struct GraphicsContext {
     uniform_buffer: Arc<CpuBufferPool<vs::ty::Data>>,
 
     pub(crate) graphics_command_buffer: Option<AutoCommandBufferBuilder>,
-    acquire_future: Option<SwapchainAcquireFuture<winit::Window>>,
+    acquire_future: Option<SwapchainAcquireFuture<winit::window::Window>>,
     image_num: usize,
 
-    pub window_dims: LogicalSize,
+    pub window_dims: LogicalSize<f64>,
     pub projection_transform: Mat4,
     pub view_transform: Mat4,
     pub model_transform: Mat4,
@@ -99,7 +100,7 @@ pub struct Vertex {
 vulkano::impl_vertex!(Vertex, position, color);
 
 impl GraphicsContext {
-    pub fn new_default(events_loop: &EventsLoop) -> Self {
+    pub fn new_default(events_loop: &EventLoop<()>) -> Self {
         let instance = {
             let extensions = vulkano_win::required_extensions();
 
@@ -122,9 +123,9 @@ impl GraphicsContext {
             physical.ty()
         );
 
-        let dims = LogicalSize::from((1080, 1080));
+        let dims = LogicalSize::<u32>::from((1080, 1080));
         let surface = WindowBuilder::new()
-            .with_dimensions(dims)
+            .with_inner_size(dims)
             .with_title("real game engine window")
             .with_maximized(true)
             .build_vk_surface(events_loop, instance.clone())
@@ -154,7 +155,7 @@ impl GraphicsContext {
 
         let queue = queues.next().unwrap();
 
-        let window_dims = window.get_inner_size().unwrap();
+        let window_dims = window.inner_size();
         let (swapchain, images) = {
             let caps = surface.capabilities(physical).unwrap();
 
@@ -164,28 +165,23 @@ impl GraphicsContext {
             // Choosing the internal format that the images will have.
             let format = caps.supported_formats[0].0;
             // Because for both of these cases, the swapchain needs to be the window dimensions, we just use that.
-            let initial_dimensions = if let Some(dimensions) = window.get_inner_size() {
-                let dimensions: (u32, u32) =
-                    dimensions.to_physical(window.get_hidpi_factor()).into();
-                [dimensions.0, dimensions.1]
-            } else {
-                [0, 0]
-            };
+            let initial_dimensions = window.inner_size();
 
             Swapchain::new(
                 device.clone(),
                 surface.clone(),
                 caps.min_image_count,
                 format,
-                initial_dimensions,
+                [initial_dimensions.width, initial_dimensions.height],
                 1,
                 usage,
                 &queue,
                 SurfaceTransform::Identity,
                 alpha,
                 PresentMode::Fifo,
+                FullscreenExclusive::Allowed,
                 true,
-                None,
+                ColorSpace::SrgbNonLinear,
             )
             .unwrap()
         };
@@ -228,14 +224,12 @@ impl GraphicsContext {
         );
 
         // iterate over pipelines and make descriptors
-        let graphics_pool: HashMap<
-            Topology,
-            FixedSizeDescriptorSetsPool<Arc<dyn GraphicsPipelineAbstract + Send + Sync>>,
-        > = {
+        let graphics_pool: HashMap<Topology, FixedSizeDescriptorSetsPool> = {
             let mut set = HashMap::new();
             for top in Topology::iterator() {
                 let pipeline = graphics_pipelines.get(top).unwrap();
-                let descriptor = FixedSizeDescriptorSetsPool::new(pipeline.clone(), 0);
+                let layout = pipeline.descriptor_set_layout(0).unwrap();
+                let descriptor = FixedSizeDescriptorSetsPool::new(layout.clone());
                 set.insert(*top, descriptor);
             }
 
@@ -256,7 +250,7 @@ impl GraphicsContext {
 
         let (image_num, acquire_future) =
             match swapchain::acquire_next_image(swapchain.clone(), None) {
-                Ok((n, f)) => (n, Some(f)),
+                Ok((n, _, f)) => (n, Some(f)),
                 Err(err) => panic!("{:?}", err),
             };
 
@@ -267,7 +261,7 @@ impl GraphicsContext {
 
             swapchain,
             queue,
-            surface,
+            surface: surface.clone(),
 
             vertex_shader,
             frag_shader,
@@ -277,7 +271,7 @@ impl GraphicsContext {
             framebuffers,
 
             uniform_buffer,
-            window_dims,
+            window_dims: window_dims.to_logical::<f64>(window.scale_factor()),
 
             model_transform: Mat4::identity(),
             view_transform: Mat4::identity(),
@@ -297,19 +291,16 @@ impl GraphicsContext {
         // In this example that includes the swapchain, the framebuffers and the dynamic state viewport.
         if self.recreate_swapchain {
             // Get the new dimensions of the window.
-            let dimensions = if let Some(dimensions) = window.get_inner_size() {
-                let dimensions: (u32, u32) =
-                    dimensions.to_physical(window.get_hidpi_factor()).into();
-                [dimensions.0, dimensions.1]
-            } else {
-                return;
+            let dimensions = {
+                let dimensions = window.inner_size();
+                [dimensions.width, dimensions.height]
             };
 
-            self.window_dims = window.get_inner_size().unwrap();
+            self.window_dims = window.inner_size().to_logical::<f64>(window.scale_factor());
             println!("{:#?}", dimensions);
 
             let (new_swapchain, new_images) =
-                match self.swapchain.recreate_with_dimension(dimensions) {
+                match self.swapchain.recreate_with_dimensions(dimensions) {
                     Ok(r) => r,
                     // This error tends to happen when the user is manually resizing the window.
                     // Simply restarting the loop is the easiest way to fix this issue.
@@ -337,7 +328,7 @@ impl GraphicsContext {
         // acquire and image from the swapchain
         let (image_num, acquire_future) =
             match swapchain::acquire_next_image(self.swapchain.clone(), None) {
-                Ok((n, f)) => (n, Some(f)),
+                Ok((n, _, f)) => (n, Some(f)),
                 Err(AcquireError::OutOfDate) => {
                     self.recreate_swapchain = true;
                     return;
@@ -345,17 +336,26 @@ impl GraphicsContext {
                 Err(err) => panic!("{:?}", err),
             };
 
-        let clear_color: [f32; 4] = clear_color.into();
-        let clear_values = vec![clear_color.into(), 1f32.into()]; //ClearValue::DepthStencil((1f32, 1u32))];
         self.graphics_command_buffer = Some(
             AutoCommandBufferBuilder::primary_one_time_submit(
                 self.device.clone(),
                 self.queue.family(),
             )
-            .unwrap()
-            .begin_render_pass(self.framebuffers[image_num].clone(), false, clear_values)
             .unwrap(),
         );
+
+        let clear_color: [f32; 4] = clear_color.into();
+        let clear_values = vec![clear_color.into(), 1f32.into()]; //ClearValue::DepthStencil((1f32, 1u32))];
+
+        self.graphics_command_buffer
+            .as_mut()
+            .unwrap()
+            .begin_render_pass(
+                self.framebuffers[self.image_num].clone(),
+                false,
+                clear_values,
+            )
+            .unwrap();
 
         self.acquire_future = acquire_future;
         self.image_num = image_num;
@@ -386,27 +386,23 @@ impl GraphicsContext {
             CpuAccessibleBuffer::from_iter(
                 self.device.clone(),
                 BufferUsage::all(),
+                false,
                 buffer_data.iter().cloned(),
             )
             .unwrap()
         };
-
         let pipeline = self.graphics_pipelines.get(&pipeline_key).unwrap();
-        self.graphics_command_buffer = {
-            Some(
-                self.graphics_command_buffer
-                    .take()
-                    .unwrap()
-                    .draw(
-                        pipeline.clone(),
-                        &DynamicState::none(),
-                        vec![verts],
-                        set,
-                        (),
-                    )
-                    .unwrap(),
+        self.graphics_command_buffer
+            .as_mut()
+            .unwrap()
+            .draw(
+                pipeline.clone(),
+                &DynamicState::none(),
+                vec![verts],
+                set,
+                (),
             )
-        };
+            .unwrap();
     }
 
     pub fn draw_indexed(
@@ -439,6 +435,7 @@ impl GraphicsContext {
             CpuAccessibleBuffer::from_iter(
                 self.device.clone(),
                 BufferUsage::all(),
+                false,
                 buffer_data.iter().cloned(),
             )
             .unwrap()
@@ -447,35 +444,36 @@ impl GraphicsContext {
         let index_buffer = CpuAccessibleBuffer::from_iter(
             self.device.clone(),
             BufferUsage::all(),
+            false,
             indices.iter().cloned(),
         )
         .unwrap();
 
         let pipeline = self.graphics_pipelines.get(&pipeline_key).unwrap();
-        self.graphics_command_buffer = {
-            Some(
-                self.graphics_command_buffer
-                    .take()
-                    .unwrap()
-                    .draw_indexed(
-                        pipeline.clone(),
-                        &DynamicState::none(),
-                        vec![vertex_buffer],
-                        index_buffer,
-                        set,
-                        (),
-                    )
-                    .unwrap(),
+        self.graphics_command_buffer
+            .as_mut()
+            .unwrap()
+            .draw_indexed(
+                pipeline.clone(),
+                &DynamicState::none(),
+                vec![vertex_buffer],
+                index_buffer,
+                set,
+                (),
             )
-        };
+            .unwrap();
     }
 
     pub fn render(&mut self) {
-        let graphics_command_buffer = self
-            .graphics_command_buffer
-            .take()
+        self.graphics_command_buffer
+            .as_mut()
             .unwrap()
             .end_render_pass()
+            .unwrap();
+
+        let command = self
+            .graphics_command_buffer
+            .take()
             .unwrap()
             .build()
             .unwrap();
@@ -485,7 +483,7 @@ impl GraphicsContext {
         let future = prev
             .unwrap()
             .join(acquire_future)
-            .then_execute(self.queue.clone(), graphics_command_buffer)
+            .then_execute(self.queue.clone(), command)
             .unwrap()
             .then_swapchain_present(self.queue.clone(), self.swapchain.clone(), self.image_num)
             .then_signal_fence_and_flush();
@@ -512,6 +510,7 @@ impl GraphicsContext {
         CpuAccessibleBuffer::from_iter(
             self.device.clone(),
             BufferUsage::all(),
+            false,
             verts_from_vec(verts).iter().cloned(),
         )
         .unwrap()

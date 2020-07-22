@@ -1,6 +1,6 @@
 use crate::context::Context;
 use std::collections::HashSet;
-use winit::VirtualKeyCode;
+use winit::event::VirtualKeyCode;
 
 /// Taken from / Inspired by (ggez)[https://github.com/ggez/ggez/blob/master/src/input/keyboard.rs]
 /// with some changes so I can use it with my types

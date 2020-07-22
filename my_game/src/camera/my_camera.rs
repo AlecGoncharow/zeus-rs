@@ -2,7 +2,7 @@ use my_engine::math::Mat4;
 use my_engine::math::Vec2;
 use my_engine::math::Vec3;
 use my_engine::math::Vec4;
-use my_engine::winit::VirtualKeyCode;
+use my_engine::winit::event::VirtualKeyCode;
 
 //const YAW_DEFAULT: f64 = -90.0;
 //const PITCH_DEFAULT: f64 = 0.0;
