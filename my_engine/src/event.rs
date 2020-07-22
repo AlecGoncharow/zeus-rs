@@ -193,14 +193,15 @@ where
                 }
             },
             Event::DeviceEvent { .. } => (),
+            Event::RedrawEventsCleared => {
+                ctx.timer_context.tick();
+                let _ = state.update(&mut ctx);
+                let _ = state.draw(&mut ctx);
+
+                // CLEAR VALUES
+                ctx.mouse_context.set_last_delta((0, 0).into());
+            }
             _ => (),
         }
-
-        ctx.timer_context.tick();
-        let _ = state.update(&mut ctx);
-        let _ = state.draw(&mut ctx);
-
-        // CLEAR VALUES
-        ctx.mouse_context.set_last_delta((0, 0).into());
     });
 }

@@ -5,7 +5,7 @@ use vulkano::device::{Device, DeviceExtensions, Queue};
 use vulkano::format::Format;
 use vulkano::framebuffer::{Framebuffer, FramebufferAbstract, RenderPassAbstract, Subpass};
 use vulkano::image::attachment::AttachmentImage;
-use vulkano::image::SwapchainImage;
+use vulkano::image::{ImageUsage, SwapchainImage};
 use vulkano::instance::{Instance, PhysicalDevice};
 use vulkano::pipeline::viewport::Viewport;
 use vulkano::pipeline::GraphicsPipeline;
@@ -155,31 +155,30 @@ impl GraphicsContext {
 
         let queue = queues.next().unwrap();
 
-        let window_dims = window.inner_size();
+        let window_dims = window.inner_size().to_logical::<f64>(window.scale_factor());
         let (swapchain, images) = {
             let caps = surface.capabilities(physical).unwrap();
 
-            let usage = caps.supported_usage_flags;
             let alpha = caps.supported_composite_alpha.iter().next().unwrap();
 
             // Choosing the internal format that the images will have.
             let format = caps.supported_formats[0].0;
             // Because for both of these cases, the swapchain needs to be the window dimensions, we just use that.
-            let initial_dimensions = window.inner_size();
+            let initial_dimensions: [u32; 2] = window.inner_size().into();
 
             Swapchain::new(
                 device.clone(),
                 surface.clone(),
                 caps.min_image_count,
                 format,
-                [initial_dimensions.width, initial_dimensions.height],
+                initial_dimensions,
                 1,
-                usage,
+                ImageUsage::color_attachment(),
                 &queue,
                 SurfaceTransform::Identity,
                 alpha,
                 PresentMode::Fifo,
-                FullscreenExclusive::Allowed,
+                FullscreenExclusive::Default,
                 true,
                 ColorSpace::SrgbNonLinear,
             )
@@ -271,7 +270,7 @@ impl GraphicsContext {
             framebuffers,
 
             uniform_buffer,
-            window_dims: window_dims.to_logical::<f64>(window.scale_factor()),
+            window_dims,
 
             model_transform: Mat4::identity(),
             view_transform: Mat4::identity(),
@@ -350,11 +349,7 @@ impl GraphicsContext {
         self.graphics_command_buffer
             .as_mut()
             .unwrap()
-            .begin_render_pass(
-                self.framebuffers[self.image_num].clone(),
-                false,
-                clear_values,
-            )
+            .begin_render_pass(self.framebuffers[image_num].clone(), false, clear_values)
             .unwrap();
 
         self.acquire_future = acquire_future;
