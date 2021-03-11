@@ -3,13 +3,13 @@ use super::plane::Plane;
 use super::triangle::Triangle;
 use super::Entity;
 use crate::camera::my_camera::Camera;
-use my_engine::context::Context;
-use my_engine::graphics::Drawable;
-use my_engine::graphics::PolygonMode;
-use my_engine::graphics::Topology;
-use my_engine::input::mouse;
-use my_engine::math::*;
-use my_engine::winit::event::MouseButton;
+use engine::context::Context;
+use engine::graphics::Drawable;
+use engine::graphics::PolygonMode;
+use engine::graphics::Topology;
+use engine::input::mouse;
+use engine::math::*;
+use engine::winit::event::MouseButton;
 
 pub fn _get_unit_cube_verts() -> [Vec3; 8] {
     [

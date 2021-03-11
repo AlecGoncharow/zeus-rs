@@ -1,4 +1,4 @@
-pub mod context;
+pub mod renderer;
 pub mod topology;
 
 pub use topology::PolygonMode;

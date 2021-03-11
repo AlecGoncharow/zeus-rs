@@ -1,17 +1,17 @@
-use my_engine::context::Context;
-use my_engine::event::EventHandler;
+use engine::context::Context;
+use engine::event::EventHandler;
 
-use my_engine::graphics::PolygonMode;
-use my_engine::graphics::Topology;
+use engine::graphics::PolygonMode;
+use engine::graphics::Topology;
 
-use my_engine::input::keyboard;
-use my_engine::input::mouse;
+use engine::input::keyboard;
+use engine::input::mouse;
 
-use my_engine::winit::event::ModifiersState;
-use my_engine::winit::event::MouseButton;
-use my_engine::winit::event::VirtualKeyCode;
+use engine::winit::event::ModifiersState;
+use engine::winit::event::MouseButton;
+use engine::winit::event::VirtualKeyCode;
 
-use my_engine::math::*;
+use engine::math::*;
 
 mod camera;
 use camera::my_camera::Camera;
@@ -29,7 +29,7 @@ struct State {
 
 impl EventHandler for State {
     fn draw(&mut self, ctx: &mut Context) -> Result<(), ()> {
-        ctx.start_drawing((0, 0, 0, 1).into());
+        ctx.start_drawing();
         self.frame += 1;
 
         let fill_mode = Topology::TriangleList(PolygonMode::Fill);
@@ -65,12 +65,7 @@ impl EventHandler for State {
         Ok(())
     }
 
-    fn key_up_event(
-        &mut self,
-        _ctx: &mut Context,
-        keycode: VirtualKeyCode,
-        _keymods: ModifiersState,
-    ) {
+    fn key_up_event(&mut self, _ctx: &mut Context, keycode: VirtualKeyCode) {
         self.entity_manager.camera.process_keyrelease(keycode);
     }
 
@@ -125,6 +120,8 @@ impl EventHandler for State {
         ctx.gfx_context.view_transform = self.entity_manager.camera.view_matrix();
         ctx.gfx_context.projection_transform = self.entity_manager.camera.projection_matrix();
     }
+
+    fn key_mods_changed(&mut self, _ctx: &mut Context, _modifiers_state: ModifiersState) {}
 }
 
 #[allow(dead_code)]
@@ -198,7 +195,7 @@ fn generate_cubes(state: &mut State) {
 }
 
 fn main() {
-    let (ctx, event_loop) = Context::new();
+    let (ctx, event_loop) = Context::new((0.0, 0.0, 0.0, 1.0).into());
     let mut my_game = State {
         frame: 0,
         entity_manager: EntityManager::new(Camera::new(
@@ -216,5 +213,5 @@ fn main() {
 
     generate_cubes(&mut my_game);
 
-    let _ = my_engine::event::run(event_loop, ctx, my_game);
+    let _ = engine::event::run(event_loop, ctx, my_game);
 }

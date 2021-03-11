@@ -1,6 +1,6 @@
 use super::Context;
 use crate::camera::Camera;
-use my_engine::math::Vec3;
+use engine::math::Vec3;
 
 pub trait AsComponent: AsDrawable + AsMouseable {}
 

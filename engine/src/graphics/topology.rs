@@ -1,5 +1,5 @@
 use std::slice::Iter;
-use vulkano::pipeline::input_assembly::PrimitiveTopology;
+use wgpu::PrimitiveTopology;
 
 // @HACK @FIXME
 // this is a hack so I can use Topology(PolygonMode) as keys for pipeline hashmap
@@ -11,7 +11,7 @@ pub enum Topology {
     LineStrip(PolygonMode),
     TriangleList(PolygonMode),
     TriangleStrip(PolygonMode),
-    TriangleFan(PolygonMode),
+    //TriangleFan(PolygonMode),
     //LineListWithAdjacency(PolygonMode),
     //LineStripWithAdjacency(PolygonMode),
     //TriangleListWithAdjacency(PolygonMode),
@@ -26,28 +26,25 @@ impl Topology {
             | Topology::LineList(PolygonMode::Fill)
             | Topology::LineStrip(PolygonMode::Fill)
             | Topology::TriangleList(PolygonMode::Fill)
-            | Topology::TriangleStrip(PolygonMode::Fill)
-            | Topology::TriangleFan(PolygonMode::Fill) => PolygonMode::Fill,
+            | Topology::TriangleStrip(PolygonMode::Fill) => PolygonMode::Fill,
             //
             Topology::PointList(PolygonMode::Line)
             | Topology::LineList(PolygonMode::Line)
             | Topology::LineStrip(PolygonMode::Line)
             | Topology::TriangleList(PolygonMode::Line)
-            | Topology::TriangleStrip(PolygonMode::Line)
-            | Topology::TriangleFan(PolygonMode::Line) => PolygonMode::Line,
+            | Topology::TriangleStrip(PolygonMode::Line) => PolygonMode::Line,
             //
             Topology::PointList(PolygonMode::Point)
             | Topology::LineList(PolygonMode::Point)
             | Topology::LineStrip(PolygonMode::Point)
             | Topology::TriangleList(PolygonMode::Point)
-            | Topology::TriangleStrip(PolygonMode::Point)
-            | Topology::TriangleFan(PolygonMode::Point) => PolygonMode::Point,
+            | Topology::TriangleStrip(PolygonMode::Point) => PolygonMode::Point,
         }
     }
 
     pub fn iterator() -> Iter<'static, Topology> {
         // generate all variants
-        static TOPOLOGIES: [Topology; 18] = [
+        static TOPOLOGIES: [Topology; 15] = [
             Topology::PointList(PolygonMode::Fill),
             Topology::PointList(PolygonMode::Line),
             Topology::PointList(PolygonMode::Point),
@@ -67,10 +64,6 @@ impl Topology {
             Topology::TriangleStrip(PolygonMode::Fill),
             Topology::TriangleStrip(PolygonMode::Line),
             Topology::TriangleStrip(PolygonMode::Point),
-            //
-            Topology::TriangleFan(PolygonMode::Fill),
-            Topology::TriangleFan(PolygonMode::Line),
-            Topology::TriangleFan(PolygonMode::Point),
         ];
 
         TOPOLOGIES.iter()
@@ -85,7 +78,6 @@ impl From<&Topology> for PrimitiveTopology {
             Topology::LineStrip(_) => PrimitiveTopology::LineStrip,
             Topology::TriangleList(_) => PrimitiveTopology::TriangleList,
             Topology::TriangleStrip(_) => PrimitiveTopology::TriangleStrip,
-            Topology::TriangleFan(_) => PrimitiveTopology::TriangleFan,
         }
     }
 }

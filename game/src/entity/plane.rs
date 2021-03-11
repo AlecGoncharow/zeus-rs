@@ -1,4 +1,4 @@
-use my_engine::math::Vec3;
+use engine::math::Vec3;
 
 pub struct Plane {
     pub point: Vec3,

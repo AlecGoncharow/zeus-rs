@@ -58,26 +58,14 @@ pub trait EventHandler {
     /// when the escape key is pressed.  If you override this with
     /// your own event handler you have to re-implment that
     /// functionality yourself.
-    fn key_down_event(
-        &mut self,
-        ctx: &mut Context,
-        keycode: VirtualKeyCode,
-        _keymods: ModifiersState,
-        _repeat: bool,
-    ) {
+    fn key_down_event(&mut self, ctx: &mut Context, keycode: VirtualKeyCode, _repeat: bool) {
         if keycode == VirtualKeyCode::Escape {
             quit(ctx);
         }
     }
 
     /// A keyboard button was released.
-    fn key_up_event(
-        &mut self,
-        _ctx: &mut Context,
-        _keycode: VirtualKeyCode,
-        _keymods: ModifiersState,
-    ) {
-    }
+    fn key_up_event(&mut self, _ctx: &mut Context, _keycode: VirtualKeyCode) {}
 
     /// A unicode character was received, usually from keyboard input.
     /// This is the intended way of facilitating text input.
@@ -96,13 +84,15 @@ pub trait EventHandler {
     /// Called when the user resizes the window, or when it is resized
     /// via [`graphics::set_mode()`](../graphics/fn.set_mode.html).
     fn resize_event(&mut self, _ctx: &mut Context, _width: f64, _height: f64) {}
+
+    fn key_mods_changed(&mut self, _ctx: &mut Context, _modifiers_state: ModifiersState) {}
 }
 
 pub fn quit(ctx: &mut Context) {
     ctx.continuing = false;
 }
 
-pub fn run<S: 'static>(mut events_loop: EventLoop<()>, mut ctx: Context, mut state: S) -> !
+pub fn run<S: 'static>(events_loop: EventLoop<()>, mut ctx: Context, mut state: S) -> !
 where
     S: EventHandler,
 {
@@ -136,26 +126,24 @@ where
                         KeyboardInput {
                             state: ElementState::Pressed,
                             virtual_keycode: Some(keycode),
-                            modifiers,
                             ..
                         },
                     ..
                 } => {
                     let repeat = keyboard::is_key_repeated(&ctx);
 
-                    state.key_down_event(&mut ctx, keycode, modifiers, repeat);
+                    state.key_down_event(&mut ctx, keycode, repeat);
                 }
                 WindowEvent::KeyboardInput {
                     input:
                         KeyboardInput {
                             state: ElementState::Released,
                             virtual_keycode: Some(keycode),
-                            modifiers,
                             ..
                         },
                     ..
                 } => {
-                    state.key_up_event(&mut ctx, keycode, modifiers);
+                    state.key_up_event(&mut ctx, keycode);
                 }
                 WindowEvent::MouseWheel { delta, .. } => {
                     let (x, y) = match delta {
@@ -188,8 +176,12 @@ where
                     let delta = mouse::delta(&ctx);
                     state.mouse_motion_event(&mut ctx, position.x, position.y, delta.x, delta.y);
                 }
-                _x => {
-                    // trace!("ignoring window event {:?}", x);
+                WindowEvent::ModifiersChanged(modifiers_state) => {
+                    state.key_mods_changed(&mut ctx, modifiers_state);
+                }
+
+                x => {
+                    eprintln!("ignoring window event {:?}", x);
                 }
             },
             Event::DeviceEvent { .. } => (),

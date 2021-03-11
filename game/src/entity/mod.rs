@@ -1,8 +1,8 @@
-use my_engine::context::Context;
-use my_engine::input::mouse;
-use my_engine::math::Dim;
-use my_engine::math::Vec3;
-use my_engine::math::Vec4;
+use engine::context::Context;
+use engine::input::mouse;
+use engine::math::Dim;
+use engine::math::Vec3;
+use engine::math::Vec4;
 
 use crate::camera::my_camera::Camera;
 
