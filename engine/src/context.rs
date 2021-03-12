@@ -34,10 +34,13 @@ impl<'a> Context {
         }))
         .unwrap();
 
+        println!("{:#?}", adapter.features());
+        let mut features = wgpu::Features::empty();
+        features.set(wgpu::Features::SHADER_FLOAT64, true);
         let (device, queue) = block_on(adapter.request_device(
             &wgpu::DeviceDescriptor {
                 label: Some("Request Device"),
-                features: wgpu::Features::empty(),
+                features,
                 limits: wgpu::Limits::default(),
             },
             None, // Trace path
