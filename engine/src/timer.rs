@@ -1,0 +1,54 @@
+use std::time;
+
+/// taken from (ggez)[https://github.com/ggez/ggez/blob/master/src/timer.rs]
+#[derive(Debug)]
+pub struct TimeContext {
+    init_instant: time::Instant,
+    last_instant: time::Instant,
+    residual_update_dt: time::Duration,
+    delta_since_last_instant: time::Duration,
+    frame_count: usize,
+}
+
+impl TimeContext {
+    /// Creates a new `TimeContext` and initializes the start to this instant.
+    pub fn new() -> TimeContext {
+        TimeContext {
+            init_instant: time::Instant::now(),
+            last_instant: time::Instant::now(),
+            residual_update_dt: time::Duration::from_secs(0),
+            delta_since_last_instant: time::Duration::from_secs(0),
+            frame_count: 0,
+        }
+    }
+
+    /// Update the state of the `TimeContext` to record that
+    /// another frame has taken place.  Necessary for the FPS
+    /// tracking and [`check_update_time()`](fn.check_update_time.html)
+    /// functions to work.
+    ///
+    /// It's usually not necessary to call this function yourself,
+    /// [`event::run()`](../event/fn.run.html) will do it for you.
+    pub fn tick(&mut self) {
+        let now = time::Instant::now();
+        let time_since_last = now - self.last_instant;
+        self.last_instant = now;
+        self.frame_count += 1;
+
+        self.residual_update_dt += time_since_last;
+        self.delta_since_last_instant = time_since_last;
+    }
+
+    pub fn delta_time(&self) -> f32 {
+        let seconds = self.delta_since_last_instant.as_secs() as f32;
+        let nanos = self.delta_since_last_instant.subsec_nanos() as f32;
+
+        seconds + (nanos * 1e-9)
+    }
+}
+
+impl Default for TimeContext {
+    fn default() -> Self {
+        Self::new()
+    }
+}

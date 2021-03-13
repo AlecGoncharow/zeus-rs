@@ -1,5 +1,5 @@
 [workspace]
 members = [
-    "my_engine",
-    "my_game"
+    "engine",
+    "game"
 ]
