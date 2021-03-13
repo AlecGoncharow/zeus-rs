@@ -40,7 +40,7 @@ impl Mat4 {
     }
 
     /// https://sites.google.com/site/glennmurray/Home/rotation-matrices-and-formulas/rotation-about-an-arbitrary-axis-in-3-dimensions
-    pub fn rotation(theta: f64, axis: Vec3) -> Self {
+    pub fn rotation(theta: f32, axis: Vec3) -> Self {
         let axis = axis.make_unit_vector();
         let u = axis.x;
         let v = axis.y;
@@ -98,11 +98,11 @@ impl Mat4 {
                 0.0,
             )
             .zero_out_insignificant(0.00005),
-            w: Vec4::new(0, 0, 0, 1),
+            w: Vec4::new(0., 0., 0., 1.),
         }
     }
 
-    pub fn rotation_from_degrees(degrees: f64, axis: Vec3) -> Self {
+    pub fn rotation_from_degrees(degrees: f32, axis: Vec3) -> Self {
         Self::rotation(degrees.to_radians(), axis)
     }
     #[inline]
@@ -336,7 +336,7 @@ impl SubAssign for Mat4 {
     }
 }
 
-impl Mul<Mat4> for f64 {
+impl Mul<Mat4> for f32 {
     type Output = Mat4;
 
     fn mul(self, mat: Mat4) -> Mat4 {
@@ -349,7 +349,7 @@ impl Mul<Mat4> for f64 {
     }
 }
 
-impl<T: Into<f64> + Copy> Mul<T> for Mat4 {
+impl<T: Into<f32> + Copy> Mul<T> for Mat4 {
     type Output = Self;
 
     fn mul(self, scalar: T) -> Self {
@@ -362,7 +362,7 @@ impl<T: Into<f64> + Copy> Mul<T> for Mat4 {
     }
 }
 
-impl<T: Into<f64> + Copy> MulAssign<T> for Mat4 {
+impl<T: Into<f32> + Copy> MulAssign<T> for Mat4 {
     fn mul_assign(&mut self, scalar: T) {
         *self = Self {
             x: self.x * scalar.into(),
@@ -460,12 +460,35 @@ impl From<Mat4> for [[f32; 4]; 4] {
     }
 }
 
+impl From<Mat4> for [f32; 16] {
+    fn from(mat: Mat4) -> [f32; 16] {
+        [
+            mat.x.x as f32,
+            mat.x.y as f32,
+            mat.x.z as f32,
+            mat.x.w as f32,
+            mat.y.x as f32,
+            mat.y.y as f32,
+            mat.y.z as f32,
+            mat.y.w as f32,
+            mat.z.x as f32,
+            mat.z.y as f32,
+            mat.z.z as f32,
+            mat.z.w as f32,
+            mat.w.x as f32,
+            mat.w.y as f32,
+            mat.w.z as f32,
+            mat.w.w as f32,
+        ]
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::math::*;
     #[test]
     fn test_mult() {
-        let vec = Vec4::new(1.0, 2, 3.0, 1);
+        let vec = Vec4::new(1.0, 2., 3.0, 1.);
 
         let mat = Mat4::scalar_from_one(5.0);
 

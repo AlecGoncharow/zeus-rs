@@ -9,17 +9,17 @@ use engine::math::Vec3;
 use engine::context::Context;
 use engine::winit::dpi::LogicalSize;
 
-const PITCH_SENSITIVITY: f64 = 0.3;
-const YAW_SENSITIVITY: f64 = 0.3;
-const MAX_PITCH: f64 = 90.0;
+const PITCH_SENSITIVITY: f32 = 0.3;
+const YAW_SENSITIVITY: f32 = 0.3;
+const MAX_PITCH: f32 = 90.0;
 
-const FOV: f64 = 70.0;
-const NEAR_PLANE: f64 = 0.4;
-const FAR_PLANE: f64 = 2500.0;
+const FOV: f32 = 70.0;
+const NEAR_PLANE: f32 = 0.4;
+const FAR_PLANE: f32 = 2500.0;
 
-const Y_OFFSET: f64 = 5.0;
+const Y_OFFSET: f32 = 5.0;
 
-const TERRAIN_SIZE: f64 = 0.5;
+const TERRAIN_SIZE: f32 = 0.5;
 
 #[derive(Debug)]
 pub struct Camera {
@@ -27,13 +27,13 @@ pub struct Camera {
     pub view_matrix: Mat4,
     pub projection_matrix: Mat4,
 
-    pub yaw: f64,
+    pub yaw: f32,
 
     pub pitch_float: SmoothFloat,
     pub angle_float: SmoothFloat,
     pub distance_float: SmoothFloat,
 
-    pub dims: LogicalSize<f64>,
+    pub dims: LogicalSize<f32>,
 }
 
 impl CameraProjection for &Camera {
@@ -139,11 +139,11 @@ impl Camera {
     }
 
     pub fn update_pitch_and_angle(&mut self, ctx: &Context) {
-        let pitch = ctx.mouse_context.last_delta.y as f64 * PITCH_SENSITIVITY;
+        let pitch = ctx.mouse_context.last_delta.y as f32 * PITCH_SENSITIVITY;
         self.pitch_float.target -= pitch;
         self.pitch_float.clamp_target(0.0, MAX_PITCH);
 
-        let angle = ctx.mouse_context.last_delta.x as f64 * YAW_SENSITIVITY;
+        let angle = ctx.mouse_context.last_delta.x as f32 * YAW_SENSITIVITY;
         self.angle_float.target -= angle;
     }
 
@@ -159,13 +159,13 @@ impl Camera {
 
 #[derive(Debug)]
 pub struct SmoothFloat {
-    pub agility: f64,
-    pub actual: f64,
-    pub target: f64,
+    pub agility: f32,
+    pub actual: f32,
+    pub target: f32,
 }
 
 impl SmoothFloat {
-    pub fn new(init: f64, agility: f64) -> Self {
+    pub fn new(init: f32, agility: f32) -> Self {
         Self {
             agility,
             actual: init,
@@ -173,13 +173,13 @@ impl SmoothFloat {
         }
     }
 
-    pub fn update(&mut self, delta: f64) {
+    pub fn update(&mut self, delta: f32) {
         let offset = self.target - self.actual;
         let change = offset * delta * self.agility;
         self.actual += change;
     }
 
-    pub fn clamp_target(&mut self, min: f64, max: f64) {
+    pub fn clamp_target(&mut self, min: f32, max: f32) {
         self.target = if self.target < min {
             min
         } else if self.target > max {

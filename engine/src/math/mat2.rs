@@ -14,7 +14,7 @@ impl Mat2 {
     }
 
     #[inline]
-    pub fn determinate(&self) -> f64 {
+    pub fn determinate(&self) -> f32 {
         (self.x.x * self.y.y) - (self.x.y * self.y.x)
     }
 }
@@ -59,7 +59,7 @@ impl SubAssign for Mat2 {
     }
 }
 
-impl Mul<Mat2> for f64 {
+impl Mul<Mat2> for f32 {
     type Output = Mat2;
 
     fn mul(self, mat: Mat2) -> Mat2 {
@@ -70,7 +70,7 @@ impl Mul<Mat2> for f64 {
     }
 }
 
-impl<T: Into<f64> + Copy> Mul<T> for Mat2 {
+impl<T: Into<f32> + Copy> Mul<T> for Mat2 {
     type Output = Self;
 
     fn mul(self, scalar: T) -> Self {
@@ -81,7 +81,7 @@ impl<T: Into<f64> + Copy> Mul<T> for Mat2 {
     }
 }
 
-impl<T: Into<f64> + Copy> MulAssign<T> for Mat2 {
+impl<T: Into<f32> + Copy> MulAssign<T> for Mat2 {
     fn mul_assign(&mut self, scalar: T) {
         *self = Self {
             x: self.x * scalar.into(),

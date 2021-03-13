@@ -39,9 +39,9 @@ impl TimeContext {
         self.delta_since_last_instant = time_since_last;
     }
 
-    pub fn delta_time(&self) -> f64 {
-        let seconds = self.delta_since_last_instant.as_secs() as f64;
-        let nanos = f64::from(self.delta_since_last_instant.subsec_nanos());
+    pub fn delta_time(&self) -> f32 {
+        let seconds = self.delta_since_last_instant.as_secs() as f32;
+        let nanos = self.delta_since_last_instant.subsec_nanos() as f32;
 
         seconds + (nanos * 1e-9)
     }

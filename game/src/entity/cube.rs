@@ -26,7 +26,7 @@ pub fn _get_unit_cube_verts() -> [Vec3; 8] {
     ]
 }
 
-pub fn get_cube_verts(size: f64) -> [Vec3; 8] {
+pub fn get_cube_verts(size: f32) -> [Vec3; 8] {
     [
         // front
         size * Vec3::new(-0.5, -0.5, 0.5),
@@ -92,7 +92,7 @@ pub struct Cuboid {
 }
 
 impl Cuboid {
-    pub fn cube(size: f64, position: Vec3, draw_mode: Option<PolygonMode>) -> Cuboid {
+    pub fn cube(size: f32, position: Vec3, draw_mode: Option<PolygonMode>) -> Cuboid {
         // TODO normals
         let pos = get_cube_verts(size);
         let colors = cuboid_default_colors();
@@ -201,7 +201,7 @@ impl MouseComponent for Cuboid {
         _ctx: &mut Context,
         camera_origin: Vec3,
         mouse_direction: Vec3,
-    ) -> Option<(&mut dyn MouseComponent, Vec3, f64)> {
+    ) -> Option<(&mut dyn MouseComponent, Vec3, f32)> {
         let mut to_return: Option<Vec3> = None;
         let mut final_t = 0.0;
         let model = self.model_matrix();
@@ -305,7 +305,7 @@ impl AsDrawable for Cuboid {
 
 impl Drawable for Cuboid {
     fn model_matrix(&self) -> Mat4 {
-        Mat4::translation::<f64>(self.position.into()) * self.rotation
+        Mat4::translation::<f32>(self.position.into()) * self.rotation
     }
 
     /// vertex buffer values (Position, Color)
@@ -322,11 +322,11 @@ impl Drawable for Cuboid {
         Topology::TriangleList(self.draw_mode)
     }
 
-    fn rotate(&mut self, theta: f64, axis: Vec3) {
+    fn rotate(&mut self, theta: f32, axis: Vec3) {
         self.rotation = Mat4::rotation(theta, axis) * self.rotation;
     }
 
-    fn translate(&mut self, tuple: (f64, f64, f64)) {
+    fn translate(&mut self, tuple: (f32, f32, f32)) {
         self.position = self.position + tuple.into();
     }
 }

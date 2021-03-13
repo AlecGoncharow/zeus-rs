@@ -320,6 +320,7 @@ dependencies = [
  "fs_extra",
  "futures",
  "glob",
+ "num-traits",
  "shaderc",
  "wgpu",
  "winit",

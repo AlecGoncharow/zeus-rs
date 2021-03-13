@@ -3,18 +3,18 @@ use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Vec3 {
-    pub x: f64,
-    pub y: f64,
-    pub z: f64,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
 }
 
 impl Vec3 {
     #[inline]
     pub fn new(x: impl Into<f64>, y: impl Into<f64>, z: impl Into<f64>) -> Self {
         Self {
-            x: x.into(),
-            y: y.into(),
-            z: z.into(),
+            x: x.into() as f32,
+            y: y.into() as f32,
+            z: z.into() as f32,
         }
     }
 
@@ -24,7 +24,7 @@ impl Vec3 {
     }
 
     #[inline]
-    pub fn dot(&self, other: &Self) -> f64 {
+    pub fn dot(&self, other: &Self) -> f32 {
         self.x * other.x + self.y * other.y + self.z * other.z
     }
 
@@ -47,7 +47,7 @@ impl Vec3 {
     }
 
     #[inline]
-    pub fn refract(&self, n: &Self, ni_over_nt: impl Into<f64> + Copy) -> Option<Self> {
+    pub fn refract(&self, n: &Self, ni_over_nt: impl Into<f32> + Copy) -> Option<Self> {
         let ni_over_nt = ni_over_nt.into();
         let uv = self.make_unit_vector();
         let dt = uv.dot(n);
@@ -95,12 +95,12 @@ impl Vec3 {
     }
 
     #[inline]
-    pub fn squared_mag(&self) -> f64 {
+    pub fn squared_mag(&self) -> f32 {
         self.dot(self)
     }
 
     #[inline]
-    pub fn magnitude(&self) -> f64 {
+    pub fn magnitude(&self) -> f32 {
         self.squared_mag().sqrt()
     }
 
@@ -115,7 +115,7 @@ impl Vec3 {
     }
 
     #[inline]
-    pub fn clamp(&self, min: f64, max: f64) -> Self {
+    pub fn clamp(&self, min: f32, max: f32) -> Self {
         Self {
             x: if self.x < min {
                 min
@@ -148,27 +148,27 @@ impl<T: Into<f64>> From<(T, T, T)> for Vec3 {
     }
 }
 
-impl From<Vec3> for (f64, f64, f64) {
+impl From<Vec3> for (f32, f32, f32) {
     fn from(vec: Vec3) -> Self {
         (vec.x, vec.y, vec.z)
     }
 }
 
-impl From<Vec3> for (f32, f32, f32) {
+impl From<Vec3> for (f64, f64, f64) {
     fn from(vec: Vec3) -> Self {
-        (vec.x as f32, vec.y as f32, vec.z as f32)
-    }
-}
-
-impl From<Vec3> for [f64; 3] {
-    fn from(vec: Vec3) -> Self {
-        [vec.x, vec.y, vec.z]
+        (vec.x as f64, vec.y as f64, vec.z as f64)
     }
 }
 
 impl From<Vec3> for [f32; 3] {
     fn from(vec: Vec3) -> Self {
-        [vec.x as f32, vec.y as f32, vec.z as f32]
+        [vec.x, vec.y, vec.z]
+    }
+}
+
+impl From<Vec3> for [f64; 3] {
+    fn from(vec: Vec3) -> Self {
+        [vec.x as f64, vec.y as f64, vec.z as f64]
     }
 }
 
@@ -222,7 +222,7 @@ impl SubAssign for Vec3 {
     }
 }
 
-impl Mul<Vec3> for f64 {
+impl Mul<Vec3> for f32 {
     type Output = Vec3;
 
     fn mul(self, vec: Vec3) -> Vec3 {
@@ -234,7 +234,7 @@ impl Mul<Vec3> for f64 {
     }
 }
 
-impl<T: Into<f64> + Copy> Mul<T> for Vec3 {
+impl<T: Into<f32> + Copy> Mul<T> for Vec3 {
     type Output = Self;
 
     fn mul(self, scalar: T) -> Self {
@@ -246,7 +246,7 @@ impl<T: Into<f64> + Copy> Mul<T> for Vec3 {
     }
 }
 
-impl<T: Into<f64> + Copy> MulAssign<T> for Vec3 {
+impl<T: Into<f32> + Copy> MulAssign<T> for Vec3 {
     fn mul_assign(&mut self, scalar: T) {
         *self = Self {
             x: self.x * scalar.into(),

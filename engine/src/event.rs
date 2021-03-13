@@ -29,8 +29,8 @@ pub trait EventHandler {
         &mut self,
         _ctx: &mut Context,
         _button: MouseButton,
-        _x: f64,
-        _y: f64,
+        _x: f32,
+        _y: f32,
     ) {
     }
 
@@ -39,18 +39,18 @@ pub trait EventHandler {
         &mut self,
         _ctx: &mut Context,
         _button: MouseButton,
-        _x: f64,
-        _y: f64,
+        _x: f32,
+        _y: f32,
     ) {
     }
 
     /// The mouse was moved; it provides both absolute x and y coordinates in the window,
     /// and relative x and y coordinates compared to its last position.
-    fn mouse_motion_event(&mut self, _ctx: &mut Context, _x: f64, _y: f64, _dx: f64, _dy: f64) {}
+    fn mouse_motion_event(&mut self, _ctx: &mut Context, _x: f32, _y: f32, _dx: f32, _dy: f32) {}
 
     /// The mousewheel was scrolled, vertically (y, positive away from and negative toward the user)
     /// or horizontally (x, positive to the right and negative to the left).
-    fn mouse_wheel_event(&mut self, _ctx: &mut Context, _x: f64, _y: f64) {}
+    fn mouse_wheel_event(&mut self, _ctx: &mut Context, _x: f32, _y: f32) {}
 
     /// A keyboard button was pressed.
     ///
@@ -83,7 +83,7 @@ pub trait EventHandler {
 
     /// Called when the user resizes the window, or when it is resized
     /// via [`graphics::set_mode()`](../graphics/fn.set_mode.html).
-    fn resize_event(&mut self, _ctx: &mut Context, _width: f64, _height: f64) {}
+    fn resize_event(&mut self, _ctx: &mut Context, _width: f32, _height: f32) {}
 
     fn key_mods_changed(&mut self, _ctx: &mut Context, _modifiers_state: ModifiersState) {}
 }
@@ -106,8 +106,8 @@ where
                     // let actual_size = logical_size;
                     state.resize_event(
                         &mut ctx,
-                        logical_size.width.into(),
-                        logical_size.height.into(),
+                        logical_size.width as f32,
+                        logical_size.height as f32,
                     );
                 }
                 WindowEvent::CloseRequested => {
@@ -147,9 +147,9 @@ where
                 }
                 WindowEvent::MouseWheel { delta, .. } => {
                     let (x, y) = match delta {
-                        MouseScrollDelta::LineDelta(x, y) => (x as f64, y as f64),
+                        MouseScrollDelta::LineDelta(x, y) => (x as f32, y as f32),
                         MouseScrollDelta::PixelDelta(dpi::LogicalPosition { x, y }) => {
-                            (x as f64, y as f64)
+                            (x as f32, y as f32)
                         }
                     };
                     state.mouse_wheel_event(&mut ctx, x, y);
@@ -180,19 +180,23 @@ where
                     state.key_mods_changed(&mut ctx, modifiers_state);
                 }
 
+                WindowEvent::AxisMotion { .. } => {}
+                WindowEvent::CursorLeft { .. } => {}
+
                 x => {
                     eprintln!("ignoring window event {:?}", x);
                 }
             },
             Event::DeviceEvent { .. } => (),
-            Event::RedrawEventsCleared => {
+            Event::MainEventsCleared => {
                 ctx.timer_context.tick();
                 let _ = state.update(&mut ctx);
                 let _ = state.draw(&mut ctx);
 
                 // CLEAR VALUES
-                ctx.mouse_context.set_last_delta((0, 0).into());
+                ctx.mouse_context.set_last_delta((0.0, 0.0).into());
             }
+
             _ => (),
         }
     });

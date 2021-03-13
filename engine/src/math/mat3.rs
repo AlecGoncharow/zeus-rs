@@ -24,7 +24,7 @@ impl Mat3 {
     }
 
     #[inline]
-    pub fn determinate(&self) -> f64 {
+    pub fn determinate(&self) -> f32 {
         let a = Mat2::new((self.y.y, self.y.z).into(), (self.z.y, self.z.z).into());
         let b = Mat2::new((self.x.y, self.x.z).into(), (self.z.y, self.z.z).into());
         let c = Mat2::new((self.x.y, self.x.z).into(), (self.y.y, self.y.z).into());

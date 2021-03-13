@@ -12,8 +12,8 @@ unsafe impl bytemuck::Zeroable for Vertex {}
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct Vertex {
-    pub position: [f64; 3],
-    pub color: [f64; 3],
+    pub position: [f32; 3],
+    pub color: [f32; 3],
 }
 
 impl Vertex {
@@ -25,12 +25,12 @@ impl Vertex {
                 wgpu::VertexAttribute {
                     offset: 0,
                     shader_location: 0,
-                    format: wgpu::VertexFormat::Double3,
+                    format: wgpu::VertexFormat::Float3,
                 },
                 wgpu::VertexAttribute {
-                    offset: std::mem::size_of::<[f64; 3]>() as wgpu::BufferAddress,
+                    offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
                     shader_location: 1,
-                    format: wgpu::VertexFormat::Double3,
+                    format: wgpu::VertexFormat::Float3,
                 },
             ],
         }
@@ -63,6 +63,10 @@ const VERTICES: &[Vertex] = &[
 
 const INDICES: &[u16] = &[0, 1, 2];
 
+const UNIFORM: &[f32] = &[
+    1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5, 1.0,
+];
+
 pub struct GraphicsContext {
     pub size: winit::dpi::PhysicalSize<u32>,
     pub clear_color: wgpu::Color,
@@ -71,8 +75,11 @@ pub struct GraphicsContext {
     pub(crate) command_encoder: Option<wgpu::CommandEncoder>,
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
+    uniform_buffer: wgpu::Buffer,
+    uniform_bind_group_layout: wgpu::BindGroupLayout,
+    uniform_bind_group: wgpu::BindGroup,
 
-    pub window_dims: winit::dpi::LogicalSize<f64>,
+    pub window_dims: winit::dpi::LogicalSize<f32>,
 
     // @TODO pass uniform buffers into shaders
     pub projection_transform: Mat4,
@@ -91,10 +98,10 @@ impl GraphicsContext {
         let size = window.inner_size();
 
         let clear_color = wgpu::Color {
-            r: clear_color.x,
-            g: clear_color.y,
-            b: clear_color.z,
-            a: clear_color.w,
+            r: clear_color.x.into(),
+            g: clear_color.y.into(),
+            b: clear_color.z.into(),
+            a: clear_color.w.into(),
         };
 
         let vs_module =
@@ -102,10 +109,40 @@ impl GraphicsContext {
         let fs_module =
             device.create_shader_module(&wgpu::include_spirv!("shaders/shader.frag.spv"));
 
+        let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Uniform Buffer"),
+            contents: bytemuck::cast_slice(UNIFORM),
+            usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+        });
+
+        let uniform_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStage::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+                label: Some("uniform_bind_group_layout"),
+            });
+
+        let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &uniform_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: uniform_buffer.as_entire_binding(),
+            }],
+            label: Some("uniform_bind_group"),
+        });
+
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Pipeline Layout Descriptor"),
-                bind_group_layouts: &[],
+                bind_group_layouts: &[&uniform_bind_group_layout],
                 push_constant_ranges: &[],
             });
 
@@ -160,7 +197,7 @@ impl GraphicsContext {
             usage: wgpu::BufferUsage::INDEX,
         });
 
-        let window_dims = window.inner_size().to_logical::<f64>(window.scale_factor());
+        let window_dims = window.inner_size().to_logical::<f32>(window.scale_factor());
 
         Self {
             size,
@@ -169,6 +206,9 @@ impl GraphicsContext {
             command_encoder: None,
             vertex_buffer,
             index_buffer,
+            uniform_buffer,
+            uniform_bind_group_layout,
+            uniform_bind_group,
 
             window_dims,
 
@@ -200,6 +240,7 @@ impl GraphicsContext {
         });
 
         render_pass.set_pipeline(&self.render_pipeline);
+        render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         render_pass.draw(0..0, 0..0);
         drop(render_pass);
@@ -233,13 +274,38 @@ impl GraphicsContext {
         });
         render_pass.set_pipeline(&self.render_pipeline);
 
-        let vertices: &[Vertex] = unsafe { std::mem::transmute(verts) };
+        let vertices: &[Vertex] = unsafe {
+            &*(verts as *const [(crate::math::vec3::Vec3, crate::math::vec3::Vec3)]
+                as *const [crate::graphics::renderer::Vertex])
+        };
         self.vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
             contents: bytemuck::cast_slice(&vertices),
             usage: wgpu::BufferUsage::VERTEX,
         });
 
+        let buffer_data: [[f32; 16]; 3] = [
+            self.model_transform.into(),
+            self.view_transform.into(),
+            self.projection_transform.into(),
+        ];
+
+        self.uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Uniform Buffer"),
+            contents: bytemuck::cast_slice(&buffer_data),
+            usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+        });
+
+        self.uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &self.uniform_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: self.uniform_buffer.as_entire_binding(),
+            }],
+            label: Some("uniform_bind_group"),
+        });
+
+        render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         render_pass.draw(0..verts.len() as u32, 0..1);
         drop(render_pass);
@@ -271,7 +337,10 @@ impl GraphicsContext {
         });
         render_pass.set_pipeline(&self.render_pipeline);
 
-        let vertices: &[Vertex] = unsafe { std::mem::transmute(verts) };
+        let vertices: &[Vertex] = unsafe {
+            &*(verts as *const [(crate::math::vec3::Vec3, crate::math::vec3::Vec3)]
+                as *const [crate::graphics::renderer::Vertex])
+        };
         self.vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
             contents: bytemuck::cast_slice(&vertices),
@@ -284,6 +353,28 @@ impl GraphicsContext {
             usage: wgpu::BufferUsage::INDEX,
         });
 
+        let buffer_data: [[[f32; 4]; 4]; 3] = [
+            self.model_transform.into(),
+            self.view_transform.into(),
+            self.projection_transform.into(),
+        ];
+
+        self.uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Uniform Buffer"),
+            contents: bytemuck::cast_slice(&buffer_data),
+            usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+        });
+
+        self.uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &self.uniform_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: self.uniform_buffer.as_entire_binding(),
+            }],
+            label: Some("uniform_bind_group"),
+        });
+
+        render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
         render_pass.draw_indexed(0..indices.len() as u32, 0, 0..1);

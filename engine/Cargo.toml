@@ -10,6 +10,7 @@ edition = "2018"
 winit="0.22"
 futures = "0.3"
 bytemuck = "1.4"
+num-traits = "0.2"
 
 [dependencies.wgpu]
 version = "0.7"

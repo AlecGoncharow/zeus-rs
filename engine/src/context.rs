@@ -14,10 +14,13 @@ pub struct Context {
     pub mouse_context: mouse::MouseContext,
     pub gfx_context: graphics::renderer::GraphicsContext,
     pub timer_context: timer::TimeContext,
-    pub frame: wgpu::SwapChainFrame,
+    pub frame: Option<wgpu::SwapChainFrame>,
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub swap_chain: wgpu::SwapChain,
+    pub window: winit::window::Window,
+    pub surface: wgpu::Surface,
+    pub adapter: wgpu::Adapter,
 }
 
 impl<'a> Context {
@@ -34,9 +37,7 @@ impl<'a> Context {
         }))
         .unwrap();
 
-        println!("{:#?}", adapter.features());
-        let mut features = wgpu::Features::empty();
-        features.set(wgpu::Features::SHADER_FLOAT64, true);
+        let features = wgpu::Features::empty();
         let (device, queue) = block_on(adapter.request_device(
             &wgpu::DeviceDescriptor {
                 label: Some("Request Device"),
@@ -52,7 +53,7 @@ impl<'a> Context {
             format: adapter.get_swap_chain_preferred_format(&surface),
             width: size.width,
             height: size.height,
-            present_mode: wgpu::PresentMode::Fifo,
+            present_mode: wgpu::PresentMode::Immediate,
         };
 
         let swap_chain = device.create_swap_chain(&surface, &sc_desc);
@@ -80,10 +81,13 @@ impl<'a> Context {
             mouse_context: mouse::MouseContext::new(),
             gfx_context,
             timer_context: timer::TimeContext::new(),
-            frame,
+            frame: Some(frame),
             device,
             queue,
             swap_chain,
+            window,
+            surface,
+            adapter,
         };
 
         (ctx, event_loop)
@@ -94,7 +98,7 @@ impl<'a> Context {
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::Resized(_logical_size) => {
                     //let hidpi_factor = self.gfx_context.window.get_hidpi_factor();
-                    //let physical_size = logical_size.to_physical(hidpi_factor as f64);
+                    //let physical_size = logical_size.to_physical(hidpi_factor as f32);
                     //self.gfx_context.window.resize(physical_size);
                     //self.gfx_context.resize_viewport();
                     //self.gfx_context.recreate_swapchain = true;
@@ -152,19 +156,38 @@ impl<'a> Context {
     }
 
     pub fn start_drawing(&mut self) {
-        self.frame = loop {
-            match self.swap_chain.get_current_frame() {
-                Ok(frame) => break frame,
-                Err(e) => {
-                    eprintln!("dropped frame: {:?}", e);
-                    continue;
+        if self.frame.is_none() {
+            self.frame = loop {
+                match self.swap_chain.get_current_frame() {
+                    Ok(frame) => break Some(frame),
+                    Err(e) => {
+                        eprintln!("dropped frame: {:?}", e);
+                        if e == wgpu::SwapChainError::Outdated {
+                            let size = self.window.inner_size();
+                            let sc_desc = wgpu::SwapChainDescriptor {
+                                usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
+                                format: self.adapter.get_swap_chain_preferred_format(&self.surface),
+                                width: size.width,
+                                height: size.height,
+                                present_mode: wgpu::PresentMode::Immediate,
+                            };
+
+                            self.swap_chain =
+                                self.device.create_swap_chain(&self.surface, &sc_desc);
+                        }
+
+                        continue;
+                    }
                 }
-            }
-        };
+            };
+        }
 
         loop {
-            self.gfx_context
-                .start(&self.device, &self.frame.output.view, &self.queue);
+            self.gfx_context.start(
+                &self.device,
+                &self.frame.as_ref().unwrap().output.view,
+                &self.queue,
+            );
             if self.gfx_context.command_encoder.is_some() {
                 break;
             } else {
@@ -174,16 +197,26 @@ impl<'a> Context {
     }
 
     pub fn draw(&mut self, mode: Topology, verts: &[(Vec3, Vec3)]) {
-        self.gfx_context
-            .draw(&self.frame.output.view, &self.device, mode, verts);
+        self.gfx_context.draw(
+            &self.frame.as_ref().unwrap().output.view,
+            &self.device,
+            mode,
+            verts,
+        );
     }
 
     pub fn draw_indexed(&mut self, mode: Topology, verts: &[(Vec3, Vec3)], indices: &[u16]) {
-        self.gfx_context
-            .draw_indexed(&self.frame.output.view, &self.device, mode, verts, indices);
+        self.gfx_context.draw_indexed(
+            &self.frame.as_ref().unwrap().output.view,
+            &self.device,
+            mode,
+            verts,
+            indices,
+        );
     }
 
     pub fn render(&mut self) {
         self.gfx_context.render(&self.queue);
+        self.frame = None;
     }
 }

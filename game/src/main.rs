@@ -69,7 +69,7 @@ impl EventHandler for State {
         self.entity_manager.camera.process_keyrelease(keycode);
     }
 
-    fn mouse_button_down_event(&mut self, _ctx: &mut Context, button: MouseButton, x: f64, y: f64) {
+    fn mouse_button_down_event(&mut self, _ctx: &mut Context, button: MouseButton, x: f32, y: f32) {
         println!("Mouse button pressed: {:?}, x: {}, y: {}", button, x, y);
         //self.points.push(Vec3::new(x, y, 0.0));
 
@@ -78,7 +78,7 @@ impl EventHandler for State {
         }
     }
 
-    fn mouse_button_up_event(&mut self, _ctx: &mut Context, button: MouseButton, x: f64, y: f64) {
+    fn mouse_button_up_event(&mut self, _ctx: &mut Context, button: MouseButton, x: f32, y: f32) {
         println!("Mouse button pressed: {:?}, x: {}, y: {}", button, x, y);
         //self.points.push(Vec3::new(x, y, 0.0));
         //self.camera.update_pitch_and_angle(ctx);
@@ -88,7 +88,7 @@ impl EventHandler for State {
         }
     }
 
-    fn mouse_wheel_event(&mut self, _ctx: &mut Context, x: f64, y: f64) {
+    fn mouse_wheel_event(&mut self, _ctx: &mut Context, x: f32, y: f32) {
         println!("Mouse wheel scrolled: x: {}, y: {}", x, y);
         //self.camera.update_zoom(Vec2::new(x, y));
     }
@@ -106,7 +106,7 @@ impl EventHandler for State {
     }
     */
 
-    fn resize_event(&mut self, ctx: &mut Context, width: f64, height: f64) {
+    fn resize_event(&mut self, ctx: &mut Context, width: f32, height: f32) {
         // prevent degenerate case where things go wrong if resize while moving camera orientation
         self.mouse_down = false;
 

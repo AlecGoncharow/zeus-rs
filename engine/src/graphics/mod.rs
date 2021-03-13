@@ -45,6 +45,6 @@ pub trait Drawable {
         Topology::TriangleList(PolygonMode::Fill)
     }
 
-    fn rotate(&mut self, _theta: f64, _axis: Vec3) {}
-    fn translate(&mut self, (_x_tr, _y_tr, _z_tr): (f64, f64, f64)) {}
+    fn rotate(&mut self, _theta: f32, _axis: Vec3) {}
+    fn translate(&mut self, (_x_tr, _y_tr, _z_tr): (f32, f32, f32)) {}
 }

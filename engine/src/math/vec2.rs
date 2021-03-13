@@ -2,12 +2,12 @@ use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Vec2 {
-    pub x: f64,
-    pub y: f64,
+    pub x: f32,
+    pub y: f32,
 }
 
 impl Vec2 {
-    pub fn new(x: impl Into<f64>, y: impl Into<f64>) -> Self {
+    pub fn new(x: impl Into<f32>, y: impl Into<f32>) -> Self {
         Self {
             x: x.into(),
             y: y.into(),
@@ -18,20 +18,20 @@ impl Vec2 {
         Self { x: 0.0, y: 0.0 }
     }
 
-    pub fn dot(&self, other: &Self) -> f64 {
+    pub fn dot(&self, other: &Self) -> f32 {
         self.x * other.x + self.y * other.y
     }
 
-    pub fn squared_mag(&self) -> f64 {
+    pub fn squared_mag(&self) -> f32 {
         self.dot(self)
     }
 
-    pub fn magnitude(&self) -> f64 {
+    pub fn magnitude(&self) -> f32 {
         self.squared_mag().sqrt()
     }
 }
 
-impl<T: Into<f64>> From<(T, T)> for Vec2 {
+impl<T: Into<f32>> From<(T, T)> for Vec2 {
     fn from(tuple: (T, T)) -> Self {
         Self::new(tuple.0, tuple.1)
     }
@@ -77,7 +77,7 @@ impl SubAssign for Vec2 {
     }
 }
 
-impl Mul<Vec2> for f64 {
+impl Mul<Vec2> for f32 {
     type Output = Vec2;
 
     fn mul(self, vec: Vec2) -> Vec2 {
@@ -88,7 +88,7 @@ impl Mul<Vec2> for f64 {
     }
 }
 
-impl<T: Into<f64> + Copy> Mul<T> for Vec2 {
+impl<T: Into<f32> + Copy> Mul<T> for Vec2 {
     type Output = Self;
 
     fn mul(self, scalar: T) -> Self {
@@ -99,7 +99,7 @@ impl<T: Into<f64> + Copy> Mul<T> for Vec2 {
     }
 }
 
-impl<T: Into<f64> + Copy> MulAssign<T> for Vec2 {
+impl<T: Into<f32> + Copy> MulAssign<T> for Vec2 {
     fn mul_assign(&mut self, scalar: T) {
         *self = Self {
             x: self.x * scalar.into(),

@@ -4,10 +4,10 @@ use engine::math::Vec3;
 use engine::math::Vec4;
 use engine::winit::event::VirtualKeyCode;
 
-//const YAW_DEFAULT: f64 = -90.0;
-//const PITCH_DEFAULT: f64 = 0.0;
-const MOVE_DEFAULT: f64 = 0.05;
-const MOUSE_DEFAULT: f64 = 0.5;
+//const YAW_DEFAULT: f32 = -90.0;
+//const PITCH_DEFAULT: f32 = 0.0;
+const MOVE_DEFAULT: f32 = 0.05;
+const MOUSE_DEFAULT: f32 = 0.5;
 
 #[derive(Debug)]
 pub struct Camera {
@@ -18,19 +18,19 @@ pub struct Camera {
     pub world_up: Vec3,
 
     // rotation things
-    pub yaw: f64,
-    pub pitch: f64,
+    pub yaw: f32,
+    pub pitch: f32,
 
     // control things
-    pub move_speed: f64,
+    pub move_speed: f32,
     pub fast_move: bool,
-    pub mouse_speed: f64,
+    pub mouse_speed: f32,
 
     // projection matric things, not sure if it should be here
-    pub aspect: f64,
-    pub vfov: f64,
-    pub near_plane: f64,
-    pub far_plane: f64,
+    pub aspect: f32,
+    pub vfov: f32,
+    pub near_plane: f32,
+    pub far_plane: f32,
 }
 
 impl Camera {
@@ -38,9 +38,9 @@ impl Camera {
         look_from: Vec3,
         look_at: Vec3,
         world_up: Vec3,
-        vfov: f64,
-        (width, height): (f64, f64),
-        (near_plane, far_plane): (f64, f64),
+        vfov: f32,
+        (width, height): (f32, f32),
+        (near_plane, far_plane): (f32, f32),
     ) -> Self {
         let aspect = width / height;
 
@@ -58,7 +58,7 @@ impl Camera {
                 cos_yaw.acos().to_degrees()
             } else {
                 // degenerate case idk what to do with this
-                1.0f64.to_degrees()
+                1.0f32.to_degrees()
             }
         };
         let pitch = pitch.to_degrees();
@@ -85,7 +85,7 @@ impl Camera {
         }
     }
 
-    pub fn set_aspect(&mut self, (width, height): (f64, f64)) {
+    pub fn set_aspect(&mut self, (width, height): (f32, f32)) {
         self.aspect = width / height;
     }
 
@@ -98,7 +98,7 @@ impl Camera {
         );
 
         let negative_from = -1.0 * self.origin;
-        let translation = Mat4::translation::<f64>(negative_from.into());
+        let translation = Mat4::translation::<f32>(negative_from.into());
 
         rotation * translation
     }
@@ -107,7 +107,7 @@ impl Camera {
         let mut projection_matrix = Mat4::identity();
         let near_plane = self.near_plane;
         let far_plane = self.far_plane;
-        let fov: f64 = self.vfov;
+        let fov: f32 = self.vfov;
         let aspect_ratio = self.aspect;
         //let right = self.lower_left_corner.x + self.horizontal.magnitude();
         //let left = self.lower_left_corner.x;
@@ -120,7 +120,7 @@ impl Camera {
 
         projection_matrix.x.x = x_scale;
 
-        projection_matrix.y.y = y_scale;
+        projection_matrix.y.y = -y_scale;
 
         projection_matrix.z.z = -(near_plane + far_plane) / frustrum_length;
         projection_matrix.z.w = -(2.0 * near_plane * far_plane) / frustrum_length;

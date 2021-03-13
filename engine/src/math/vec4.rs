@@ -4,20 +4,20 @@ use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Vec4 {
-    pub x: f64,
-    pub y: f64,
-    pub z: f64,
-    pub w: f64,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    pub w: f32,
 }
 
 impl Vec4 {
     #[inline]
     pub fn new(x: impl Into<f64>, y: impl Into<f64>, z: impl Into<f64>, w: impl Into<f64>) -> Self {
         Self {
-            x: x.into(),
-            y: y.into(),
-            z: z.into(),
-            w: w.into(),
+            x: x.into() as f32,
+            y: y.into() as f32,
+            z: z.into() as f32,
+            w: w.into() as f32,
         }
     }
     #[inline]
@@ -75,7 +75,7 @@ impl Vec4 {
     }
 
     #[inline]
-    pub fn dot(&self, other: &Self) -> f64 {
+    pub fn dot(&self, other: &Self) -> f32 {
         self.x * other.x + self.y * other.y + self.z * other.z + self.w * other.w
     }
 
@@ -90,12 +90,12 @@ impl Vec4 {
     }
     */
     #[inline]
-    pub fn squared_mag(&self) -> f64 {
+    pub fn squared_mag(&self) -> f32 {
         self.dot(self)
     }
 
     #[inline]
-    pub fn magnitude(&self) -> f64 {
+    pub fn magnitude(&self) -> f32 {
         self.squared_mag().sqrt()
     }
 
@@ -110,7 +110,7 @@ impl Vec4 {
     }
 
     #[inline]
-    pub fn zero_out_insignificant(&self, delta: f64) -> Self {
+    pub fn zero_out_insignificant(&self, delta: f32) -> Self {
         Self {
             x: if self.x.abs() < delta { 0.0 } else { self.x },
             y: if self.y.abs() < delta { 0.0 } else { self.y },
@@ -120,7 +120,7 @@ impl Vec4 {
     }
 
     #[inline]
-    pub fn clamp(&self, min: impl Into<f64>, max: impl Into<f64>) -> Self {
+    pub fn clamp(&self, min: impl Into<f32>, max: impl Into<f32>) -> Self {
         let min = min.into();
         let max = max.into();
         Self {
@@ -225,7 +225,7 @@ impl SubAssign for Vec4 {
     }
 }
 
-impl Mul<Vec4> for f64 {
+impl Mul<Vec4> for f32 {
     type Output = Vec4;
 
     fn mul(self, vec: Vec4) -> Vec4 {
@@ -238,15 +238,15 @@ impl Mul<Vec4> for f64 {
     }
 }
 
-impl Mul<Vec4> for f32 {
+impl Mul<Vec4> for f64 {
     type Output = Vec4;
 
     fn mul(self, vec: Vec4) -> Vec4 {
         Vec4 {
-            x: vec.x * self as f64,
-            y: vec.y * self as f64,
-            z: vec.z * self as f64,
-            w: vec.w * self as f64,
+            x: vec.x * self as f32,
+            y: vec.y * self as f32,
+            z: vec.z * self as f32,
+            w: vec.w * self as f32,
         }
     }
 }
@@ -256,10 +256,10 @@ impl Mul<Vec4> for i32 {
 
     fn mul(self, vec: Vec4) -> Vec4 {
         Vec4 {
-            x: vec.x * self as f64,
-            y: vec.y * self as f64,
-            z: vec.z * self as f64,
-            w: vec.w * self as f64,
+            x: vec.x * self as f32,
+            y: vec.y * self as f32,
+            z: vec.z * self as f32,
+            w: vec.w * self as f32,
         }
     }
 }
@@ -269,15 +269,15 @@ impl Mul<Vec4> for u32 {
 
     fn mul(self, vec: Vec4) -> Vec4 {
         Vec4 {
-            x: vec.x * self as f64,
-            y: vec.y * self as f64,
-            z: vec.z * self as f64,
-            w: vec.w * self as f64,
+            x: vec.x * self as f32,
+            y: vec.y * self as f32,
+            z: vec.z * self as f32,
+            w: vec.w * self as f32,
         }
     }
 }
 
-impl<T: Into<f64> + Copy> Mul<T> for Vec4 {
+impl<T: Into<f32> + Copy> Mul<T> for Vec4 {
     type Output = Self;
 
     fn mul(self, scalar: T) -> Self {
@@ -290,7 +290,7 @@ impl<T: Into<f64> + Copy> Mul<T> for Vec4 {
     }
 }
 
-impl<T: Into<f64> + Copy> MulAssign<T> for Vec4 {
+impl<T: Into<f32> + Copy> MulAssign<T> for Vec4 {
     fn mul_assign(&mut self, scalar: T) {
         *self = Self {
             x: self.x * scalar.into(),

@@ -75,7 +75,7 @@ impl EntityManager {
         let mouse_ray = Self::get_mouse_ray(ctx);
 
         let camera_origin = self.camera.origin;
-        let mut closest: Option<(&mut dyn MouseComponent, Vec3, f64)> = None;
+        let mut closest: Option<(&mut dyn MouseComponent, Vec3, f32)> = None;
         self.entities.iter_mut().for_each(|entity| {
             entity.update(ctx);
             if let Some(mouse_ray) = mouse_ray {
