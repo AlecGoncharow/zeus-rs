@@ -50,7 +50,7 @@ impl EntityManager {
     fn get_mouse_ray(ctx: &mut Context) -> Option<Vec3> {
         let mouse_pos = mouse::position(ctx);
         let ndc_x = (2.0 * mouse_pos.x) / ctx.gfx_context.window_dims.width - 1.0;
-        let ndc_y = (2.0 * mouse_pos.y) / ctx.gfx_context.window_dims.height - 1.0;
+        let ndc_y = 1.0 - (2.0 * mouse_pos.y) / ctx.gfx_context.window_dims.height;
 
         let clip = Vec4::new(ndc_x, ndc_y, 0.0, 1.0);
         let mut eye = if let Some(inv_proj) = ctx.gfx_context.projection_transform.invert() {

@@ -37,7 +37,9 @@ impl<'a> Context {
         }))
         .unwrap();
 
-        let features = wgpu::Features::empty();
+        let mut features = wgpu::Features::empty();
+        // @TODO need to wrap this so that non Vulkan/DX12 don't offer multiple pipelines
+        features.set(wgpu::Features::NON_FILL_POLYGON_MODE, true);
         let (device, queue) = block_on(adapter.request_device(
             &wgpu::DeviceDescriptor {
                 label: Some("Request Device"),
@@ -103,14 +105,9 @@ impl<'a> Context {
                     //self.gfx_context.resize_viewport();
                     //self.gfx_context.recreate_swapchain = true;
                 }
-                WindowEvent::CursorMoved {
-                    position: logical_position,
-                    ..
-                } => {
-                    self.mouse_context.set_last_position(Vec2::new(
-                        logical_position.x as f32,
-                        logical_position.y as f32,
-                    ));
+                WindowEvent::CursorMoved { position, .. } => {
+                    self.mouse_context
+                        .set_last_position(Vec2::new(position.x as f32, position.y as f32));
                 }
                 WindowEvent::MouseInput { button, state, .. } => {
                     let pressed = match state {
@@ -174,6 +171,9 @@ impl<'a> Context {
 
                             self.swap_chain =
                                 self.device.create_swap_chain(&self.surface, &sc_desc);
+
+                            self.gfx_context
+                                .resize(size, &self.device, &sc_desc, &self.window);
                         }
 
                         continue;

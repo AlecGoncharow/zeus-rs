@@ -2,6 +2,7 @@ use winit::window::Window;
 
 use wgpu::util::DeviceExt;
 
+use crate::graphics::topology::PolygonMode;
 use crate::graphics::Topology;
 use crate::math::Mat4;
 use crate::math::Vec3;
@@ -66,11 +67,14 @@ const INDICES: &[u16] = &[0, 1, 2];
 const UNIFORM: &[f32] = &[
     1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5, 1.0,
 ];
+type TopologyPipelines = std::collections::HashMap<Topology, wgpu::RenderPipeline>;
 
 pub struct GraphicsContext {
     pub size: winit::dpi::PhysicalSize<u32>,
     pub clear_color: wgpu::Color,
-    render_pipeline: wgpu::RenderPipeline,
+    render_pipelines: TopologyPipelines,
+    vs_module: wgpu::ShaderModule,
+    fs_module: wgpu::ShaderModule,
 
     pub(crate) command_encoder: Option<wgpu::CommandEncoder>,
     vertex_buffer: wgpu::Buffer,
@@ -78,8 +82,9 @@ pub struct GraphicsContext {
     uniform_buffer: wgpu::Buffer,
     uniform_bind_group_layout: wgpu::BindGroupLayout,
     uniform_bind_group: wgpu::BindGroup,
+    depth_texture: crate::graphics::texture::Texture,
 
-    pub window_dims: winit::dpi::LogicalSize<f32>,
+    pub window_dims: winit::dpi::PhysicalSize<f32>,
 
     // @TODO pass uniform buffers into shaders
     pub projection_transform: Mat4,
@@ -139,51 +144,19 @@ impl GraphicsContext {
             label: Some("uniform_bind_group"),
         });
 
-        let render_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Pipeline Layout Descriptor"),
-                bind_group_layouts: &[&uniform_bind_group_layout],
-                push_constant_ranges: &[],
-            });
+        let depth_texture = crate::graphics::texture::Texture::create_depth_texture(
+            &device,
+            &sc_desc,
+            "depth_texture",
+        );
 
-        println!("{:#?}", device.features());
-
-        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
-            layout: Some(&render_pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &vs_module,
-                entry_point: "main",
-                buffers: &[Vertex::desc()],
-            },
-            fragment: Some(wgpu::FragmentState {
-                // 2.
-                module: &fs_module,
-                entry_point: "main",
-                targets: &[wgpu::ColorTargetState {
-                    format: sc_desc.format,
-                    alpha_blend: wgpu::BlendState::REPLACE,
-                    color_blend: wgpu::BlendState::REPLACE,
-                    write_mask: wgpu::ColorWrite::ALL,
-                }],
-            }),
-
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList, // 1.
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw, // 2.
-                cull_mode: wgpu::CullMode::Back,
-                // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
-                polygon_mode: wgpu::PolygonMode::Fill,
-            },
-
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState {
-                count: 1,                         // 2.
-                mask: !0,                         // 3.
-                alpha_to_coverage_enabled: false, // 4.
-            },
-        });
+        let render_pipelines = Self::build_pipelines(
+            device,
+            &uniform_bind_group_layout,
+            &vs_module,
+            &fs_module,
+            sc_desc,
+        );
 
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
@@ -197,18 +170,21 @@ impl GraphicsContext {
             usage: wgpu::BufferUsage::INDEX,
         });
 
-        let window_dims = window.inner_size().to_logical::<f32>(window.scale_factor());
+        let window_dims = window.inner_size().cast::<f32>();
 
         Self {
             size,
             clear_color,
-            render_pipeline,
+            render_pipelines,
+            vs_module,
+            fs_module,
             command_encoder: None,
             vertex_buffer,
             index_buffer,
             uniform_buffer,
             uniform_bind_group_layout,
             uniform_bind_group,
+            depth_texture,
 
             window_dims,
 
@@ -218,8 +194,27 @@ impl GraphicsContext {
         }
     }
 
-    pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
+    pub fn resize(
+        &mut self,
+        new_size: winit::dpi::PhysicalSize<u32>,
+        device: &wgpu::Device,
+        sc_desc: &wgpu::SwapChainDescriptor,
+        window: &winit::window::Window,
+    ) {
         self.size = new_size;
+        self.depth_texture = crate::graphics::texture::Texture::create_depth_texture(
+            device,
+            sc_desc,
+            "depth_texture",
+        );
+        self.window_dims = window.inner_size().cast::<f32>();
+        self.render_pipelines = Self::build_pipelines(
+            device,
+            &self.uniform_bind_group_layout,
+            &self.vs_module,
+            &self.fs_module,
+            sc_desc,
+        );
     }
 
     pub fn start(&mut self, device: &wgpu::Device, view: &wgpu::TextureView, queue: &wgpu::Queue) {
@@ -236,10 +231,22 @@ impl GraphicsContext {
                     store: true,
                 },
             }],
-            depth_stencil_attachment: None,
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
+                attachment: &self.depth_texture.view,
+                depth_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(1.0),
+                    store: true,
+                }),
+                stencil_ops: None,
+            }),
         });
 
-        render_pass.set_pipeline(&self.render_pipeline);
+        render_pass.set_pipeline(
+            &self
+                .render_pipelines
+                .get(&Topology::TriangleList(PolygonMode::Fill))
+                .unwrap(),
+        );
         render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         render_pass.draw(0..0, 0..0);
@@ -255,7 +262,7 @@ impl GraphicsContext {
         &mut self,
         view: &wgpu::TextureView,
         device: &wgpu::Device,
-        _mode: Topology,
+        mode: Topology,
         verts: &[(Vec3, Vec3)],
     ) {
         let mut encoder = self.command_encoder.take().unwrap();
@@ -270,9 +277,16 @@ impl GraphicsContext {
                     store: true,
                 },
             }],
-            depth_stencil_attachment: None,
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
+                attachment: &self.depth_texture.view,
+                depth_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Load,
+                    store: true,
+                }),
+                stencil_ops: None,
+            }),
         });
-        render_pass.set_pipeline(&self.render_pipeline);
+        render_pass.set_pipeline(&self.render_pipelines.get(&mode).unwrap());
 
         let vertices: &[Vertex] = unsafe {
             &*(verts as *const [(crate::math::vec3::Vec3, crate::math::vec3::Vec3)]
@@ -317,7 +331,7 @@ impl GraphicsContext {
         &mut self,
         view: &wgpu::TextureView,
         device: &wgpu::Device,
-        _mode: Topology,
+        mode: Topology,
         verts: &[(Vec3, Vec3)],
         indices: &[u16],
     ) {
@@ -333,9 +347,16 @@ impl GraphicsContext {
                     store: true,
                 },
             }],
-            depth_stencil_attachment: None,
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
+                attachment: &self.depth_texture.view,
+                depth_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Load,
+                    store: true,
+                }),
+                stencil_ops: None,
+            }),
         });
-        render_pass.set_pipeline(&self.render_pipeline);
+        render_pass.set_pipeline(&self.render_pipelines.get(&mode).unwrap());
 
         let vertices: &[Vertex] = unsafe {
             &*(verts as *const [(crate::math::vec3::Vec3, crate::math::vec3::Vec3)]
@@ -389,5 +410,71 @@ impl GraphicsContext {
             self.command_encoder.take().unwrap().finish(),
         ));
         self.command_encoder = None;
+    }
+
+    fn build_pipelines(
+        device: &wgpu::Device,
+        uniform_bind_group_layout: &wgpu::BindGroupLayout,
+        vs_module: &wgpu::ShaderModule,
+        fs_module: &wgpu::ShaderModule,
+        sc_desc: &wgpu::SwapChainDescriptor,
+    ) -> TopologyPipelines {
+        let mut map: TopologyPipelines = std::collections::HashMap::new();
+        let render_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Pipeline Layout Descriptor"),
+                bind_group_layouts: &[uniform_bind_group_layout],
+                push_constant_ranges: &[],
+            });
+        for top in Topology::iterator() {
+            let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("Render Pipeline"),
+                layout: Some(&render_pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &vs_module,
+                    entry_point: "main",
+                    buffers: &[Vertex::desc()],
+                },
+                fragment: Some(wgpu::FragmentState {
+                    // 2.
+                    module: &fs_module,
+                    entry_point: "main",
+                    targets: &[wgpu::ColorTargetState {
+                        format: sc_desc.format,
+                        alpha_blend: wgpu::BlendState::REPLACE,
+                        color_blend: wgpu::BlendState::REPLACE,
+                        write_mask: wgpu::ColorWrite::ALL,
+                    }],
+                }),
+
+                primitive: wgpu::PrimitiveState {
+                    topology: top.into(), // 1.
+                    strip_index_format: None,
+                    front_face: wgpu::FrontFace::Ccw, // 2.
+                    cull_mode: wgpu::CullMode::None,
+                    // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
+                    polygon_mode: top.inner().into(),
+                },
+
+                depth_stencil: Some(wgpu::DepthStencilState {
+                    format: crate::graphics::texture::Texture::DEPTH_FORMAT,
+                    depth_write_enabled: true,
+                    depth_compare: wgpu::CompareFunction::Less, // 1.
+                    stencil: wgpu::StencilState::default(),     // 2.
+                    bias: wgpu::DepthBiasState::default(),
+                    // Setting this to true requires Features::DEPTH_CLAMPING
+                    clamp_depth: false,
+                }),
+
+                multisample: wgpu::MultisampleState {
+                    count: 1,                         // 2.
+                    mask: !0,                         // 3.
+                    alpha_to_coverage_enabled: false, // 4.
+                },
+            });
+
+            map.insert(*top, render_pipeline);
+        }
+        map
     }
 }

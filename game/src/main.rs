@@ -125,31 +125,20 @@ impl EventHandler for State {
 }
 
 #[allow(dead_code)]
-fn get_corner_positions(row: f32, col: f32) -> [(Vec3, Vec3); 4] {
+fn get_corner_positions(row: f32, col: f32, y: f32) -> [(Vec3, Vec3); 4] {
     [
-        ((col, -5.0f32, row).into(), Vec3::new(0.7, 0.7, 0.7)),
-        ((col, -5.0f32, row + 1.0).into(), Vec3::new(0.8, 0.8, 0.8)),
-        ((col + 1.0, -5.0f32, row).into(), Vec3::new(0.9, 0.9, 0.9)),
-        ((col + 1.0, -5.0f32, row + 1.0).into(), Vec3::new(1, 1, 1)),
+        ((col, y, row).into(), Vec3::new(0.7, 0.7, 0.7)),
+        ((col, y, row + 1.0).into(), Vec3::new(0.8, 0.8, 0.8)),
+        ((col + 1.0, y, row).into(), Vec3::new(0.9, 0.9, 0.9)),
+        ((col + 1.0, y, row + 1.0).into(), Vec3::new(1, 1, 1)),
     ]
-
-    /*
-    [
-        ((col, -5.0f32, row).into(), Vec3::new(1, 0, 0)),
-        ((col, -5.0f32, row + 1.0).into(), Vec3::new(0, 1, 0)),
-        ((col + 1.0, -5.0f32, row).into(), Vec3::new(1, 0, 1)),
-        ((col + 1.0, -5.0f32, row + 1.0).into(), Vec3::new(0, 1, 1)),
-    ]
-        */
 }
 
 #[allow(dead_code)]
-fn generate_grid(size: i32) -> Vec<(Vec3, Vec3)> {
-    let mut grid: Vec<(Vec3, Vec3)> = vec![];
-
+fn populate_grid(grid: &mut Vec<(Vec3, Vec3)>, size: i32, y: f32) {
     for row in -size..size {
         for col in -size..size {
-            let pos = get_corner_positions(row as f32, col as f32);
+            let pos = get_corner_positions(row as f32, col as f32, y);
             grid.push(pos[0]);
             grid.push(pos[1]);
             grid.push(pos[2]);
@@ -158,8 +147,21 @@ fn generate_grid(size: i32) -> Vec<(Vec3, Vec3)> {
             grid.push(pos[3]);
         }
     }
+}
 
-    grid
+#[allow(dead_code)]
+fn populate_grid_inv(grid: &mut Vec<(Vec3, Vec3)>, size: i32, y: f32) {
+    for row in -size..size {
+        for col in -size..size {
+            let pos = get_corner_positions(row as f32, col as f32, y);
+            grid.push(pos[2]);
+            grid.push(pos[1]);
+            grid.push(pos[0]);
+            grid.push(pos[3]);
+            grid.push(pos[1]);
+            grid.push(pos[2]);
+        }
+    }
 }
 
 fn generate_cubes(state: &mut State) {
@@ -196,6 +198,11 @@ fn generate_cubes(state: &mut State) {
 
 fn main() {
     let (ctx, event_loop) = Context::new((0.0, 0.0, 0.0, 1.0).into());
+    let mut grid: Vec<(Vec3, Vec3)> = vec![];
+    populate_grid(&mut grid, 50, -5.);
+    //populate_grid_inv(&mut grid, 50, -5.);
+    populate_grid(&mut grid, 50, 15.);
+    //populate_grid_inv(&mut grid, 50, 15.);
     let mut my_game = State {
         frame: 0,
         entity_manager: EntityManager::new(Camera::new(
@@ -206,7 +213,7 @@ fn main() {
             (100.0, 100.0),
             (0.5, 100.0),
         )),
-        plane: generate_grid(50),
+        plane: grid,
 
         mouse_down: false,
     };

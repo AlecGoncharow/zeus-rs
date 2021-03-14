@@ -88,3 +88,13 @@ pub enum PolygonMode {
     Line,
     Point,
 }
+
+impl From<PolygonMode> for wgpu::PolygonMode {
+    fn from(mode: PolygonMode) -> Self {
+        match mode {
+            PolygonMode::Fill => Self::Fill,
+            PolygonMode::Line => Self::Line,
+            PolygonMode::Point => Self::Point,
+        }
+    }
+}

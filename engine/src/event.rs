@@ -148,7 +148,7 @@ where
                 WindowEvent::MouseWheel { delta, .. } => {
                     let (x, y) = match delta {
                         MouseScrollDelta::LineDelta(x, y) => (x as f32, y as f32),
-                        MouseScrollDelta::PixelDelta(dpi::LogicalPosition { x, y }) => {
+                        MouseScrollDelta::PixelDelta(dpi::PhysicalPosition { x, y }) => {
                             (x as f32, y as f32)
                         }
                     };

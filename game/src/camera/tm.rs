@@ -70,7 +70,10 @@ impl Camera {
             angle_float: SmoothFloat::new(0.0, 10.0),
             distance_float: SmoothFloat::new(10.0, 5.0),
 
-            dims: ctx.gfx_context.window_dims,
+            dims: ctx
+                .gfx_context
+                .window_dims
+                .to_logical(ctx.window.scale_factor()),
         }
     }
 

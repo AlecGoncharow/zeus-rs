@@ -150,7 +150,7 @@ impl Entity for Cuboid {
 
 impl DrawComponent for Cuboid {
     fn draw(&mut self, ctx: &mut Context) {
-        let mut color = (0, 0, 0).into();
+        let mut color: Vec3 = (0, 0, 0).into();
         if self.moused_over {
             color = (1, 1, 1).into();
         }
