@@ -197,7 +197,7 @@ fn generate_cubes(state: &mut State) {
 }
 
 fn main() {
-    let (ctx, event_loop) = Context::new((0.0, 0.0, 0.0, 1.0).into());
+    let (ctx, event_loop) = Context::new((0.529, 0.81, 0.922, 1.0).into());
     let mut grid: Vec<(Vec3, Vec3)> = vec![];
     populate_grid(&mut grid, 50, -5.);
     //populate_grid_inv(&mut grid, 50, -5.);
