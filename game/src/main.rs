@@ -149,21 +149,6 @@ fn populate_grid(grid: &mut Vec<(Vec3, Vec3)>, size: i32, y: f32) {
     }
 }
 
-#[allow(dead_code)]
-fn populate_grid_inv(grid: &mut Vec<(Vec3, Vec3)>, size: i32, y: f32) {
-    for row in -size..size {
-        for col in -size..size {
-            let pos = get_corner_positions(row as f32, col as f32, y);
-            grid.push(pos[2]);
-            grid.push(pos[1]);
-            grid.push(pos[0]);
-            grid.push(pos[3]);
-            grid.push(pos[1]);
-            grid.push(pos[2]);
-        }
-    }
-}
-
 fn generate_cubes(state: &mut State) {
     let cube = Cuboid::cube(1.0, (0, 0, 0).into(), None);
     state.entity_manager.push_entity(cube);
@@ -197,12 +182,20 @@ fn generate_cubes(state: &mut State) {
 }
 
 fn main() {
-    let (ctx, event_loop) = Context::new((0.529, 0.81, 0.922, 1.0).into());
+    let (mut ctx, event_loop) = Context::new((0.529, 0.81, 0.922, 1.0).into());
     let mut grid: Vec<(Vec3, Vec3)> = vec![];
     populate_grid(&mut grid, 50, -5.);
     //populate_grid_inv(&mut grid, 50, -5.);
     populate_grid(&mut grid, 50, 15.);
     //populate_grid_inv(&mut grid, 50, 15.);
+    println!(
+        "{:#?}",
+        (
+            ctx.gfx_context.window_dims.width,
+            ctx.gfx_context.window_dims.height,
+        )
+    );
+
     let mut my_game = State {
         frame: 0,
         entity_manager: EntityManager::new(Camera::new(
@@ -210,14 +203,18 @@ fn main() {
             Vec3::new_from_one(0),
             (0, -1, 0).into(),
             90.0,
-            (100.0, 100.0),
-            (0.5, 100.0),
+            (
+                ctx.gfx_context.window_dims.width,
+                ctx.gfx_context.window_dims.height,
+            ),
+            (1., 100.0),
         )),
         plane: grid,
 
         mouse_down: false,
     };
-
+    ctx.gfx_context.view_transform = my_game.entity_manager.camera.view_matrix();
+    ctx.gfx_context.projection_transform = my_game.entity_manager.camera.projection_matrix();
     generate_cubes(&mut my_game);
 
     let _ = engine::event::run(event_loop, ctx, my_game);

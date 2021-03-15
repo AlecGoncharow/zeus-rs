@@ -98,7 +98,7 @@ impl EntityManager {
         });
 
         if let Some(hit) = closest {
-            println!("hit pos : {:#?}, t: {:#?} ", hit.1, hit.2);
+            //println!("hit pos : {:#?}, t: {:#?} ", hit.1, hit.2);
             hit.0.mouse_over(ctx, hit.1, &self.camera);
         }
     }

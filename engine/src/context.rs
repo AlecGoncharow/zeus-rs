@@ -98,13 +98,7 @@ impl<'a> Context {
     pub fn process_event(&mut self, event: &Event<'a, ()>) {
         match event {
             Event::WindowEvent { event, .. } => match event {
-                WindowEvent::Resized(_logical_size) => {
-                    //let hidpi_factor = self.gfx_context.window.get_hidpi_factor();
-                    //let physical_size = logical_size.to_physical(hidpi_factor as f32);
-                    //self.gfx_context.window.resize(physical_size);
-                    //self.gfx_context.resize_viewport();
-                    //self.gfx_context.recreate_swapchain = true;
-                }
+                WindowEvent::Resized(_logical_size) => {}
                 WindowEvent::CursorMoved { position, .. } => {
                     self.mouse_context
                         .set_last_position(Vec2::new(position.x as f32, position.y as f32));
