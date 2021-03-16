@@ -1,7 +1,8 @@
 use crate::math::Vec4;
 use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
 
-#[derive(Clone, Copy, Debug)]
+// @TODO think about vector equality, may need to implement floating point epsilon comparisons
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Vec3 {
     pub x: f32,
     pub y: f32,
@@ -263,24 +264,49 @@ mod tests {
     #[test]
     fn test_norm() {
         let vec = Vec3::new(0.1, 0.0, 0.0);
-
+        let expected = Vec3::new(1, 0, 0);
         println!("{:#?}, {:#?}", vec, vec.make_unit_vector());
+        assert_eq!(expected, vec.make_unit_vector());
 
         let vec = Vec3::new(0.1, 0.0, 0.1);
-
+        let expected = Vec3 {
+            x: 0.70710677,
+            y: 0.0,
+            z: 0.70710677,
+        };
         println!("{:#?}, {:#?}", vec, vec.make_unit_vector());
+        assert_eq!(expected, vec.make_unit_vector());
+
         let vec = Vec3::new(0.1, 0.1, 0.1);
-
+        let expected = Vec3 {
+            x: 0.5773503,
+            y: 0.5773503,
+            z: 0.5773503,
+        };
         println!("{:#?}, {:#?}", vec, vec.make_unit_vector());
+        assert_eq!(expected, vec.make_unit_vector());
+
         let vec = Vec3::new(10, 0.0, 0.0);
-
+        let expected = Vec3::new(1, 0, 0);
         println!("{:#?}, {:#?}", vec, vec.make_unit_vector());
+        assert_eq!(expected, vec.make_unit_vector());
 
         let vec = Vec3::new(10, 0.0, 10);
-
+        let expected = Vec3 {
+            x: 0.7071068,
+            y: 0.0,
+            z: 0.7071068,
+        };
         println!("{:#?}, {:#?}", vec, vec.make_unit_vector());
+        assert_eq!(expected, vec.make_unit_vector());
+
         let vec = Vec3::new(10, 10, 10);
-
+        let expected = Vec3 {
+            x: 0.5773502,
+            y: 0.5773502,
+            z: 0.5773502,
+        };
         println!("{:#?}, {:#?}", vec, vec.make_unit_vector());
+        assert_eq!(expected, vec.make_unit_vector());
     }
 }

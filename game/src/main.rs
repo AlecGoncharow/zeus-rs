@@ -59,8 +59,6 @@ impl EventHandler for State {
         }
 
         ctx.gfx_context.view_transform = self.entity_manager.camera.view_matrix();
-        //ctx.gfx_context.view_transform = Mat4::identity();
-        //ctx.gfx_context.projection_transform = Mat4::identity();
         self.entity_manager.update(ctx);
         Ok(())
     }
@@ -185,9 +183,7 @@ fn main() {
     let (mut ctx, event_loop) = Context::new((0.529, 0.81, 0.922, 1.0).into());
     let mut grid: Vec<(Vec3, Vec3)> = vec![];
     populate_grid(&mut grid, 50, -5.);
-    //populate_grid_inv(&mut grid, 50, -5.);
     populate_grid(&mut grid, 50, 15.);
-    //populate_grid_inv(&mut grid, 50, 15.);
     println!(
         "{:#?}",
         (

@@ -2,7 +2,7 @@ use super::Dim;
 use crate::math::Vec3;
 use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Vec4 {
     pub x: f32,
     pub y: f32,

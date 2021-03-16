@@ -67,12 +67,10 @@ const INDICES: &[u16] = &[0, 1, 2];
 const UNIFORM: &[f32] = &[
     1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5, 1.0,
 ];
-type TopologyPipelines = std::collections::HashMap<Topology, wgpu::RenderPipeline>;
-
 pub struct GraphicsContext {
     pub size: winit::dpi::PhysicalSize<u32>,
     pub clear_color: wgpu::Color,
-    render_pipelines: TopologyPipelines,
+    render_pipelines: Vec<wgpu::RenderPipeline>,
     vs_module: wgpu::ShaderModule,
     fs_module: wgpu::ShaderModule,
 
@@ -86,7 +84,6 @@ pub struct GraphicsContext {
 
     pub window_dims: winit::dpi::PhysicalSize<f32>,
 
-    // @TODO pass uniform buffers into shaders
     pub projection_transform: Mat4,
     pub view_transform: Mat4,
     pub model_transform: Mat4,
@@ -244,7 +241,7 @@ impl GraphicsContext {
         render_pass.set_pipeline(
             &self
                 .render_pipelines
-                .get(&Topology::TriangleList(PolygonMode::Fill))
+                .get(usize::from(Topology::TriangleList(PolygonMode::Fill)))
                 .unwrap(),
         );
         render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
@@ -286,7 +283,7 @@ impl GraphicsContext {
                 stencil_ops: None,
             }),
         });
-        render_pass.set_pipeline(&self.render_pipelines.get(&mode).unwrap());
+        render_pass.set_pipeline(&self.render_pipelines[usize::from(mode)]);
 
         let vertices: &[Vertex] = unsafe {
             &*(verts as *const [(crate::math::vec3::Vec3, crate::math::vec3::Vec3)]
@@ -356,7 +353,7 @@ impl GraphicsContext {
                 stencil_ops: None,
             }),
         });
-        render_pass.set_pipeline(&self.render_pipelines.get(&mode).unwrap());
+        render_pass.set_pipeline(&self.render_pipelines[usize::from(mode)]);
 
         let vertices: &[Vertex] = unsafe {
             &*(verts as *const [(crate::math::vec3::Vec3, crate::math::vec3::Vec3)]
@@ -418,8 +415,13 @@ impl GraphicsContext {
         vs_module: &wgpu::ShaderModule,
         fs_module: &wgpu::ShaderModule,
         sc_desc: &wgpu::SwapChainDescriptor,
-    ) -> TopologyPipelines {
-        let mut map: TopologyPipelines = std::collections::HashMap::new();
+    ) -> Vec<wgpu::RenderPipeline> {
+        let mut pipelines = Vec::with_capacity(2 << 6);
+        // safety: new len == capacity
+        // safety: elements are not all initialized as the coding mechanism I made has some gaps,
+        // but there should be no indexing into non initialized elements as the Topology is used
+        // for indexing into the vector
+        unsafe { pipelines.set_len(2 << 6) }
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Pipeline Layout Descriptor"),
@@ -473,8 +475,8 @@ impl GraphicsContext {
                 },
             });
 
-            map.insert(*top, render_pipeline);
+            pipelines.insert(usize::from(*top), render_pipeline);
         }
-        map
+        pipelines
     }
 }

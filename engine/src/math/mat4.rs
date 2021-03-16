@@ -5,7 +5,7 @@ use crate::math::Vec4;
 use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
 
 /// Column major xyzw
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Mat4 {
     pub x: Vec4,
     pub y: Vec4,
@@ -486,18 +486,18 @@ impl From<Mat4> for [f32; 16] {
 #[cfg(test)]
 mod tests {
     use crate::math::*;
+
     #[test]
     fn test_mult() {
         let vec = Vec4::new(1.0, 2., 3.0, 1.);
 
         let mat = Mat4::scalar_from_one(5.0);
-
-        println!("{:#?}", mat * vec);
-
         /*
          *  should output:
          *  [5.0, 10.0, 15.0, 1.0]
          */
+        let expected: Vec4 = (5.0, 10.0, 15.0, 1.0).into();
+        assert_eq!(expected, mat * vec);
 
         let mat = Mat4::scalar_from_one(5.0);
         let rhs = Mat4::identity();
@@ -509,7 +509,8 @@ mod tests {
          *  [0.0, 0.0, 5.0, 0.0]
          *  [0.0, 0.0, 0.0, 1.0]
          */
-        println!("{:#?}", mat * rhs);
+        let expected: Mat4 = ((5, 0, 0, 0), (0, 5, 0, 0), (0, 0, 5, 0), (0, 0, 0, 1)).into();
+        assert_eq!(expected, mat * rhs);
 
         let lhs: Mat4 = (
             (5.0, 7.0, 9.0, 10.0),
@@ -526,21 +527,47 @@ mod tests {
             (3, 12, 4, 10).into(),
         );
 
-        /*
-         *  should output:
-         *  [210, 267, 236, 271]
-         *  [ 93, 149, 104, 149]
-         *  [171, 146, 172, 268]
-         *  [105, 169, 128, 169]
-         */
+        let expected: Mat4 = Mat4 {
+            x: Vec4 {
+                x: 185.0,
+                y: 225.0,
+                z: 153.0,
+                w: 290.0,
+            },
+            y: Vec4 {
+                x: 121.0,
+                y: 154.0,
+                z: 155.0,
+                w: 212.0,
+            },
+            z: Vec4 {
+                x: 167.0,
+                y: 219.0,
+                z: 143.0,
+                w: 222.0,
+            },
+            w: Vec4 {
+                x: 101.0,
+                y: 127.0,
+                z: 111.0,
+                w: 218.0,
+            },
+        };
 
-        println!("{:#?}", lhs * rhs);
+        assert_eq!(expected, lhs * rhs);
 
         let vec = Vec4::new(1.0, 2, 3.0, 1);
 
         let mat = Mat4::translation((4, 10, 25).into());
 
-        println!("trans: {:#?}", mat * vec);
+        let expected = Vec4 {
+            x: 5.0,
+            y: 12.0,
+            z: 28.0,
+            w: 1.0,
+        };
+
+        assert_eq!(expected, mat * vec);
     }
 
     #[test]
@@ -554,11 +581,25 @@ mod tests {
             rotation,
             rotation * vec
         );
+        let expected = Vec4 {
+            x: 0.0,
+            y: 1.0,
+            z: 0.0,
+            w: 1.0,
+        };
+        assert_eq!(expected, rotation * vec);
 
         let vec = Vec4::new(1, 0, 0, 1);
 
-        let rotation = Mat4::rotation_from_degrees(53.1, (0, 0, 1).into());
+        let rotation = Mat4::rotation_from_degrees(53.1, (0, 1, 0).into());
 
+        let expected = Vec4 {
+            x: 0.60042024,
+            y: 0.0,
+            z: -0.79968464,
+            w: 1.0,
+        };
+        assert_eq!(expected, rotation * vec);
         println!(
             "rotation mat: {:#?},  output:{:#?}",
             rotation,
@@ -583,6 +624,33 @@ mod tests {
          *  [ 0.0 , 0.5, 0.0, 0.0]
          *  [-0.25, 0.0, 0.0, 1.0]
          */
+        let expected = Mat4 {
+            x: Vec4 {
+                x: 0.25,
+                y: 0.0,
+                z: -0.0,
+                w: -0.25,
+            },
+            y: Vec4 {
+                x: 0.0,
+                y: -1.0,
+                z: 0.5,
+                w: -0.0,
+            },
+            z: Vec4 {
+                x: -0.0,
+                y: 1.0,
+                z: -0.0,
+                w: 0.0,
+            },
+            w: Vec4 {
+                x: 0.0,
+                y: -0.0,
+                z: 0.0,
+                w: 1.0,
+            },
+        };
         println!("invert: {:#?}, out: {:#?}", mat, mat.invert());
+        assert_eq!(expected, mat.invert().unwrap())
     }
 }

@@ -82,6 +82,19 @@ impl From<&Topology> for PrimitiveTopology {
     }
 }
 
+impl From<Topology> for usize {
+    fn from(top: Topology) -> Self {
+        let shifted: usize = match top {
+            Topology::PointList(_) => 1 << 2,
+            Topology::LineList(_) => 2 << 2,
+            Topology::LineStrip(_) => 3 << 2,
+            Topology::TriangleList(_) => 4 << 2,
+            Topology::TriangleStrip(_) => 5 << 2,
+        };
+        shifted + usize::from(top.inner())
+    }
+}
+
 #[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
 pub enum PolygonMode {
     Fill,
@@ -95,6 +108,16 @@ impl From<PolygonMode> for wgpu::PolygonMode {
             PolygonMode::Fill => Self::Fill,
             PolygonMode::Line => Self::Line,
             PolygonMode::Point => Self::Point,
+        }
+    }
+}
+
+impl From<PolygonMode> for usize {
+    fn from(mode: PolygonMode) -> Self {
+        match mode {
+            PolygonMode::Fill => 0,
+            PolygonMode::Line => 1,
+            PolygonMode::Point => 1 << 2,
         }
     }
 }
