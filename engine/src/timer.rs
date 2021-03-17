@@ -7,7 +7,7 @@ pub struct TimeContext {
     last_instant: time::Instant,
     residual_update_dt: time::Duration,
     delta_since_last_instant: time::Duration,
-    frame_count: usize,
+    pub frame_count: usize,
 }
 
 impl TimeContext {

@@ -1,21 +1,16 @@
 use super::Context;
 use crate::camera::Camera;
 use engine::math::Vec3;
+use enum_dispatch::enum_dispatch;
 
-pub trait AsComponent: AsDrawable + AsMouseable {}
-
+#[enum_dispatch(EntityKind)]
 pub trait DrawComponent {
     fn draw(&mut self, ctx: &mut Context);
 }
 
-pub trait AsDrawable {
-    fn as_drawable(&mut self) -> Option<&mut dyn DrawComponent> {
-        None
-    }
-}
-
 /// this is useful because it allows 3D picking to ignore entities which aren't part of the
 /// clickable environment
+#[enum_dispatch(EntityKind)]
 pub trait MouseComponent {
     // TODO think about x/y/z and hover events
     fn click_start(&mut self, ctx: &mut Context);
@@ -27,10 +22,4 @@ pub trait MouseComponent {
         camera_origin: Vec3,
         mouse_direction: Vec3,
     ) -> Option<(&mut dyn MouseComponent, Vec3, f32)>;
-}
-
-pub trait AsMouseable {
-    fn as_mouseable(&mut self) -> Option<&mut dyn MouseComponent> {
-        None
-    }
 }

@@ -172,7 +172,7 @@ impl DrawComponent for Cuboid {
     }
 }
 
-impl AsComponent for Cuboid {}
+// impl AsComponent for Cuboid {}
 
 impl MouseComponent for Cuboid {
     fn click_start(&mut self, _ctx: &mut Context) {}
@@ -266,7 +266,7 @@ impl MouseComponent for Cuboid {
                     let v = ((dot00 * dot12) - (dot01 * dot02)) * inv_denom;
 
                     if u < 0.0 || v < 0.0 || (u + v > 1.0) {
-                        // both failed, continue
+                        // both failed, continu
                         continue;
                     }
                 }
@@ -291,6 +291,7 @@ impl MouseComponent for Cuboid {
     }
 }
 
+/*
 impl AsMouseable for Cuboid {
     fn as_mouseable(&mut self) -> Option<&mut dyn MouseComponent> {
         Some(self)
@@ -302,6 +303,7 @@ impl AsDrawable for Cuboid {
         Some(self)
     }
 }
+*/
 
 impl Drawable for Cuboid {
     fn model_matrix(&self) -> Mat4 {

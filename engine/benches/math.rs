@@ -46,9 +46,23 @@ fn invert(c: &mut Criterion) {
     c.bench_function("mat4 from camera invert", |b| b.iter(|| mat.invert()));
 
     let invert = mat.invert().unwrap();
+    let ident = Mat4::scalar_from_one(1);
     c.bench_function("mat4 from camera invert invert", |b| {
         b.iter(|| invert.invert())
     });
+
+    c.bench_function(
+        "mat4 from camera invert and multiply with self for sanity check",
+        |b| {
+            b.iter(|| {
+                let invert = mat.invert();
+                let invert_mat = invert.unwrap() * mat;
+                if !(invert_mat == ident) {
+                    eprintln!("expected: {:#?}, got: {:#?}", ident, invert_mat);
+                }
+            })
+        },
+    );
 }
 
 criterion_group!(benches, invert);

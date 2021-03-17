@@ -18,6 +18,7 @@ use camera::my_camera::Camera;
 mod entity;
 
 use entity::cube::Cuboid;
+use entity::EntityKind;
 use entity::EntityManager;
 
 struct State {
@@ -149,31 +150,31 @@ fn populate_grid(grid: &mut Vec<(Vec3, Vec3)>, size: i32, y: f32) {
 
 fn generate_cubes(state: &mut State) {
     let cube = Cuboid::cube(1.0, (0, 0, 0).into(), None);
-    state.entity_manager.push_entity(cube);
+    state.entity_manager.push_entity(EntityKind::from(cube));
 
     let cube = Cuboid::cube(1.0, (10, 0, 10).into(), None);
-    state.entity_manager.push_entity(cube);
+    state.entity_manager.push_entity(EntityKind::from(cube));
 
     let cube = Cuboid::cube(1.0, (0, 0, 10).into(), None);
-    state.entity_manager.push_entity(cube);
+    state.entity_manager.push_entity(EntityKind::from(cube));
 
     let cube = Cuboid::cube(1.0, (10, 0, 0).into(), None);
-    state.entity_manager.push_entity(cube);
+    state.entity_manager.push_entity(EntityKind::from(cube));
 
     let cube = Cuboid::cube(1.0, (10, 10, 10).into(), None);
-    state.entity_manager.push_entity(cube);
+    state.entity_manager.push_entity(EntityKind::from(cube));
 
     let cube = Cuboid::cube(1.0, (0, 10, 10).into(), None);
-    state.entity_manager.push_entity(cube);
+    state.entity_manager.push_entity(EntityKind::from(cube));
 
     let cube = Cuboid::cube(1.0, (10, 10, 0).into(), None);
-    state.entity_manager.push_entity(cube);
+    state.entity_manager.push_entity(EntityKind::from(cube));
 
     let cube = Cuboid::cube(1.0, (0, 10, 0).into(), None);
-    state.entity_manager.push_entity(cube);
+    state.entity_manager.push_entity(EntityKind::from(cube));
 
     let cube = Cuboid::cube(5.0, (5, 5, 5).into(), None);
-    state.entity_manager.push_entity(cube);
+    state.entity_manager.push_entity(EntityKind::from(cube));
 
     //let cube = Cuboid::cube(100.0, (0, -105, 0).into(), None);
     //state.entity_manager.push_entity(cube);

@@ -7,12 +7,18 @@ use engine::math::Vec4;
 use crate::camera::my_camera::Camera;
 
 pub mod component;
-use component::AsComponent;
+// use component::AsComponent;
+use component::DrawComponent;
 use component::MouseComponent;
+use enum_dispatch::enum_dispatch;
 
 pub mod cube;
 pub mod plane;
 pub mod triangle;
+
+use cube::Cuboid;
+//use plane::Plane;
+//use triangle::Triangle;
 
 #[allow(dead_code)]
 enum Message {
@@ -20,15 +26,23 @@ enum Message {
     Bar,
 }
 
-pub trait Entity: AsComponent {
+#[enum_dispatch(EntityKind)]
+pub trait Entity {
     // TODO add callback message function
     fn update(&mut self, ctx: &mut Context);
+}
+
+#[enum_dispatch]
+pub enum EntityKind {
+    Cuboid,
+    //Plane,
+    //Triangle,
 }
 
 #[allow(dead_code)]
 pub struct EntityManager {
     pub camera: Camera,
-    entities: Vec<Box<dyn Entity>>,
+    entities: Vec<EntityKind>,
     commands: Vec<Box<dyn Command>>,
 }
 
@@ -75,27 +89,33 @@ impl EntityManager {
         let mouse_ray = Self::get_mouse_ray(ctx);
 
         let camera_origin = self.camera.origin;
+        let before = std::time::Instant::now();
         let mut closest: Option<(&mut dyn MouseComponent, Vec3, f32)> = None;
         self.entities.iter_mut().for_each(|entity| {
             entity.update(ctx);
             if let Some(mouse_ray) = mouse_ray {
-                if let Some(mousable) = entity.as_mouseable() {
-                    if let Some(hit) = mousable.check_collision(ctx, camera_origin, mouse_ray) {
-                        if let Some(other) = &closest {
-                            if (hit.1 - camera_origin).magnitude()
-                                < (other.1 - camera_origin).magnitude()
-                            {
-                                // hit is closer
-                                closest = Some(hit);
-                            }
-                        } else {
-                            // no other hit yet
+                if let Some(hit) = entity.check_collision(ctx, camera_origin, mouse_ray) {
+                    if let Some(other) = &closest {
+                        if (hit.1 - camera_origin).magnitude()
+                            < (other.1 - camera_origin).magnitude()
+                        {
+                            // hit is closer
                             closest = Some(hit);
                         }
+                    } else {
+                        // no other hit yet
+                        closest = Some(hit);
                     }
                 }
             }
         });
+        let after = std::time::Instant::now();
+        if ctx.timer_context.frame_count % 60 == 0 {
+            println!(
+                "Iterate turnaround time: ns {:#?}",
+                (after - before).subsec_nanos()
+            );
+        }
 
         if let Some(hit) = closest {
             //println!("hit pos : {:#?}, t: {:#?} ", hit.1, hit.2);
@@ -105,13 +125,11 @@ impl EntityManager {
 
     pub fn draw(&mut self, ctx: &mut Context) {
         self.entities.iter_mut().for_each(|entity| {
-            if let Some(drawable) = entity.as_drawable() {
-                drawable.draw(ctx);
-            }
+            entity.draw(ctx);
         });
     }
 
-    pub fn push_entity(&mut self, entity: impl Entity + 'static) {
-        self.entities.push(Box::new(entity));
+    pub fn push_entity(&mut self, entity: EntityKind) {
+        self.entities.push(entity);
     }
 }
