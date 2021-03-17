@@ -61,6 +61,11 @@ impl EventHandler for State {
 
         ctx.gfx_context.view_transform = self.entity_manager.camera.view_matrix();
         self.entity_manager.update(ctx);
+
+        if ctx.timer_context.frame_count % engine::timer::MAX_SAMPLES == 0 {
+            println!("FPS: {:#?}", 1.0 / ctx.timer_context.average_tick);
+        }
+
         Ok(())
     }
 

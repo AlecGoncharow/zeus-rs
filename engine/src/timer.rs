@@ -1,5 +1,8 @@
 use std::time;
 
+// fps calculation from https://stackoverflow.com/questions/87304/calculating-frames-per-second-in-a-game
+pub const MAX_SAMPLES: usize = 128;
+
 /// taken from (ggez)[https://github.com/ggez/ggez/blob/master/src/timer.rs]
 #[derive(Debug)]
 pub struct TimeContext {
@@ -7,6 +10,10 @@ pub struct TimeContext {
     last_instant: time::Instant,
     residual_update_dt: time::Duration,
     delta_since_last_instant: time::Duration,
+    samples: [f32; MAX_SAMPLES],
+    sample_sum: f32,
+    sample_cursor: usize,
+    pub average_tick: f32,
     pub frame_count: usize,
 }
 
@@ -18,6 +25,10 @@ impl TimeContext {
             last_instant: time::Instant::now(),
             residual_update_dt: time::Duration::from_secs(0),
             delta_since_last_instant: time::Duration::from_secs(0),
+            samples: [0.; MAX_SAMPLES],
+            sample_sum: 1.,
+            sample_cursor: 0,
+            average_tick: 1.,
             frame_count: 0,
         }
     }
@@ -34,9 +45,20 @@ impl TimeContext {
         let time_since_last = now - self.last_instant;
         self.last_instant = now;
         self.frame_count += 1;
-
         self.residual_update_dt += time_since_last;
         self.delta_since_last_instant = time_since_last;
+
+        // FPS stuff
+        let dt = self.delta_time();
+        // subtract time falling off buffer
+        self.sample_sum -= self.samples[self.sample_cursor];
+        // add new time
+        self.sample_sum += dt;
+        // save value to be subtracted when it falls off
+        self.samples[self.sample_cursor] = dt;
+        self.sample_cursor += 1;
+        self.sample_cursor = self.sample_cursor % MAX_SAMPLES;
+        self.average_tick = self.sample_sum / MAX_SAMPLES as f32;
     }
 
     pub fn delta_time(&self) -> f32 {

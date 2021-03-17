@@ -43,14 +43,19 @@ pub enum EntityKind {
 pub struct EntityManager {
     pub camera: Camera,
     entities: Vec<EntityKind>,
-    commands: Vec<Box<dyn Command>>,
+    commands: Vec<CommandKind>,
 }
 
 // scaffolding to allow for undoable/redoable actions
+//#[enum_dispatch(CommandKind)]
 pub trait Command {
     fn execute(&mut self);
     fn undo(&mut self);
 }
+
+#[allow(dead_code)]
+//#[enum_dispatch]
+pub enum CommandKind {}
 
 impl EntityManager {
     pub fn new(camera: Camera) -> Self {
@@ -110,7 +115,7 @@ impl EntityManager {
             }
         });
         let after = std::time::Instant::now();
-        if ctx.timer_context.frame_count % 60 == 0 {
+        if ctx.timer_context.frame_count % engine::timer::MAX_SAMPLES == 0 {
             println!(
                 "Iterate turnaround time: ns {:#?}",
                 (after - before).subsec_nanos()
