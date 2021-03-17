@@ -1,5 +1,5 @@
 [package]
-name = "engine"
+name = "pantheon"
 version = "0.1.0"
 authors = ["Alec Goncharow <Alec.Goncharow@gmail.com>"]
 edition = "2018"

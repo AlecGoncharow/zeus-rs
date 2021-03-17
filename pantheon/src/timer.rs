@@ -56,8 +56,7 @@ impl TimeContext {
         self.sample_sum += dt;
         // save value to be subtracted when it falls off
         self.samples[self.sample_cursor] = dt;
-        self.sample_cursor += 1;
-        self.sample_cursor = self.sample_cursor % MAX_SAMPLES;
+        self.sample_cursor = (self.sample_cursor + 1) % MAX_SAMPLES;
         self.average_tick = self.sample_sum / MAX_SAMPLES as f32;
     }
 

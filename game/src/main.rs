@@ -1,17 +1,17 @@
-use engine::context::Context;
-use engine::event::EventHandler;
+use pantheon::context::Context;
+use pantheon::event::EventHandler;
 
-use engine::graphics::PolygonMode;
-use engine::graphics::Topology;
+use pantheon::graphics::PolygonMode;
+use pantheon::graphics::Topology;
 
-use engine::input::keyboard;
-use engine::input::mouse;
+use pantheon::input::keyboard;
+use pantheon::input::mouse;
 
-use engine::winit::event::ModifiersState;
-use engine::winit::event::MouseButton;
-use engine::winit::event::VirtualKeyCode;
+use pantheon::winit::event::ModifiersState;
+use pantheon::winit::event::MouseButton;
+use pantheon::winit::event::VirtualKeyCode;
 
-use engine::math::*;
+use pantheon::math::*;
 
 mod camera;
 use camera::my_camera::Camera;
@@ -62,7 +62,7 @@ impl EventHandler for State {
         ctx.gfx_context.view_transform = self.entity_manager.camera.view_matrix();
         self.entity_manager.update(ctx);
 
-        if ctx.timer_context.frame_count % engine::timer::MAX_SAMPLES == 0 {
+        if ctx.timer_context.frame_count % pantheon::timer::MAX_SAMPLES == 0 {
             println!("FPS: {:#?}", 1.0 / ctx.timer_context.average_tick);
         }
 
@@ -219,5 +219,5 @@ fn main() {
     ctx.gfx_context.projection_transform = my_game.entity_manager.camera.projection_matrix();
     generate_cubes(&mut my_game);
 
-    let _ = engine::event::run(event_loop, ctx, my_game);
+    let _ = pantheon::event::run(event_loop, ctx, my_game);
 }

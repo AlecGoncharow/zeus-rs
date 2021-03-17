@@ -1,5 +1,5 @@
 use super::plane::Plane;
-use engine::math::Vec3;
+use pantheon::math::Vec3;
 
 pub struct Triangle {
     pub p0: Vec3,

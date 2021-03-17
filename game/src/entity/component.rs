@@ -1,6 +1,6 @@
 use super::Context;
 use crate::camera::Camera;
-use engine::math::Vec3;
+use pantheon::math::Vec3;
 use enum_dispatch::enum_dispatch;
 
 #[enum_dispatch(EntityKind)]

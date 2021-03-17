@@ -1,8 +1,8 @@
-use engine::math::Mat4;
-use engine::math::Vec2;
-use engine::math::Vec3;
-use engine::math::Vec4;
-use engine::winit::event::VirtualKeyCode;
+use pantheon::math::Mat4;
+use pantheon::math::Vec2;
+use pantheon::math::Vec3;
+use pantheon::math::Vec4;
+use pantheon::winit::event::VirtualKeyCode;
 
 //const YAW_DEFAULT: f32 = -90.0;
 //const PITCH_DEFAULT: f32 = 0.0;

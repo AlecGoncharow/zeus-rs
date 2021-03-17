@@ -1,13 +1,13 @@
 /// based on, ty thinmatrix https://github.com/TheThinMatrix/LowPolyTerrain/blob/master/src/main/Camera.java
 ///
 /// questionable java code but I just want to get something working
-use engine::graphics::CameraProjection;
-use engine::math::Mat4;
-use engine::math::Vec2;
-use engine::math::Vec3;
+use pantheon::graphics::CameraProjection;
+use pantheon::math::Mat4;
+use pantheon::math::Vec2;
+use pantheon::math::Vec3;
 
-use engine::context::Context;
-use engine::winit::dpi::LogicalSize;
+use pantheon::context::Context;
+use pantheon::winit::dpi::LogicalSize;
 
 const PITCH_SENSITIVITY: f32 = 0.3;
 const YAW_SENSITIVITY: f32 = 0.3;

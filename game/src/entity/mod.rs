@@ -1,8 +1,8 @@
-use engine::context::Context;
-use engine::input::mouse;
-use engine::math::Dim;
-use engine::math::Vec3;
-use engine::math::Vec4;
+use pantheon::context::Context;
+use pantheon::input::mouse;
+use pantheon::math::Dim;
+use pantheon::math::Vec3;
+use pantheon::math::Vec4;
 
 use crate::camera::my_camera::Camera;
 
@@ -115,7 +115,7 @@ impl EntityManager {
             }
         });
         let after = std::time::Instant::now();
-        if ctx.timer_context.frame_count % engine::timer::MAX_SAMPLES == 0 {
+        if ctx.timer_context.frame_count % pantheon::timer::MAX_SAMPLES == 0 {
             println!(
                 "Iterate turnaround time: ns {:#?}",
                 (after - before).subsec_nanos()

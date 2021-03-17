@@ -1,6 +1,6 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use engine::math::Mat4;
-use engine::math::Vec4;
+use pantheon::math::Mat4;
+use pantheon::math::Vec4;
 
 fn invert(c: &mut Criterion) {
     let mat: Mat4 = (

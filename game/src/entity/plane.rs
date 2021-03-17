@@ -1,4 +1,4 @@
-use engine::math::Vec3;
+use pantheon::math::Vec3;
 
 pub struct Plane {
     pub point: Vec3,
