@@ -12,6 +12,11 @@ futures = "0.3"
 bytemuck = "1.4"
 image = "0.23"
 anyhow = "1.0" 
+egui = "0.10"
+epi = "0.10"
+egui_wgpu_backend = "0.5"
+egui_winit_platform = "0.5"
+egui_demo_lib = "0.10"
 
 [dependencies.wgpu]
 version = "0.7"

@@ -92,7 +92,11 @@ pub fn quit(ctx: &mut Context) {
     ctx.continuing = false;
 }
 
-pub fn run<S: 'static>(events_loop: EventLoop<()>, mut ctx: Context, mut state: S) -> !
+pub fn run<S: 'static>(
+    events_loop: EventLoop<crate::context::EngineEvent>,
+    mut ctx: Context,
+    mut state: S,
+) -> !
 where
     S: EventHandler,
 {

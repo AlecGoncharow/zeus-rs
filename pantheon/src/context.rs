@@ -8,24 +8,34 @@ use futures::executor::block_on;
 use std::sync::Arc;
 use winit::{event::*, event_loop::EventLoop, window::WindowBuilder};
 
+/// A custom event type for the winit app.
+pub enum EngineEvent {
+    RequestRedraw,
+}
+
 pub struct Context {
     pub continuing: bool,
     pub keyboard_context: keyboard::KeyboardContext,
     pub mouse_context: mouse::MouseContext,
     pub gfx_context: graphics::renderer::GraphicsContext,
     pub timer_context: timer::TimeContext,
+    pub ui_context: graphics::ui::UiContext,
     pub frame: Option<wgpu::SwapChainFrame>,
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub swap_chain: wgpu::SwapChain,
+    pub sc_desc: wgpu::SwapChainDescriptor,
     pub window: winit::window::Window,
     pub surface: wgpu::Surface,
     pub adapter: wgpu::Adapter,
+    pub event_loop_proxy: std::sync::Mutex<winit::event_loop::EventLoopProxy<EngineEvent>>,
 }
 
 impl<'a> Context {
-    pub fn new(clear_color: crate::math::Vec4) -> (Self, EventLoop<()>) {
-        let event_loop = EventLoop::new();
+    pub fn new(clear_color: crate::math::Vec4) -> (Self, EventLoop<EngineEvent>) {
+        let event_loop: EventLoop<EngineEvent> = EventLoop::with_user_event();
+        let event_loop_proxy = std::sync::Mutex::new(event_loop.create_proxy());
+
         let window = WindowBuilder::new().build(&event_loop).unwrap();
         let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
         let surface = unsafe { instance.create_surface(&window) };
@@ -77,12 +87,15 @@ impl<'a> Context {
             }
         };
 
+        let ui_context = graphics::ui::UiContext::new(&device, &window, event_loop_proxy);
+        let event_loop_proxy = std::sync::Mutex::new(event_loop.create_proxy());
         let ctx = Self {
             continuing: true,
             keyboard_context: keyboard::KeyboardContext::new(),
             mouse_context: mouse::MouseContext::new(),
             gfx_context,
             timer_context: timer::TimeContext::new(),
+            ui_context,
             frame: Some(frame),
             device,
             queue,
@@ -90,12 +103,15 @@ impl<'a> Context {
             window,
             surface,
             adapter,
+            sc_desc,
+            event_loop_proxy,
         };
 
         (ctx, event_loop)
     }
 
-    pub fn process_event(&mut self, event: &Event<'a, ()>) {
+    pub fn process_event(&mut self, event: &Event<'a, EngineEvent>) {
+        self.ui_context.platform.handle_event(event);
         match event {
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::Resized(_logical_size) => {}
@@ -183,6 +199,16 @@ impl<'a> Context {
                 &self.queue,
             );
             if self.gfx_context.command_encoder.is_some() {
+                let command_encoder = self.gfx_context.command_encoder.take().unwrap();
+                let command_encoder = self.ui_context.draw(
+                    command_encoder,
+                    &self.window,
+                    &self.device,
+                    &self.sc_desc,
+                    &self.frame.as_ref().unwrap(),
+                    &mut self.queue,
+                );
+                self.gfx_context.command_encoder = Some(command_encoder);
                 break;
             } else {
                 println!("resizing");

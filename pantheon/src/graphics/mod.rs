@@ -1,6 +1,7 @@
 pub mod renderer;
 pub mod texture;
 pub mod topology;
+pub mod ui;
 
 pub use topology::PolygonMode;
 pub use topology::Topology;
