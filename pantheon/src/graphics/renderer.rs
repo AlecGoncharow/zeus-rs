@@ -147,7 +147,13 @@ impl GraphicsContext {
             "depth_texture",
         );
 
-        let render_pipelines = Self::build_pipelines(
+        let mut render_pipelines: Vec<wgpu::RenderPipeline> = Vec::with_capacity(0b1111);
+        // safety: new len == capacity
+        // safety: elements are all going to be initailized in the populate_pipelines call.
+        // Operation makes indexing into vector easier
+        unsafe { render_pipelines.set_len(0b1111) }
+        Self::populate_pipelines(
+            &mut render_pipelines,
             device,
             &uniform_bind_group_layout,
             &vs_module,
@@ -205,7 +211,8 @@ impl GraphicsContext {
             "depth_texture",
         );
         self.window_dims = window.inner_size().cast::<f32>();
-        self.render_pipelines = Self::build_pipelines(
+        Self::populate_pipelines(
+            &mut self.render_pipelines,
             device,
             &self.uniform_bind_group_layout,
             &self.vs_module,
@@ -409,19 +416,14 @@ impl GraphicsContext {
         self.command_encoder = None;
     }
 
-    fn build_pipelines(
+    fn populate_pipelines(
+        pipelines: &mut Vec<wgpu::RenderPipeline>,
         device: &wgpu::Device,
         uniform_bind_group_layout: &wgpu::BindGroupLayout,
         vs_module: &wgpu::ShaderModule,
         fs_module: &wgpu::ShaderModule,
         sc_desc: &wgpu::SwapChainDescriptor,
-    ) -> Vec<wgpu::RenderPipeline> {
-        let mut pipelines = Vec::with_capacity(2 << 6);
-        // safety: new len == capacity
-        // safety: elements are not all initialized as the coding mechanism I made has some gaps,
-        // but there should be no indexing into non initialized elements as the Topology is used
-        // for indexing into the vector
-        unsafe { pipelines.set_len(2 << 6) }
+    ) {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Pipeline Layout Descriptor"),
@@ -477,6 +479,5 @@ impl GraphicsContext {
 
             pipelines.insert(usize::from(*top), render_pipeline);
         }
-        pipelines
     }
 }

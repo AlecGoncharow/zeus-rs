@@ -1,9 +1,7 @@
 use std::slice::Iter;
 use wgpu::PrimitiveTopology;
 
-// @HACK @FIXME
-// this is a hack so I can use Topology(PolygonMode) as keys for pipeline hashmap
-// might want to be more clever eventually
+// this is fine
 #[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
 pub enum Topology {
     PointList(PolygonMode),
@@ -85,11 +83,11 @@ impl From<&Topology> for PrimitiveTopology {
 impl From<Topology> for usize {
     fn from(top: Topology) -> Self {
         let shifted: usize = match top {
-            Topology::PointList(_) => 1 << 2,
-            Topology::LineList(_) => 2 << 2,
-            Topology::LineStrip(_) => 3 << 2,
-            Topology::TriangleList(_) => 4 << 2,
-            Topology::TriangleStrip(_) => 5 << 2,
+            Topology::PointList(_) => 0b0000,
+            Topology::LineList(_) => 0b0011,
+            Topology::LineStrip(_) => 0b0110,
+            Topology::TriangleList(_) => 0b1001,
+            Topology::TriangleStrip(_) => 0b1100,
         };
         shifted + usize::from(top.inner())
     }
@@ -115,9 +113,9 @@ impl From<PolygonMode> for wgpu::PolygonMode {
 impl From<PolygonMode> for usize {
     fn from(mode: PolygonMode) -> Self {
         match mode {
-            PolygonMode::Fill => 0,
-            PolygonMode::Line => 1,
-            PolygonMode::Point => 1 << 2,
+            PolygonMode::Fill => 0b00,
+            PolygonMode::Line => 0b01,
+            PolygonMode::Point => 0b10,
         }
     }
 }
