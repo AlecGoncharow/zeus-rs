@@ -75,6 +75,7 @@ pub struct GraphicsContext {
     fs_module: wgpu::ShaderModule,
 
     pub(crate) command_encoder: Option<wgpu::CommandEncoder>,
+    pub(crate) command_buffers: Vec<wgpu::CommandBuffer>,
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
     uniform_buffer: wgpu::Buffer,
@@ -182,6 +183,7 @@ impl GraphicsContext {
             vs_module,
             fs_module,
             command_encoder: None,
+            command_buffers: vec![],
             vertex_buffer,
             index_buffer,
             uniform_buffer,
@@ -408,12 +410,12 @@ impl GraphicsContext {
         self.command_encoder = Some(encoder);
     }
 
-    pub fn render(&mut self, queue: &wgpu::Queue) {
-        // submit will accept anything that implements IntoIter
-        queue.submit(std::iter::once(
-            self.command_encoder.take().unwrap().finish(),
-        ));
-        self.command_encoder = None;
+    pub fn render(&mut self, queue: &wgpu::Queue, ui_encoder: wgpu::CommandEncoder) {
+        //@TODO this sucks
+        self.command_buffers
+            .push(self.command_encoder.take().unwrap().finish());
+        self.command_buffers.push(ui_encoder.finish());
+        queue.submit(self.command_buffers.drain(..));
     }
 
     fn populate_pipelines(

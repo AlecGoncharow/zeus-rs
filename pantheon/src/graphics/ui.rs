@@ -53,7 +53,6 @@ impl UiContext {
 
     pub fn draw(
         &mut self,
-        mut command_encoder: wgpu::CommandEncoder,
         window: &winit::window::Window,
         device: &wgpu::Device,
         sc_desc: &wgpu::SwapChainDescriptor,
@@ -63,6 +62,9 @@ impl UiContext {
         let egui_start = std::time::Instant::now();
         self.platform.begin_frame();
         let mut app_output = epi::backend::AppOutput::default();
+        let mut command_encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("encoder"),
+        });
 
         let _frame = epi::backend::FrameBuilder {
             info: epi::IntegrationInfo {

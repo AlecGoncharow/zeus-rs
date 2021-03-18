@@ -171,7 +171,7 @@ impl<'a> Context {
                         eprintln!("dropped frame: {:?}", e);
                         if e == wgpu::SwapChainError::Outdated {
                             let size = self.window.inner_size();
-                            let sc_desc = wgpu::SwapChainDescriptor {
+                            self.sc_desc = wgpu::SwapChainDescriptor {
                                 usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
                                 format: self.adapter.get_swap_chain_preferred_format(&self.surface),
                                 width: size.width,
@@ -180,10 +180,14 @@ impl<'a> Context {
                             };
 
                             self.swap_chain =
-                                self.device.create_swap_chain(&self.surface, &sc_desc);
+                                self.device.create_swap_chain(&self.surface, &self.sc_desc);
 
-                            self.gfx_context
-                                .resize(size, &self.device, &sc_desc, &self.window);
+                            self.gfx_context.resize(
+                                size,
+                                &self.device,
+                                &self.sc_desc,
+                                &self.window,
+                            );
                         }
 
                         continue;
@@ -199,16 +203,6 @@ impl<'a> Context {
                 &self.queue,
             );
             if self.gfx_context.command_encoder.is_some() {
-                let command_encoder = self.gfx_context.command_encoder.take().unwrap();
-                let command_encoder = self.ui_context.draw(
-                    command_encoder,
-                    &self.window,
-                    &self.device,
-                    &self.sc_desc,
-                    &self.frame.as_ref().unwrap(),
-                    &mut self.queue,
-                );
-                self.gfx_context.command_encoder = Some(command_encoder);
                 break;
             } else {
                 println!("resizing");
@@ -236,7 +230,14 @@ impl<'a> Context {
     }
 
     pub fn render(&mut self) {
-        self.gfx_context.render(&self.queue);
+        let command_encoder = self.ui_context.draw(
+            &self.window,
+            &self.device,
+            &self.sc_desc,
+            &self.frame.as_ref().unwrap(),
+            &mut self.queue,
+        );
+        self.gfx_context.render(&self.queue, command_encoder);
         self.frame = None;
     }
 }
