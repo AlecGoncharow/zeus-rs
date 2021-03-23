@@ -1921,6 +1921,11 @@ dependencies = [
 [[package]]
 name = "server"
 version = "0.1.0"
+dependencies = [
+ "common",
+ "hermes",
+ "tokio",
+]
 
 [[package]]
 name = "shaderc"

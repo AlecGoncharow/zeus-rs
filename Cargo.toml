@@ -6,3 +6,4 @@ members = [
     "common",
     "server"
 ]
+default-members = ["game"]
