@@ -1,5 +1,8 @@
 [workspace]
 members = [
     "pantheon",
-    "game"
+    "hermes",
+    "game",
+    "common",
+    "server"
 ]
