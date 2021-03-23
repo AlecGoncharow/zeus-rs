@@ -1,5 +1,3 @@
-#![feature(test)]
-
 pub use winit;
 
 pub mod context;

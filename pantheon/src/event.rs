@@ -186,6 +186,7 @@ where
 
                 WindowEvent::AxisMotion { .. } => {}
                 WindowEvent::CursorLeft { .. } => {}
+                WindowEvent::TouchpadPressure { .. } => {}
 
                 x => {
                     eprintln!("ignoring window event {:?}", x);

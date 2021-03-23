@@ -19,7 +19,6 @@ pub struct Context {
     pub mouse_context: mouse::MouseContext,
     pub gfx_context: graphics::renderer::GraphicsContext,
     pub timer_context: timer::TimeContext,
-    pub ui_context: graphics::ui::UiContext,
     pub frame: Option<wgpu::SwapChainFrame>,
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
@@ -34,7 +33,6 @@ pub struct Context {
 impl<'a> Context {
     pub fn new(clear_color: crate::math::Vec4) -> (Self, EventLoop<EngineEvent>) {
         let event_loop: EventLoop<EngineEvent> = EventLoop::with_user_event();
-        let event_loop_proxy = std::sync::Mutex::new(event_loop.create_proxy());
 
         let window = WindowBuilder::new().build(&event_loop).unwrap();
         let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
@@ -87,7 +85,6 @@ impl<'a> Context {
             }
         };
 
-        let ui_context = graphics::ui::UiContext::new(&device, &window, event_loop_proxy);
         let event_loop_proxy = std::sync::Mutex::new(event_loop.create_proxy());
         let ctx = Self {
             continuing: true,
@@ -95,7 +92,6 @@ impl<'a> Context {
             mouse_context: mouse::MouseContext::new(),
             gfx_context,
             timer_context: timer::TimeContext::new(),
-            ui_context,
             frame: Some(frame),
             device,
             queue,
@@ -111,7 +107,6 @@ impl<'a> Context {
     }
 
     pub fn process_event(&mut self, event: &Event<'a, EngineEvent>) {
-        self.ui_context.platform.handle_event(event);
         match event {
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::Resized(_logical_size) => {}
@@ -230,14 +225,7 @@ impl<'a> Context {
     }
 
     pub fn render(&mut self) {
-        let command_encoder = self.ui_context.draw(
-            &self.window,
-            &self.device,
-            &self.sc_desc,
-            &self.frame.as_ref().unwrap(),
-            &mut self.queue,
-        );
-        self.gfx_context.render(&self.queue, command_encoder);
+        self.gfx_context.render(&self.queue);
         self.frame = None;
     }
 }

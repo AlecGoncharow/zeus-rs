@@ -410,11 +410,14 @@ impl GraphicsContext {
         self.command_encoder = Some(encoder);
     }
 
-    pub fn render(&mut self, queue: &wgpu::Queue, ui_encoder: wgpu::CommandEncoder) {
+    pub fn push_encoder(&mut self, encoder: wgpu::CommandEncoder) {
+        self.command_buffers.push(encoder.finish());
+    }
+
+    pub fn render(&mut self, queue: &wgpu::Queue) {
         //@TODO this sucks
         self.command_buffers
-            .push(self.command_encoder.take().unwrap().finish());
-        self.command_buffers.push(ui_encoder.finish());
+            .insert(0, self.command_encoder.take().unwrap().finish());
         queue.submit(self.command_buffers.drain(..));
     }
 

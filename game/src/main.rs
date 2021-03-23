@@ -26,6 +26,7 @@ struct State {
     entity_manager: EntityManager,
     plane: Vec<(Vec3, Vec3)>,
     mouse_down: bool,
+    fps: f32,
 }
 
 impl EventHandler for State {
@@ -48,22 +49,26 @@ impl EventHandler for State {
         //if self.mouse_down {
         //    self.camera.update_pitch_and_angle(ctx);
         //}
+        let delta_time = ctx.timer_context.delta_time();
         for key in keyboard::pressed_keys(ctx).iter() {
-            self.entity_manager.camera.process_keypress(*key);
+            self.entity_manager
+                .camera
+                .process_keypress(*key, delta_time);
         }
 
         if self.mouse_down {
             let delta = mouse::delta(ctx);
             self.entity_manager
                 .camera
-                .process_mouse_move((delta.x * 1.0, delta.y * 1.0).into());
+                .process_mouse_move((delta.x, delta.y).into(), delta_time);
         }
 
         ctx.gfx_context.view_transform = self.entity_manager.camera.view_matrix();
         self.entity_manager.update(ctx);
 
+        self.fps = 1.0 / ctx.timer_context.average_tick;
         if ctx.timer_context.frame_count % pantheon::timer::MAX_SAMPLES == 0 {
-            println!("FPS: {:#?}", 1.0 / ctx.timer_context.average_tick);
+            println!("FPS: {:#?}", self.fps);
         }
 
         Ok(())
@@ -214,6 +219,7 @@ fn main() {
         plane: grid,
 
         mouse_down: false,
+        fps: 0.,
     };
     ctx.gfx_context.view_transform = my_game.entity_manager.camera.view_matrix();
     ctx.gfx_context.projection_transform = my_game.entity_manager.camera.projection_matrix();

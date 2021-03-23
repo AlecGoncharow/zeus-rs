@@ -6,8 +6,8 @@ use pantheon::winit::event::VirtualKeyCode;
 
 //const YAW_DEFAULT: f32 = -90.0;
 //const PITCH_DEFAULT: f32 = 0.0;
-const MOVE_DEFAULT: f32 = 0.05;
-const MOUSE_DEFAULT: f32 = 0.5;
+const MOVE_DEFAULT: f32 = 5.;
+const MOUSE_DEFAULT: f32 = 100.;
 
 #[derive(Debug)]
 pub struct Camera {
@@ -26,7 +26,7 @@ pub struct Camera {
     pub fast_move: bool,
     pub mouse_speed: f32,
 
-    // projection matric things, not sure if it should be here
+    // projection matrix things, not sure if it should be here
     pub aspect: f32,
     pub vfov: f32,
     pub near_plane: f32,
@@ -157,11 +157,11 @@ impl Camera {
         self.v = self.u.cross(&self.w).make_unit_vector();
     }
 
-    pub fn process_keypress(&mut self, key: VirtualKeyCode) {
+    pub fn process_keypress(&mut self, key: VirtualKeyCode, delta_time: f32) {
         let speed = if self.fast_move {
-            self.move_speed * 5.0
+            self.move_speed * 5.0 * delta_time
         } else {
-            self.move_speed
+            self.move_speed * delta_time
         };
 
         match key {
@@ -190,16 +190,18 @@ impl Camera {
         };
     }
 
-    pub fn process_mouse_move(&mut self, delta: Vec2) {
-        let x_offset = delta.x * self.mouse_speed;
-        let y_offset = delta.y * self.mouse_speed;
+    pub fn process_mouse_move(&mut self, delta: Vec2, delta_time: f32) {
+        let x_offset = delta.x * self.mouse_speed * delta_time;
+        let y_offset = delta.y * self.mouse_speed * delta_time;
 
         self.yaw += x_offset;
         self.pitch += y_offset;
 
         self.pitch = if self.pitch > 89.0 {
+            println!("Clamping Camera pitch to 89 deg");
             89.0
         } else if self.pitch < -89.0 {
+            println!("Clamping Camera pitch to -89 deg");
             -89.0
         } else {
             self.pitch
