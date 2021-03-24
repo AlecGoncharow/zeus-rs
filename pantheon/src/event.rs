@@ -78,7 +78,7 @@ pub trait EventHandler {
     /// the game does not exit (the quit event is cancelled).
     fn quit_event(&mut self, _ctx: &mut Context) -> bool {
         println!("quit_event() callback called, quitting...");
-        false
+        true
     }
 
     /// Called when the user resizes the window, or when it is resized
@@ -115,7 +115,7 @@ where
                     );
                 }
                 WindowEvent::CloseRequested => {
-                    if !state.quit_event(&mut ctx) {
+                    if state.quit_event(&mut ctx) {
                         quit(&mut ctx);
                     }
                 }
@@ -194,12 +194,16 @@ where
             },
             Event::DeviceEvent { .. } => (),
             Event::MainEventsCleared => {
-                ctx.timer_context.tick();
-                let _ = state.update(&mut ctx);
-                let _ = state.draw(&mut ctx);
+                if !ctx.continuing {
+                    *control_flow = ControlFlow::Exit;
+                } else {
+                    ctx.timer_context.tick();
+                    let _ = state.update(&mut ctx);
+                    let _ = state.draw(&mut ctx);
 
-                // CLEAR VALUES
-                ctx.mouse_context.set_last_delta((0.0, 0.0).into());
+                    // CLEAR VALUES
+                    ctx.mouse_context.set_last_delta((0.0, 0.0).into());
+                }
             }
 
             _ => (),
