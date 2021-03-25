@@ -13,13 +13,12 @@ use pantheon::winit::event::VirtualKeyCode;
 
 use pantheon::math::*;
 
-mod camera;
-use camera::my_camera::Camera;
-mod entity;
+use core::camera::Camera;
+mod entity_manager;
+use entity_manager::EntityManager;
 
-use entity::cube::Cuboid;
-use entity::EntityKind;
-use entity::EntityManager;
+use core::entity::cube::Cuboid;
+use core::entity::EntityKind;
 
 struct State {
     frame: u32,

@@ -244,17 +244,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d7b894f5411737b7867f4827955924d7c254fc9f4d91a6aad6b097804b1018b"
 
 [[package]]
-name = "common"
-version = "0.1.0"
-dependencies = [
- "hermes",
-]
-
-[[package]]
 name = "copyless"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2df960f5d869b2dd8532793fde43eb5427cceb126c929747a26823ab0eeb536"
+
+[[package]]
+name = "core"
+version = "0.1.0"
+dependencies = [
+ "enum_dispatch",
+ "hermes",
+ "pantheon",
+]
 
 [[package]]
 name = "core-foundation"
@@ -719,6 +721,7 @@ dependencies = [
 name = "game"
 version = "0.1.0"
 dependencies = [
+ "core",
  "enum_dispatch",
  "hermes",
  "pantheon",
@@ -1922,7 +1925,7 @@ dependencies = [
 name = "server"
 version = "0.1.0"
 dependencies = [
- "common",
+ "core",
  "hermes",
 ]
 

@@ -8,4 +8,4 @@ edition = "2018"
 
 [dependencies]
 hermes = { path = "../hermes" }
-common = { path = "../common" }
+core = { path = "../core" }

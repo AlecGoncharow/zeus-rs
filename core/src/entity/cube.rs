@@ -2,7 +2,7 @@ use super::component::*;
 use super::plane::Plane;
 use super::triangle::Triangle;
 use super::Entity;
-use crate::camera::my_camera::Camera;
+use crate::camera::Camera;
 use pantheon::context::Context;
 use pantheon::graphics::Drawable;
 use pantheon::graphics::PolygonMode;

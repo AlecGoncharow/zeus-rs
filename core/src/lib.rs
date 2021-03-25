@@ -1,4 +1,7 @@
 use hermes::message::MessageKind;
+pub mod camera;
+pub mod entity;
+pub mod message;
 
 #[derive(Clone, Copy, Debug)]
 pub enum CustomMsg {

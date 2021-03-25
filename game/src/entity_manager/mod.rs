@@ -4,40 +4,12 @@ use pantheon::math::Dim;
 use pantheon::math::Vec3;
 use pantheon::math::Vec4;
 
-use crate::camera::my_camera::Camera;
+use core::camera::Camera;
 
-pub mod component;
 // use component::AsComponent;
-use component::DrawComponent;
-use component::MouseComponent;
-use enum_dispatch::enum_dispatch;
-
-pub mod cube;
-pub mod plane;
-pub mod triangle;
-
-use cube::Cuboid;
-//use plane::Plane;
-//use triangle::Triangle;
-
-#[allow(dead_code)]
-enum Message {
-    Foo,
-    Bar,
-}
-
-#[enum_dispatch(EntityKind)]
-pub trait Entity {
-    // TODO add callback message function
-    fn update(&mut self, ctx: &mut Context);
-}
-
-#[enum_dispatch]
-pub enum EntityKind {
-    Cuboid,
-    //Plane,
-    //Triangle,
-}
+use core::entity::component::DrawComponent;
+use core::entity::component::MouseComponent;
+use core::entity::{Entity, EntityKind};
 
 #[allow(dead_code)]
 pub struct EntityManager {

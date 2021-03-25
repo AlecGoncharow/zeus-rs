@@ -3,7 +3,7 @@ members = [
     "pantheon",
     "hermes",
     "game",
-    "common",
+    "core",
     "server"
 ]
 default-members = ["game"]

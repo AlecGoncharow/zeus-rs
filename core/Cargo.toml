@@ -1,5 +1,5 @@
 [package]
-name = "common"
+name = "core"
 version = "0.1.0"
 authors = ["Alec Goncharow <Alec.Goncharow@gmail.com>"]
 edition = "2018"
@@ -8,3 +8,5 @@ edition = "2018"
 
 [dependencies]
 hermes = { path = "../hermes" }
+pantheon = { path = "../pantheon" }
+enum_dispatch = "0.3"
