@@ -1,4 +1,4 @@
-use crate::message::{Message, MessageKind};
+use crate::message::{Message, MessageHeader, Messageable};
 use parking_lot::Mutex;
 use std::collections::VecDeque;
 use std::sync::Arc;
@@ -6,19 +6,19 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf};
 use tokio::net::TcpStream;
 use tokio::time::{sleep, Duration};
 
-pub struct Connection<T: MessageKind> {
-    messages_in: Arc<Mutex<VecDeque<Message<T>>>>,
+pub struct Connection<T: Messageable> {
+    messages_in: Arc<Mutex<VecDeque<(std::net::SocketAddr, Message<T>)>>>,
     messages_out: Arc<Mutex<VecDeque<Message<T>>>>,
 
     is_connected: Arc<Mutex<bool>>,
-    peer_addr: Option<std::net::SocketAddr>,
+    pub peer_addr: Option<std::net::SocketAddr>,
 
     read_stream: Option<ReadHalf<tokio::net::TcpStream>>,
     write_stream: Option<WriteHalf<tokio::net::TcpStream>>,
 }
 
-impl<T: MessageKind> Connection<T> {
-    pub fn new(messages_in: Arc<Mutex<VecDeque<Message<T>>>>) -> Self {
+impl<T: Messageable> Connection<T> {
+    pub fn new(messages_in: Arc<Mutex<VecDeque<(std::net::SocketAddr, Message<T>)>>>) -> Self {
         let messages_out = Arc::new(Mutex::new(VecDeque::new()));
 
         Self {
@@ -32,7 +32,7 @@ impl<T: MessageKind> Connection<T> {
     }
 
     pub fn from_stream(
-        messages_in: Arc<Mutex<VecDeque<Message<T>>>>,
+        messages_in: Arc<Mutex<VecDeque<(std::net::SocketAddr, Message<T>)>>>,
         stream: tokio::net::TcpStream,
     ) -> Self {
         let messages_out = Arc::new(Mutex::new(VecDeque::new()));
@@ -72,6 +72,7 @@ impl<T: MessageKind> Connection<T> {
         if let Some(mut stream) = self.read_stream.take() {
             let messages_in = self.messages_in.clone();
             let is_connected = Arc::clone(&self.is_connected);
+            let peer_addr = self.peer_addr.unwrap().clone();
             tokio::spawn(async move {
                 let mut buf = [0; 1024];
 
@@ -93,10 +94,44 @@ impl<T: MessageKind> Connection<T> {
                             return;
                         }
                     };
-                    println!("bytes read: {}", byte_count);
-                    let msg: Message<T> = Message::from(&buf[0..byte_count]);
-                    println!("Got msg: {:#?}", msg);
-                    messages_in.lock().push_back(msg);
+                    //println!("bytes read: {}", byte_count);
+                    let header: MessageHeader<T> = MessageHeader::from(&buf[0..byte_count]);
+                    let mut msg = Message {
+                        header,
+                        body: Vec::from(&buf[std::mem::size_of::<MessageHeader<T>>()..byte_count]),
+                    };
+                    //println!("header size {} | byte_count {}", header.size, byte_count);
+                    if header.size > byte_count as u32 {
+                        let mut running_count = byte_count as u32;
+
+                        while running_count < header.size {
+                            let byte_count = match stream.read(&mut buf).await {
+                                Ok(n) if n == 0 => return,
+                                Ok(n) => n,
+                                Err(e) => {
+                                    eprintln!(
+                                        "[Read Loop] failed to read from socket; err = {:?}",
+                                        e
+                                    );
+                                    match e.kind() {
+                                        std::io::ErrorKind::BrokenPipe => {
+                                            *is_connected.lock() = false;
+                                        }
+                                        _ => {
+                                            unimplemented!()
+                                        }
+                                    }
+                                    return;
+                                }
+                            };
+
+                            msg.body.extend_from_slice(&buf[0..byte_count]);
+                            running_count += byte_count as u32;
+                        }
+                    }
+
+                    //println!("Got msg: {:#?}", msg);
+                    messages_in.lock().push_back((peer_addr, msg));
                 }
             });
         }
@@ -114,10 +149,10 @@ impl<T: MessageKind> Connection<T> {
                             let mut write = messages_out.lock();
                             write.pop_front()
                         };
-                        println!("[TO:{:?}] trying to send: {:?}", peer_addr, next);
                         if let Some(msg) = next {
+                            println!("[TO:{:?}] trying to send: {:?}", peer_addr, msg.header);
                             let bytes: Vec<u8> = Vec::from(msg);
-                            println!("bytes: {:?}", bytes);
+                            //println!("bytes: {:?}", bytes);
 
                             if let Err(e) = stream.write(&bytes).await {
                                 eprintln!(

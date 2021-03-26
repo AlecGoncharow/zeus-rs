@@ -1,25 +1,22 @@
 use crate::connection::Connection;
-use crate::message::{Message, MessageKind};
+use crate::message::{Message, Messageable};
 use parking_lot::Mutex;
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 use tokio::net::TcpListener;
 
-pub struct ServerInterface<T: MessageKind> {
+pub struct ServerInterface<T: Messageable> {
     port: u16,
-    messages_in: Arc<Mutex<VecDeque<Message<T>>>>,
-    connections: Arc<Mutex<Vec<Connection<T>>>>,
-    #[allow(dead_code)]
-    id_counter: usize,
+    messages_in: Arc<Mutex<VecDeque<(std::net::SocketAddr, Message<T>)>>>,
+    connections: Arc<Mutex<HashMap<std::net::SocketAddr, Connection<T>>>>,
 }
 
-impl<T: MessageKind> ServerInterface<T> {
+impl<T: Messageable> ServerInterface<T> {
     pub fn new(port: u16) -> Self {
         Self {
             port,
             messages_in: Arc::new(Mutex::new(VecDeque::new())),
-            connections: Arc::new(Mutex::new(vec![])),
-            id_counter: 10000,
+            connections: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -28,21 +25,22 @@ impl<T: MessageKind> ServerInterface<T> {
     }
 
     pub async fn update(&mut self) {
-        if self.messages_in.lock().len() > 0 {
-            let mut write = self.messages_in.lock();
-            while let Some(msg) = write.pop_front() {
-                println!("[Server] got msg {}", msg);
-            }
-        }
-
+        /* @TODO drop dead connections
         self.connections
             .lock()
             .retain(|connection| connection.is_connected());
+        */
     }
 
     pub async fn send_to_all(&mut self, msg: Message<T>) {
-        for connection in self.connections.lock().iter_mut() {
+        for connection in self.connections.lock().values_mut() {
             connection.send(msg.clone()).await;
+        }
+    }
+
+    pub async fn send_to(&mut self, client_id: std::net::SocketAddr, msg: Message<T>) {
+        if let Some(connection) = self.connections.lock().get_mut(&client_id) {
+            connection.send(msg).await;
         }
     }
 
@@ -54,7 +52,7 @@ impl<T: MessageKind> ServerInterface<T> {
         self.connections.lock().len()
     }
 
-    pub fn pop_message(&mut self) -> Option<Message<T>> {
+    pub fn pop_message(&mut self) -> Option<(std::net::SocketAddr, Message<T>)> {
         self.messages_in.lock().pop_front()
     }
 
@@ -83,7 +81,7 @@ impl<T: MessageKind> ServerInterface<T> {
                 connection.start_read_loop();
                 connection.start_write_loop();
                 let mut write = connections.lock();
-                write.push(connection);
+                write.insert(connection.peer_addr.unwrap(), connection);
             }
         });
     }

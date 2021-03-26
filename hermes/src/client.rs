@@ -1,5 +1,5 @@
 use crate::connection::Connection;
-use crate::message::{Message, MessageKind};
+use crate::message::{Message, Messageable};
 use crate::Command;
 use parking_lot::Mutex;
 use std::collections::VecDeque;
@@ -7,13 +7,15 @@ use std::sync::Arc;
 use tokio::sync::{mpsc, mpsc::Sender, oneshot};
 use tokio::task;
 
-pub struct ClientInterface<T: MessageKind> {
-    messages_in: Arc<Mutex<VecDeque<Message<T>>>>,
+type ClientResult<T> = Result<T, Box<dyn std::error::Error + Send>>;
+
+pub struct ClientInterface<T: Messageable> {
+    messages_in: Arc<Mutex<VecDeque<(std::net::SocketAddr, Message<T>)>>>,
     connection_tx: Sender<Command<T>>,
     connection_handle: task::JoinHandle<()>,
 }
 
-impl<T: MessageKind> ClientInterface<T> {
+impl<T: Messageable> ClientInterface<T> {
     pub fn new() -> Self {
         let messages_in = Arc::new(Mutex::new(VecDeque::new()));
         let (connection_tx, mut cmd_rx) = mpsc::channel::<Command<T>>(32);
@@ -42,6 +44,9 @@ impl<T: MessageKind> ClientInterface<T> {
                         //connection.ping().await;
                         let _ = resp.send(Ok(()));
                     }
+                    Command::IsAlive { resp } => {
+                        let _ = resp.send(Ok(connection.is_connected()));
+                    }
                 }
             }
         });
@@ -53,11 +58,7 @@ impl<T: MessageKind> ClientInterface<T> {
         }
     }
 
-    pub async fn connect(
-        &mut self,
-        host: &str,
-        port: u16,
-    ) -> Result<(), Box<dyn std::error::Error + Send>> {
+    pub async fn connect(&mut self, host: &str, port: u16) -> ClientResult<()> {
         let (resp_tx, resp_rx) = oneshot::channel();
 
         let cmd = Command::Connect {
@@ -73,7 +74,7 @@ impl<T: MessageKind> ClientInterface<T> {
         resp_rx.await.expect("client sender dropped")
     }
 
-    pub async fn send(&mut self, msg: Message<T>) -> Result<(), Box<dyn std::error::Error + Send>> {
+    pub async fn send(&mut self, msg: Message<T>) -> ClientResult<()> {
         let (resp_tx, resp_rx) = oneshot::channel();
 
         let cmd = Command::Send { msg, resp: resp_tx };
@@ -86,13 +87,24 @@ impl<T: MessageKind> ClientInterface<T> {
         resp_rx.await.expect("client sender dropped")
     }
 
+    pub fn drain_message_queue(&mut self, out: &mut Vec<(std::net::SocketAddr, Message<T>)>) {
+        out.extend(self.messages_in.lock().drain(..));
+    }
+
     async fn run(&mut self) {
         todo!()
     }
 
-    pub fn is_connected(&self) -> bool {
-        //self.connection.is_connected()
-        // @TODO, ping command maybe?
-        false
+    pub async fn is_connected(&self) -> ClientResult<bool> {
+        let (resp_tx, resp_rx) = oneshot::channel();
+
+        let cmd = Command::IsAlive { resp: resp_tx };
+
+        match self.connection_tx.clone().send(cmd).await {
+            Ok(_) => {}
+            Err(e) => return Err(Box::new(e)),
+        }
+
+        resp_rx.await.expect("client sender dropped")
     }
 }

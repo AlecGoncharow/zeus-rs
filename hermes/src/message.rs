@@ -2,12 +2,12 @@ pub trait Pod: 'static + Copy + Sized + Send + Sync + std::fmt::Debug {}
 
 impl<T: 'static + Copy + Sized + Send + Sync + std::fmt::Debug> Pod for T {}
 
-pub trait MessageKind: Pod {}
+pub trait Messageable: Pod {}
 
 /// T represents an Enum which tells both sides what kind of message is being
 /// passed in the body of the message
 #[derive(Debug, Clone, Copy)]
-pub struct MessageHeader<T: MessageKind> {
+pub struct MessageHeader<T: Messageable> {
     /// The kind of invariant in the message body, used as an identifier
     pub id: T,
     /// the length of the message in bytes
@@ -15,12 +15,12 @@ pub struct MessageHeader<T: MessageKind> {
 }
 
 #[derive(Debug, Clone)]
-pub struct Message<T: MessageKind> {
+pub struct Message<T: Messageable> {
     pub header: MessageHeader<T>,
     pub body: Vec<u8>,
 }
 
-impl<T: MessageKind> Message<T> {
+impl<T: Messageable> Message<T> {
     pub fn new(id: T) -> Self {
         let header = MessageHeader {
             id,
@@ -77,13 +77,13 @@ impl<T: MessageKind> Message<T> {
     }
 }
 
-impl<T: MessageKind> std::fmt::Display for Message<T> {
+impl<T: Messageable> std::fmt::Display for Message<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "ID:{:?} Size:{:?}", self.header.id, self.header.size)
     }
 }
 
-impl<T: MessageKind> From<Message<T>> for Vec<u8> {
+impl<T: Messageable> From<Message<T>> for Vec<u8> {
     fn from(msg: Message<T>) -> Self {
         let header_size = std::mem::size_of::<MessageHeader<T>>();
         let body_len = msg.body.len();
@@ -104,7 +104,7 @@ impl<T: MessageKind> From<Message<T>> for Vec<u8> {
     }
 }
 
-impl<T: MessageKind> From<&[u8]> for Message<T> {
+impl<T: Messageable> From<&[u8]> for Message<T> {
     fn from(bytes: &[u8]) -> Self {
         let header_size = std::mem::size_of::<MessageHeader<T>>();
         let bytes_len = bytes.len();
@@ -129,6 +129,18 @@ impl<T: MessageKind> From<&[u8]> for Message<T> {
     }
 }
 
+impl<T: Messageable> From<&[u8]> for MessageHeader<T> {
+    fn from(bytes: &[u8]) -> Self {
+        let header_size = std::mem::size_of::<MessageHeader<T>>();
+        let bytes_len = bytes.len();
+        if bytes_len < header_size {
+            panic!("no, this is not header");
+        }
+
+        unsafe { std::mem::transmute_copy(&bytes[0]) }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -148,7 +160,7 @@ mod test {
         }
     }
 
-    impl MessageKind for CustomMsg {}
+    impl Messageable for CustomMsg {}
 
     #[derive(Clone, Copy, Debug)]
     struct F2 {

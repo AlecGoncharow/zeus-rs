@@ -1,5 +1,6 @@
 use pantheon::math::Vec3;
 
+#[derive(Debug)]
 pub struct Plane {
     pub point: Vec3,
     pub norm: Vec3,

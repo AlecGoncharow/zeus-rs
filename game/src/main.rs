@@ -17,14 +17,21 @@ use core::camera::Camera;
 mod entity_manager;
 use entity_manager::EntityManager;
 
-use core::entity::cube::Cuboid;
 use core::entity::EntityKind;
+use core::message::GameMessage;
+
+use hermes::client::ClientInterface;
+use hermes::message::Message;
+
+use hermes::tokio;
 
 struct State {
     frame: u32,
     entity_manager: EntityManager,
     plane: Vec<(Vec3, Vec3)>,
     mouse_down: bool,
+    network_client: ClientInterface<GameMessage>,
+    network_queue: Vec<(std::net::SocketAddr, Message<GameMessage>)>,
     fps: f32,
 }
 
@@ -48,6 +55,27 @@ impl EventHandler for State {
         //if self.mouse_down {
         //    self.camera.update_pitch_and_angle(ctx);
         //}
+        self.network_client
+            .drain_message_queue(&mut self.network_queue);
+
+        for (_source, mut message) in self.network_queue.drain(..) {
+            println!("[Networking] Got msg {}", message);
+            match message.header.id {
+                GameMessage::GetId => {
+                    let id: usize = message.pull();
+                    println!("[Networking] Got id {}", id);
+                }
+                GameMessage::SyncWorld => {
+                    while !message.body.is_empty() {
+                        let entity: EntityKind = message.pull();
+                        //println!("[Networking] Got entity: {:#?}", entity);
+                        self.entity_manager.push_entity(entity);
+                    }
+                }
+                _ => {}
+            }
+        }
+
         let delta_time = ctx.timer_context.delta_time();
         for key in keyboard::pressed_keys(ctx).iter() {
             self.entity_manager
@@ -157,39 +185,18 @@ fn populate_grid(grid: &mut Vec<(Vec3, Vec3)>, size: i32, y: f32) {
     }
 }
 
-fn generate_cubes(state: &mut State) {
-    let cube = Cuboid::cube(1.0, (0, 0, 0).into(), None);
-    state.entity_manager.push_entity(EntityKind::from(cube));
+#[tokio::main]
+async fn main() {
+    let mut network_client: ClientInterface<GameMessage> = ClientInterface::new();
+    println!(
+        "Connectinon status: {:?}",
+        network_client.connect("127.0.0.1", 8080).await
+    );
+    let message: Message<GameMessage> = Message::new(GameMessage::GetId);
+    network_client.send(message).await.unwrap();
+    let message: Message<GameMessage> = Message::new(GameMessage::SyncWorld);
+    network_client.send(message).await.unwrap();
 
-    let cube = Cuboid::cube(1.0, (10, 0, 10).into(), None);
-    state.entity_manager.push_entity(EntityKind::from(cube));
-
-    let cube = Cuboid::cube(1.0, (0, 0, 10).into(), None);
-    state.entity_manager.push_entity(EntityKind::from(cube));
-
-    let cube = Cuboid::cube(1.0, (10, 0, 0).into(), None);
-    state.entity_manager.push_entity(EntityKind::from(cube));
-
-    let cube = Cuboid::cube(1.0, (10, 10, 10).into(), None);
-    state.entity_manager.push_entity(EntityKind::from(cube));
-
-    let cube = Cuboid::cube(1.0, (0, 10, 10).into(), None);
-    state.entity_manager.push_entity(EntityKind::from(cube));
-
-    let cube = Cuboid::cube(1.0, (10, 10, 0).into(), None);
-    state.entity_manager.push_entity(EntityKind::from(cube));
-
-    let cube = Cuboid::cube(1.0, (0, 10, 0).into(), None);
-    state.entity_manager.push_entity(EntityKind::from(cube));
-
-    let cube = Cuboid::cube(5.0, (5, 5, 5).into(), None);
-    state.entity_manager.push_entity(EntityKind::from(cube));
-
-    //let cube = Cuboid::cube(100.0, (0, -105, 0).into(), None);
-    //state.entity_manager.push_entity(cube);
-}
-
-fn main() {
     let (mut ctx, event_loop) = Context::new((0.529, 0.81, 0.922, 1.0).into());
     let mut grid: Vec<(Vec3, Vec3)> = vec![];
     populate_grid(&mut grid, 50, -5.);
@@ -202,7 +209,7 @@ fn main() {
         )
     );
 
-    let mut my_game = State {
+    let my_game = State {
         frame: 0,
         entity_manager: EntityManager::new(Camera::new(
             Vec3::new_from_one(1),
@@ -219,10 +226,12 @@ fn main() {
 
         mouse_down: false,
         fps: 0.,
+        network_client,
+        network_queue: vec![],
     };
+
     ctx.gfx_context.view_transform = my_game.entity_manager.camera.view_matrix();
     ctx.gfx_context.projection_transform = my_game.entity_manager.camera.projection_matrix();
-    generate_cubes(&mut my_game);
 
     let _ = pantheon::event::run(event_loop, ctx, my_game);
 }

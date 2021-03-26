@@ -35,7 +35,7 @@ pub trait Drawable {
     }
 
     /// vertex buffer values (Position, Color)
-    fn vertices(&self) -> &Vec<(Vec3, Vec3)>;
+    fn vertices(&self) -> &[(Vec3, Vec3)];
 
     /// index buffer values
     fn indices(&self) -> Option<&[u16]> {

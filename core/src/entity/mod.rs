@@ -7,6 +7,7 @@ use crate::camera::Camera;
 use component::DrawComponent;
 use component::MouseComponent;
 use enum_dispatch::enum_dispatch;
+use hermes::message::Pod;
 
 pub mod cube;
 pub mod plane;
@@ -23,12 +24,13 @@ enum Message {
 }
 
 #[enum_dispatch(EntityKind)]
-pub trait Entity {
+pub trait Entity: Pod {
     // TODO add callback message function
     fn update(&mut self, ctx: &mut Context);
 }
 
 #[enum_dispatch]
+#[derive(Debug, Copy, Clone)]
 pub enum EntityKind {
     Cuboid,
     //Plane,

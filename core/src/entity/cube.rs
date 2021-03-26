@@ -81,8 +81,9 @@ pub fn cuboid_default_colors() -> [Vec3; 8] {
     ]
 }
 
+#[derive(Debug, Copy, Clone)]
 pub struct Cuboid {
-    vertices: Vec<(Vec3, Vec3)>,
+    vertices: [(Vec3, Vec3); 8],
     planes: [(Triangle, Triangle); 6],
     indices: [u16; 36],
     pub draw_mode: PolygonMode,
@@ -97,10 +98,9 @@ impl Cuboid {
         let pos = get_cube_verts(size);
         let colors = cuboid_default_colors();
 
-        let mut vertices = vec![];
-
+        let mut vertices = [(Vec3::new_from_one(0), Vec3::new_from_one(0)); 8];
         for i in 0..8 {
-            vertices.push((pos[i], colors[i]));
+            vertices[i] = (pos[i], colors[i]);
         }
 
         let planes = [
@@ -311,7 +311,7 @@ impl Drawable for Cuboid {
     }
 
     /// vertex buffer values (Position, Color)
-    fn vertices(&self) -> &Vec<(Vec3, Vec3)> {
+    fn vertices(&self) -> &[(Vec3, Vec3)] {
         &self.vertices
     }
 

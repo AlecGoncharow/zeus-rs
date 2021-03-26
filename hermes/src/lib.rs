@@ -7,12 +7,12 @@ pub mod connection;
 pub mod message;
 pub mod server;
 
-use message::{Message, MessageKind};
+use message::{Message, Messageable};
 use tokio::sync::oneshot;
 
 type Responder<T> = oneshot::Sender<Result<T, Box<dyn std::error::Error + Send>>>;
 #[derive(Debug)]
-pub enum Command<T: MessageKind> {
+pub enum Command<T: Messageable> {
     Connect {
         addr: String,
         resp: Responder<()>,
@@ -23,5 +23,8 @@ pub enum Command<T: MessageKind> {
     },
     Ping {
         resp: Responder<()>,
+    },
+    IsAlive {
+        resp: Responder<bool>,
     },
 }

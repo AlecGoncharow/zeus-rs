@@ -1,6 +1,7 @@
 use super::plane::Plane;
 use pantheon::math::Vec3;
 
+#[derive(Debug, Copy, Clone)]
 pub struct Triangle {
     pub p0: Vec3,
     pub p1: Vec3,
