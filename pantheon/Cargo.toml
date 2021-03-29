@@ -3,6 +3,10 @@ name = "pantheon"
 version = "0.1.0"
 authors = ["Alec Goncharow <Alec.Goncharow@gmail.com>"]
 edition = "2018"
+description = "An opionated WIP/Experimental 3D game engine"
+repository = "https://github.com/AlecGoncharow/zeus-rs"
+license =  "MIT OR Apache-2.0"
+categories = ["game-engines", "graphics", "rendering"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
