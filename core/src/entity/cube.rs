@@ -5,6 +5,7 @@ use super::Entity;
 use crate::camera::Camera;
 use pantheon::context::Context;
 use pantheon::graphics::Drawable;
+use pantheon::graphics::color::Color;
 use pantheon::graphics::PolygonMode;
 use pantheon::graphics::Topology;
 use pantheon::input::mouse;
@@ -65,25 +66,25 @@ fn cube_indices() -> [u16; 36] {
     ]
 }
 
-pub fn cuboid_default_colors() -> [Vec3; 8] {
+pub fn cuboid_default_colors() -> [Color; 8] {
     // from https://en.wikibooks.org/wiki/OpenGL_Programming/Modern_OpenGL_Tutorial_05#Adding_the_3rd_dimension
     [
         // front colors
-        Vec3::new(1.0, 0.0, 0.0),
-        Vec3::new(0.0, 1.0, 0.0),
-        Vec3::new(0.0, 0.0, 1.0),
-        Vec3::new(1.0, 1.0, 1.0),
+        (1.0, 0.0, 0.0).into(),
+        (0.0, 1.0, 0.0).into(),
+        (0.0, 0.0, 1.0).into(),
+        (1.0, 1.0, 1.0).into(),
         // back colors
-        Vec3::new(1.0, 0.0, 0.0),
-        Vec3::new(0.0, 1.0, 0.0),
-        Vec3::new(0.0, 0.0, 1.0),
-        Vec3::new(1.0, 1.0, 1.0),
+        (1.0, 0.0, 0.0).into(),
+        (0.0, 1.0, 0.0).into(),
+        (0.0, 0.0, 1.0).into(),
+        (1.0, 1.0, 1.0).into(),
     ]
 }
 
 #[derive(Debug, Copy, Clone)]
 pub struct Cuboid {
-    vertices: [(Vec3, Vec3); 8],
+    vertices: [(Vec3, Color); 8],
     planes: [(Triangle, Triangle); 6],
     indices: [u16; 36],
     pub draw_mode: PolygonMode,
@@ -98,7 +99,7 @@ impl Cuboid {
         let pos = get_cube_verts(size);
         let colors = cuboid_default_colors();
 
-        let mut vertices = [(Vec3::new_from_one(0), Vec3::new_from_one(0)); 8];
+        let mut vertices = [(Vec3::new_from_one(0), Color::new(0, 0, 0)); 8];
         for i in 0..8 {
             vertices[i] = (pos[i], colors[i]);
         }
@@ -150,9 +151,9 @@ impl Entity for Cuboid {
 
 impl DrawComponent for Cuboid {
     fn draw(&mut self, ctx: &mut Context) {
-        let mut color: Vec3 = (0, 0, 0).into();
+        let mut color: Color = (0, 0, 0).into();
         if self.moused_over {
-            color = (1, 1, 1).into();
+            color = (255, 255, 255).into();
         }
 
         let mut plane_verts = vec![];
@@ -311,7 +312,7 @@ impl Drawable for Cuboid {
     }
 
     /// vertex buffer values (Position, Color)
-    fn vertices(&self) -> &[(Vec3, Vec3)] {
+    fn vertices(&self) -> &[(Vec3, Color)] {
         &self.vertices
     }
 

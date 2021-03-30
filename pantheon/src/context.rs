@@ -3,6 +3,7 @@ use crate::graphics::Topology;
 use crate::input::{keyboard, mouse};
 use crate::math::Vec2;
 use crate::math::Vec3;
+use crate::graphics::color::Color;
 use crate::timer;
 use futures::executor::block_on;
 use std::sync::Arc;
@@ -205,7 +206,7 @@ impl<'a> Context {
         }
     }
 
-    pub fn draw(&mut self, mode: Topology, verts: &[(Vec3, Vec3)]) {
+    pub fn draw(&mut self, mode: Topology, verts: &[(Vec3, Color)]) {
         self.gfx_context.draw(
             &self.frame.as_ref().unwrap().output.view,
             &self.device,
@@ -214,7 +215,7 @@ impl<'a> Context {
         );
     }
 
-    pub fn draw_indexed(&mut self, mode: Topology, verts: &[(Vec3, Vec3)], indices: &[u16]) {
+    pub fn draw_indexed(&mut self, mode: Topology, verts: &[(Vec3, Color)], indices: &[u16]) {
         self.gfx_context.draw_indexed(
             &self.frame.as_ref().unwrap().output.view,
             &self.device,

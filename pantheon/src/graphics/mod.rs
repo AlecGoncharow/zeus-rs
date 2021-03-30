@@ -1,6 +1,7 @@
 pub mod renderer;
 pub mod texture;
 pub mod topology;
+pub mod color;
 
 pub use topology::PolygonMode;
 pub use topology::Topology;
@@ -35,7 +36,7 @@ pub trait Drawable {
     }
 
     /// vertex buffer values (Position, Color)
-    fn vertices(&self) -> &[(Vec3, Vec3)];
+    fn vertices(&self) -> &[(Vec3, color::Color)];
 
     /// index buffer values
     fn indices(&self) -> Option<&[u16]> {
