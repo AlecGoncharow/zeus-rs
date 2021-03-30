@@ -13,6 +13,9 @@ use pantheon::winit::event::VirtualKeyCode;
 
 use pantheon::math::*;
 
+use pantheon::graphics::color::Color;
+
+
 use core::camera::Camera;
 mod entity_manager;
 use entity_manager::EntityManager;
@@ -28,7 +31,7 @@ use hermes::tokio;
 struct State {
     frame: u32,
     entity_manager: EntityManager,
-    plane: Vec<(Vec3, Vec3)>,
+    plane: Vec<(Vec3, Color)>,
     mouse_down: bool,
     network_client: ClientInterface<GameMessage>,
     network_queue: Vec<(std::net::SocketAddr, Message<GameMessage>)>,
@@ -161,17 +164,17 @@ impl EventHandler for State {
 }
 
 #[allow(dead_code)]
-fn get_corner_positions(row: f32, col: f32, y: f32) -> [(Vec3, Vec3); 4] {
+fn get_corner_positions(row: f32, col: f32, y: f32) -> [(Vec3, Color); 4] {
     [
-        ((col, y, row).into(), Vec3::new(0.7, 0.7, 0.7)),
-        ((col, y, row + 1.0).into(), Vec3::new(0.8, 0.8, 0.8)),
-        ((col + 1.0, y, row).into(), Vec3::new(0.9, 0.9, 0.9)),
-        ((col + 1.0, y, row + 1.0).into(), Vec3::new(1, 1, 1)),
+        ((col, y, row).into(), Color::floats(0.3, 0.3, 0.3)),
+        ((col, y, row + 1.0).into(), Color::floats(0.4, 0.4, 0.4)),
+        ((col + 1.0, y, row).into(), Color::floats(0.5, 0.5, 0.5)),
+        ((col + 1.0, y, row + 1.0).into(), Color::floats(1., 1., 1.)),
     ]
 }
 
 #[allow(dead_code)]
-fn populate_grid(grid: &mut Vec<(Vec3, Vec3)>, size: i32, y: f32) {
+fn populate_grid(grid: &mut Vec<(Vec3, Color)>, size: i32, y: f32) {
     for row in -size..size {
         for col in -size..size {
             let pos = get_corner_positions(row as f32, col as f32, y);
@@ -198,7 +201,7 @@ async fn main() {
     network_client.send(message).await.unwrap();
 
     let (mut ctx, event_loop) = Context::new((0.529, 0.81, 0.922, 1.0).into());
-    let mut grid: Vec<(Vec3, Vec3)> = vec![];
+    let mut grid: Vec<(Vec3, Color)> = vec![];
     populate_grid(&mut grid, 50, -5.);
     populate_grid(&mut grid, 50, 15.);
     println!(

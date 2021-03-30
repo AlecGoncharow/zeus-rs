@@ -6,6 +6,7 @@ use crate::graphics::topology::PolygonMode;
 use crate::graphics::Topology;
 use crate::math::Mat4;
 use crate::math::Vec3;
+use crate::graphics::color::Color;
 
 unsafe impl bytemuck::Pod for Vertex {}
 unsafe impl bytemuck::Zeroable for Vertex {}
@@ -14,7 +15,7 @@ unsafe impl bytemuck::Zeroable for Vertex {}
 #[derive(Copy, Clone, Debug)]
 pub struct Vertex {
     pub position: [f32; 3],
-    pub color: [f32; 3],
+    pub color: [u8; 4],
 }
 
 impl Vertex {
@@ -29,20 +30,20 @@ impl Vertex {
                     format: wgpu::VertexFormat::Float3,
                 },
                 wgpu::VertexAttribute {
-                    offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
+                    offset: std::mem::size_of::<[u8; 4]>() as wgpu::BufferAddress,
                     shader_location: 1,
-                    format: wgpu::VertexFormat::Float3,
+                    format: wgpu::VertexFormat::Uchar4,
                 },
             ],
         }
     }
 }
 
-impl From<(Vec3, Vec3)> for Vertex {
-    fn from(vecs: (Vec3, Vec3)) -> Self {
+impl From<(Vec3, Color)> for Vertex {
+    fn from(vecs: (Vec3, Color)) -> Self {
         Self {
             position: [vecs.0.x, vecs.0.y, vecs.0.z],
-            color: [vecs.1.x, vecs.1.y, vecs.1.z],
+            color: [vecs.1.r,  vecs.1.g, vecs.1.b, 0],
         }
     }
 }
@@ -50,15 +51,15 @@ impl From<(Vec3, Vec3)> for Vertex {
 const VERTICES: &[Vertex] = &[
     Vertex {
         position: [0.0, 0.5, 0.0],
-        color: [1.0, 0.0, 0.0],
+        color: [255, 0, 0, 0],
     },
     Vertex {
         position: [-0.5, -0.5, 0.0],
-        color: [0.0, 1.0, 0.0],
+        color: [0, 255, 0, 0],
     },
     Vertex {
         position: [0.5, -0.5, 0.0],
-        color: [0.0, 0.0, 1.0],
+        color: [0, 0, 255, 0],
     },
 ];
 
@@ -269,7 +270,7 @@ impl GraphicsContext {
         view: &wgpu::TextureView,
         device: &wgpu::Device,
         mode: Topology,
-        verts: &[(Vec3, Vec3)],
+        verts: &[(Vec3, Color)],
     ) {
         let mut encoder = self.command_encoder.take().unwrap();
 
@@ -295,7 +296,7 @@ impl GraphicsContext {
         render_pass.set_pipeline(&self.render_pipelines[usize::from(mode)]);
 
         let vertices: &[Vertex] = unsafe {
-            &*(verts as *const [(crate::math::vec3::Vec3, crate::math::vec3::Vec3)]
+            &*(verts as *const [(crate::math::vec3::Vec3, crate::graphics::color::Color)]
                 as *const [crate::graphics::renderer::Vertex])
         };
         self.vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -338,7 +339,7 @@ impl GraphicsContext {
         view: &wgpu::TextureView,
         device: &wgpu::Device,
         mode: Topology,
-        verts: &[(Vec3, Vec3)],
+        verts: &[(Vec3, Color)],
         indices: &[u16],
     ) {
         let mut encoder = self.command_encoder.take().unwrap();
@@ -365,7 +366,7 @@ impl GraphicsContext {
         render_pass.set_pipeline(&self.render_pipelines[usize::from(mode)]);
 
         let vertices: &[Vertex] = unsafe {
-            &*(verts as *const [(crate::math::vec3::Vec3, crate::math::vec3::Vec3)]
+            &*(verts as *const [(crate::math::vec3::Vec3, crate::graphics::color::Color)]
                 as *const [crate::graphics::renderer::Vertex])
         };
         self.vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
