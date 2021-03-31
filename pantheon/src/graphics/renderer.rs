@@ -2,64 +2,29 @@ use winit::window::Window;
 
 use wgpu::util::DeviceExt;
 
+use crate::graphics::topology::Mode;
 use crate::graphics::topology::PolygonMode;
 use crate::graphics::Topology;
 use crate::math::Mat4;
-use crate::math::Vec3;
-use crate::graphics::color::Color;
 
-unsafe impl bytemuck::Pod for Vertex {}
-unsafe impl bytemuck::Zeroable for Vertex {}
+use super::vertex::ShadedVertex;
+use super::vertex::Vertex;
 
-#[repr(C)]
-#[derive(Copy, Clone, Debug)]
-pub struct Vertex {
-    pub position: [f32; 3],
-    pub color: [u8; 4],
-}
-
-impl Vertex {
-    pub fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
-        wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
-            step_mode: wgpu::InputStepMode::Vertex,
-            attributes: &[
-                wgpu::VertexAttribute {
-                    offset: 0,
-                    shader_location: 0,
-                    format: wgpu::VertexFormat::Float3,
-                },
-                wgpu::VertexAttribute {
-                    offset: std::mem::size_of::<[u8; 4]>() as wgpu::BufferAddress,
-                    shader_location: 1,
-                    format: wgpu::VertexFormat::Uchar4,
-                },
-            ],
-        }
-    }
-}
-
-impl From<(Vec3, Color)> for Vertex {
-    fn from(vecs: (Vec3, Color)) -> Self {
-        Self {
-            position: [vecs.0.x, vecs.0.y, vecs.0.z],
-            color: [vecs.1.r,  vecs.1.g, vecs.1.b, 0],
-        }
-    }
-}
-
-const VERTICES: &[Vertex] = &[
-    Vertex {
+const VERTICES: &[ShadedVertex] = &[
+    ShadedVertex {
         position: [0.0, 0.5, 0.0],
         color: [255, 0, 0, 0],
+        normal: [0.0, 0.5, 0.0],
     },
-    Vertex {
+    ShadedVertex {
         position: [-0.5, -0.5, 0.0],
         color: [0, 255, 0, 0],
+        normal: [0.0, 0.5, 0.0],
     },
-    Vertex {
+    ShadedVertex {
         position: [0.5, -0.5, 0.0],
         color: [0, 0, 255, 0],
+        normal: [0.0, 0.5, 0.0],
     },
 ];
 
@@ -74,7 +39,8 @@ pub struct GraphicsContext {
     render_pipelines: Vec<wgpu::RenderPipeline>,
     vs_module: wgpu::ShaderModule,
     fs_module: wgpu::ShaderModule,
-
+    shaded_vs_module: wgpu::ShaderModule,
+    shaded_fs_module: wgpu::ShaderModule,
     pub(crate) command_encoder: Option<wgpu::CommandEncoder>,
     pub(crate) command_buffers: Vec<wgpu::CommandBuffer>,
     vertex_buffer: wgpu::Buffer,
@@ -112,6 +78,10 @@ impl GraphicsContext {
             device.create_shader_module(&wgpu::include_spirv!("shaders/shader.vert.spv"));
         let fs_module =
             device.create_shader_module(&wgpu::include_spirv!("shaders/shader.frag.spv"));
+        let shaded_vs_module =
+            device.create_shader_module(&wgpu::include_spirv!("shaders/shaded.vert.spv"));
+        let shaded_fs_module =
+            device.create_shader_module(&wgpu::include_spirv!("shaders/shaded.frag.spv"));
 
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Uniform Buffer"),
@@ -161,6 +131,19 @@ impl GraphicsContext {
             &vs_module,
             &fs_module,
             sc_desc,
+            Vertex::desc,
+            Mode::normal_modes(),
+        );
+
+        Self::populate_pipelines(
+            &mut render_pipelines,
+            device,
+            &uniform_bind_group_layout,
+            &shaded_vs_module,
+            &shaded_fs_module,
+            sc_desc,
+            ShadedVertex::desc,
+            Mode::shaded_modes(),
         );
 
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -183,6 +166,9 @@ impl GraphicsContext {
             render_pipelines,
             vs_module,
             fs_module,
+            shaded_vs_module,
+            shaded_fs_module,
+
             command_encoder: None,
             command_buffers: vec![],
             vertex_buffer,
@@ -221,6 +207,19 @@ impl GraphicsContext {
             &self.vs_module,
             &self.fs_module,
             sc_desc,
+            Vertex::desc,
+            Mode::normal_modes(),
+        );
+
+        Self::populate_pipelines(
+            &mut self.render_pipelines,
+            device,
+            &self.uniform_bind_group_layout,
+            &self.shaded_vs_module,
+            &self.shaded_fs_module,
+            sc_desc,
+            ShadedVertex::desc,
+            Mode::shaded_modes(),
         );
     }
 
@@ -265,13 +264,16 @@ impl GraphicsContext {
             Some(device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None }));
     }
 
-    pub fn draw(
+    pub fn draw<F, T>(
         &mut self,
         view: &wgpu::TextureView,
         device: &wgpu::Device,
-        mode: Topology,
-        verts: &[(Vec3, Color)],
-    ) {
+        mode: Mode,
+        verts: &[F],
+    ) where
+        T: bytemuck::Pod,
+        F: Into<crate::graphics::vertex::VertexKind>,
+    {
         let mut encoder = self.command_encoder.take().unwrap();
 
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -295,21 +297,15 @@ impl GraphicsContext {
         });
         render_pass.set_pipeline(&self.render_pipelines[usize::from(mode)]);
 
-        let vertices: &[Vertex] = unsafe {
-            &*(verts as *const [(crate::math::vec3::Vec3, crate::graphics::color::Color)]
-                as *const [crate::graphics::renderer::Vertex])
-        };
+        let vertices: &[T] = unsafe { &*(verts as *const [F] as *const [T]) };
         self.vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
             contents: bytemuck::cast_slice(&vertices),
             usage: wgpu::BufferUsage::VERTEX,
         });
 
-        let buffer_data: [[f32; 16]; 3] = [
-            self.model_transform.into(),
-            self.view_transform.into(),
-            self.projection_transform.into(),
-        ];
+        let buffer_data: [[f32; 4]; 4] =
+            (self.projection_transform * self.view_transform * self.model_transform).into();
 
         self.uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Uniform Buffer"),
@@ -334,14 +330,17 @@ impl GraphicsContext {
         self.command_encoder = Some(encoder);
     }
 
-    pub fn draw_indexed(
+    pub fn draw_indexed<F, T>(
         &mut self,
         view: &wgpu::TextureView,
         device: &wgpu::Device,
-        mode: Topology,
-        verts: &[(Vec3, Color)],
+        mode: Mode,
+        verts: &[F],
         indices: &[u16],
-    ) {
+    ) where
+        T: bytemuck::Pod,
+        F: Into<crate::graphics::vertex::VertexKind>,
+    {
         let mut encoder = self.command_encoder.take().unwrap();
 
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -365,10 +364,7 @@ impl GraphicsContext {
         });
         render_pass.set_pipeline(&self.render_pipelines[usize::from(mode)]);
 
-        let vertices: &[Vertex] = unsafe {
-            &*(verts as *const [(crate::math::vec3::Vec3, crate::graphics::color::Color)]
-                as *const [crate::graphics::renderer::Vertex])
-        };
+        let vertices: &[T] = unsafe { &*(verts as *const [F] as *const [T]) };
         self.vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
             contents: bytemuck::cast_slice(&vertices),
@@ -381,11 +377,8 @@ impl GraphicsContext {
             usage: wgpu::BufferUsage::INDEX,
         });
 
-        let buffer_data: [[[f32; 4]; 4]; 3] = [
-            self.model_transform.into(),
-            self.view_transform.into(),
-            self.projection_transform.into(),
-        ];
+        let buffer_data: [[f32; 4]; 4] =
+            (self.projection_transform * self.view_transform * self.model_transform).into();
 
         self.uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Uniform Buffer"),
@@ -422,13 +415,15 @@ impl GraphicsContext {
         queue.submit(self.command_buffers.drain(..));
     }
 
-    fn populate_pipelines(
+    fn populate_pipelines<'a>(
         pipelines: &mut Vec<wgpu::RenderPipeline>,
         device: &wgpu::Device,
         uniform_bind_group_layout: &wgpu::BindGroupLayout,
         vs_module: &wgpu::ShaderModule,
         fs_module: &wgpu::ShaderModule,
         sc_desc: &wgpu::SwapChainDescriptor,
+        vert_desc: fn() -> wgpu::VertexBufferLayout<'a>,
+        modes: Vec<Mode>,
     ) {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -436,14 +431,14 @@ impl GraphicsContext {
                 bind_group_layouts: &[uniform_bind_group_layout],
                 push_constant_ranges: &[],
             });
-        for top in Topology::iterator() {
+        for mode in modes {
             let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
                 label: Some("Render Pipeline"),
                 layout: Some(&render_pipeline_layout),
                 vertex: wgpu::VertexState {
                     module: &vs_module,
                     entry_point: "main",
-                    buffers: &[Vertex::desc()],
+                    buffers: &[vert_desc()],
                 },
                 fragment: Some(wgpu::FragmentState {
                     // 2.
@@ -458,12 +453,11 @@ impl GraphicsContext {
                 }),
 
                 primitive: wgpu::PrimitiveState {
-                    topology: top.into(), // 1.
+                    topology: mode.inner().into(), // 1.
                     strip_index_format: None,
                     front_face: wgpu::FrontFace::Ccw, // 2.
                     cull_mode: wgpu::CullMode::None,
-                    // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
-                    polygon_mode: top.inner().into(),
+                    polygon_mode: mode.inner().inner().into(),
                 },
 
                 depth_stencil: Some(wgpu::DepthStencilState {
@@ -483,7 +477,7 @@ impl GraphicsContext {
                 },
             });
 
-            pipelines.insert(usize::from(*top), render_pipeline);
+            pipelines.insert(usize::from(mode), render_pipeline);
         }
     }
 }

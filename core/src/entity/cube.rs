@@ -4,8 +4,9 @@ use super::triangle::Triangle;
 use super::Entity;
 use crate::camera::Camera;
 use pantheon::context::Context;
-use pantheon::graphics::Drawable;
 use pantheon::graphics::color::Color;
+use pantheon::graphics::topology::Mode;
+use pantheon::graphics::Drawable;
 use pantheon::graphics::PolygonMode;
 use pantheon::graphics::Topology;
 use pantheon::input::mouse;
@@ -42,27 +43,40 @@ pub fn get_cube_verts(size: f32) -> [Vec3; 8] {
     ]
 }
 
+pub fn cube_normals() -> [Vec3; 8] {
+    [
+        (0, 0, 1).into(),
+        (1, 0, 0).into(),
+        (0, 1, 0).into(),
+        (-1, 0, 0).into(),
+        (0, -1, 0).into(),
+        (0, 0, -1).into(),
+        (0, 0, 0).into(),
+        (0, 0, 0).into(),
+    ]
+}
+
 #[rustfmt::skip]
 fn cube_indices() -> [u16; 36] {
     [
         // front
         0, 1, 2,
-        2, 3, 0,
+        0, 3, 2,
         // right
+        1, 2, 6,
         1, 5, 6,
-        6, 2, 1,
-        // back
-        7, 6, 5,
-        5, 4, 7,
-        // left
-        4, 0, 3,
-        3, 7, 4,
         // bottom
-        4, 5, 1,
-        1, 0, 4,
+        2, 3, 7,
+        2, 6, 7,
+        // left
+        3, 0, 4,
+        3, 7, 4,
         // top
-        3, 2, 6,
-        6, 7, 3
+        4, 0, 1,
+        4, 5, 1,
+        // back
+        5, 4, 7,
+        5, 6, 7,
     ]
 }
 
@@ -84,8 +98,8 @@ pub fn cuboid_default_colors() -> [Color; 8] {
 
 #[derive(Debug, Copy, Clone)]
 pub struct Cuboid {
-    vertices: [(Vec3, Color); 8],
-    planes: [(Triangle, Triangle); 6],
+    vertices: [(Vec3, Color, Vec3); 8],
+    faces: [(Triangle, Triangle); 6],
     indices: [u16; 36],
     pub draw_mode: PolygonMode,
     pub position: Vec3,
@@ -97,14 +111,21 @@ impl Cuboid {
     pub fn cube(size: f32, position: Vec3, draw_mode: Option<PolygonMode>) -> Cuboid {
         // TODO normals
         let pos = get_cube_verts(size);
-        let colors = cuboid_default_colors();
+        //let colors = cuboid_default_colors();
+        let colors = [Color::new(60, 60, 60); 8];
+        let normals = cube_normals();
 
-        let mut vertices = [(Vec3::new_from_one(0), Color::new(0, 0, 0)); 8];
+        let mut vertices = [(
+            Vec3::new_from_one(1),
+            Color::new(0, 0, 0),
+            Vec3::new_from_one(1),
+        ); 8];
+
         for i in 0..8 {
-            vertices[i] = (pos[i], colors[i]);
+            vertices[i] = (pos[i], colors[i], normals[i]);
         }
 
-        let planes = [
+        let faces = [
             (
                 Triangle::new(pos[0], pos[1], pos[2]),
                 Triangle::new(pos[2], pos[3], pos[0]),
@@ -130,10 +151,9 @@ impl Cuboid {
                 Triangle::new(pos[6], pos[7], pos[3]),
             ),
         ];
-
         Cuboid {
             vertices,
-            planes,
+            faces,
             indices: cube_indices(),
             draw_mode: draw_mode.unwrap_or(PolygonMode::Fill),
             position,
@@ -144,32 +164,52 @@ impl Cuboid {
 }
 
 impl Entity for Cuboid {
-    fn update(&mut self, _ctx: &mut Context) {
+    fn update(&mut self, ctx: &mut Context) {
         self.moused_over = false;
+        let delta_time = ctx.timer_context.delta_time();
+        self.rotate(delta_time * std::f32::consts::PI, (0, 1, 0).into());
     }
 }
 
 impl DrawComponent for Cuboid {
     fn draw(&mut self, ctx: &mut Context) {
+        /*
         let mut color: Color = (0, 0, 0).into();
         if self.moused_over {
             color = (255, 255, 255).into();
         }
 
-        let mut plane_verts = vec![];
-        for (tri_one, tri_two) in self.planes.iter() {
-            plane_verts.push((tri_one.p0, color));
-            plane_verts.push((tri_one.p1, color));
-            plane_verts.push((tri_one.p2, color));
-            plane_verts.push((tri_two.p0, color));
-            plane_verts.push((tri_two.p1, color));
-            plane_verts.push((tri_two.p2, color));
+        let mut face_lines = vec![];
+        for (tri_one, tri_two) in self.faces.iter() {
+            face_lines.push((tri_one.p0, color));
+            face_lines.push((tri_one.p1, color));
+            face_lines.push((tri_one.p2, color));
+            face_lines.push((tri_two.p0, color));
+            face_lines.push((tri_two.p1, color));
+            face_lines.push((tri_two.p2, color));
         }
+        */
 
         ctx.gfx_context.model_transform = self.model_matrix();
-        ctx.draw(Topology::TriangleList(PolygonMode::Line), &plane_verts);
+        //ctx.draw(Topology::TriangleList(PolygonMode::Line), &face_lines);
 
-        ctx.draw_indexed(self.draw_mode(), self.vertices(), self.indices().unwrap());
+        ctx.draw_indexed(self.draw_mode(), &self.vertices, self.indices().unwrap());
+    }
+
+    fn debug_draw(&mut self, ctx: &mut Context) {
+        let mut lines = vec![];
+        let color = Color::new(0, 0, 0);
+        let end_color = Color::new(255, 0, 255);
+
+        for (vert, _, norm) in self.vertices.iter().copied() {
+            lines.push((vert, color));
+            lines.push((vert + (3. * norm), end_color));
+        }
+
+        ctx.gfx_context.model_transform =
+            Mat4::translation::<f32>(self.position.into()) * Mat4::scalar(1., 1., 1.);
+
+        ctx.draw(Mode::Normal(Topology::LineList(PolygonMode::Fill)), &lines);
     }
 }
 
@@ -183,6 +223,8 @@ impl MouseComponent for Cuboid {
         self.moused_over = true;
 
         if mouse::button_pressed(ctx, MouseButton::Left) {
+            //@TODO this is impossible in 3D space dont @ me
+            // fix to be in relation to a ground plane
             let delta = mouse::delta(ctx);
             println!("delta: {:#?}", delta);
 
@@ -202,11 +244,11 @@ impl MouseComponent for Cuboid {
         _ctx: &mut Context,
         camera_origin: Vec3,
         mouse_direction: Vec3,
-    ) -> Option<(&mut dyn MouseComponent, Vec3, f32)> {
+    ) -> Option<MousePick> {
         let mut to_return: Option<Vec3> = None;
         let mut final_t = 0.0;
         let model = self.model_matrix();
-        for (tri_one, tri_two) in self.planes.iter_mut() {
+        for (tri_one, tri_two) in self.faces.iter_mut() {
             let p0 = model * Vec4::from_vec3(tri_one.p0);
             let p1 = model * Vec4::from_vec3(tri_one.p1);
             let p2 = model * Vec4::from_vec3(tri_one.p2);
@@ -237,7 +279,7 @@ impl MouseComponent for Cuboid {
                 let dot11 = v1.dot(&v1);
                 let dot12 = v1.dot(&v2);
 
-                let inv_denom = 1.0 / ((dot00 * dot11) - (dot01 * dot01));
+                let inv_denom = 1.0 / ((dot00 * dot11) - (dot01.powi(2)));
 
                 let u = ((dot11 * dot02) - (dot01 * dot12)) * inv_denom;
                 let v = ((dot00 * dot12) - (dot01 * dot02)) * inv_denom;
@@ -261,7 +303,7 @@ impl MouseComponent for Cuboid {
                     let dot11 = v1.dot(&v1);
                     let dot12 = v1.dot(&v2);
 
-                    let inv_denom = 1.0 / ((dot00 * dot11) - (dot01 * dot01));
+                    let inv_denom = 1.0 / ((dot00 * dot11) - (dot01.powi(2)));
 
                     let u = ((dot11 * dot02) - (dot01 * dot12)) * inv_denom;
                     let v = ((dot00 * dot12) - (dot01 * dot02)) * inv_denom;
@@ -284,27 +326,9 @@ impl MouseComponent for Cuboid {
             }
         }
 
-        if let Some(point) = to_return {
-            Some((self, point, final_t))
-        } else {
-            None
-        }
+        to_return.map(move |point| MousePick::new(self, point, final_t))
     }
 }
-
-/*
-impl AsMouseable for Cuboid {
-    fn as_mouseable(&mut self) -> Option<&mut dyn MouseComponent> {
-        Some(self)
-    }
-}
-
-impl AsDrawable for Cuboid {
-    fn as_drawable(&mut self) -> Option<&mut dyn DrawComponent> {
-        Some(self)
-    }
-}
-*/
 
 impl Drawable for Cuboid {
     fn model_matrix(&self) -> Mat4 {
@@ -312,7 +336,7 @@ impl Drawable for Cuboid {
     }
 
     /// vertex buffer values (Position, Color)
-    fn vertices(&self) -> &[(Vec3, Color)] {
+    fn vertices(&self) -> &[(Vec3, Color, Vec3)] {
         &self.vertices
     }
 
@@ -321,15 +345,20 @@ impl Drawable for Cuboid {
         Some(&self.indices)
     }
 
-    fn draw_mode(&self) -> Topology {
-        Topology::TriangleList(self.draw_mode)
+    fn draw_mode(&self) -> Mode {
+        Mode::Shaded(Topology::TriangleList(self.draw_mode))
     }
 
     fn rotate(&mut self, theta: f32, axis: Vec3) {
-        self.rotation = Mat4::rotation(theta, axis) * self.rotation;
+        let rot = Mat4::rotation(theta, axis);
+        self.rotation = rot * self.rotation;
+
+        for (_, _, norm) in self.vertices.iter_mut() {
+            *norm = (rot * Vec4::from_vec3(*norm)).truncate(Dim::W);
+        }
     }
 
     fn translate(&mut self, tuple: (f32, f32, f32)) {
-        self.position = self.position + tuple.into();
+        self.position += tuple.into();
     }
 }

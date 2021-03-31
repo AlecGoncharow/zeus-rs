@@ -1,5 +1,6 @@
 use crate::connection::Connection;
 use crate::message::{Message, Messageable};
+use crate::AddressedMessageQueue;
 use crate::Command;
 use parking_lot::Mutex;
 use std::collections::VecDeque;
@@ -10,7 +11,7 @@ use tokio::task;
 type ClientResult<T> = Result<T, Box<dyn std::error::Error + Send>>;
 
 pub struct ClientInterface<T: Messageable> {
-    messages_in: Arc<Mutex<VecDeque<(std::net::SocketAddr, Message<T>)>>>,
+    messages_in: Arc<Mutex<AddressedMessageQueue<T>>>,
     connection_tx: Sender<Command<T>>,
     connection_handle: task::JoinHandle<()>,
 }
@@ -53,8 +54,8 @@ impl<T: Messageable> ClientInterface<T> {
 
         Self {
             messages_in,
-            connection_handle,
             connection_tx,
+            connection_handle,
         }
     }
 
@@ -106,5 +107,11 @@ impl<T: Messageable> ClientInterface<T> {
         }
 
         resp_rx.await.expect("client sender dropped")
+    }
+}
+
+impl<T: Messageable> Default for ClientInterface<T> {
+    fn default() -> Self {
+        Self::new()
     }
 }

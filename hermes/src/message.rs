@@ -50,7 +50,7 @@ impl<T: Messageable> Message<T> {
 
             std::ptr::copy(
                 &byte_slice[0],
-                self.body.as_mut_ptr().offset(i as isize),
+                self.body.as_mut_ptr().add(i),
                 std::mem::size_of::<V>(),
             );
         }
@@ -63,7 +63,7 @@ impl<T: Messageable> Message<T> {
         let i = self.body.len() - bytes;
 
         let out = unsafe {
-            let data_ptr = self.body.as_ptr().offset(i as isize);
+            let data_ptr = self.body.as_ptr().add(i);
             let byte_slice: &[u8] = std::slice::from_raw_parts(data_ptr, bytes);
 
             std::mem::transmute_copy(&byte_slice[0])

@@ -4,11 +4,14 @@ use pantheon::math::Dim;
 use pantheon::math::Vec3;
 use pantheon::math::Vec4;
 
+use pantheon::winit::window::CursorIcon;
+
 use core::camera::Camera;
 
 // use component::AsComponent;
 use core::entity::component::DrawComponent;
 use core::entity::component::MouseComponent;
+use core::entity::component::MousePick;
 use core::entity::{Entity, EntityKind};
 
 #[allow(dead_code)]
@@ -67,14 +70,14 @@ impl EntityManager {
 
         let camera_origin = self.camera.origin;
         let before = std::time::Instant::now();
-        let mut closest: Option<(&mut dyn MouseComponent, Vec3, f32)> = None;
+        let mut closest: Option<MousePick> = None;
         self.entities.iter_mut().for_each(|entity| {
             entity.update(ctx);
             if let Some(mouse_ray) = mouse_ray {
                 if let Some(hit) = entity.check_collision(ctx, camera_origin, mouse_ray) {
                     if let Some(other) = &closest {
-                        if (hit.1 - camera_origin).magnitude()
-                            < (other.1 - camera_origin).magnitude()
+                        if (hit.point - camera_origin).magnitude()
+                            < (other.point - camera_origin).magnitude()
                         {
                             // hit is closer
                             closest = Some(hit);
@@ -96,13 +99,22 @@ impl EntityManager {
 
         if let Some(hit) = closest {
             //println!("hit pos : {:#?}, t: {:#?} ", hit.1, hit.2);
-            hit.0.mouse_over(ctx, hit.1, &self.camera);
+            hit.entity.mouse_over(ctx, hit.point, &self.camera);
+            ctx.set_cursor_icon(CursorIcon::Move);
+        } else {
+            ctx.set_cursor_icon(CursorIcon::Default);
         }
     }
 
     pub fn draw(&mut self, ctx: &mut Context) {
         self.entities.iter_mut().for_each(|entity| {
             entity.draw(ctx);
+        });
+    }
+
+    pub fn debug_draw(&mut self, ctx: &mut Context) {
+        self.entities.iter_mut().for_each(|entity| {
+            entity.debug_draw(ctx);
         });
     }
 

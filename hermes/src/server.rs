@@ -1,5 +1,6 @@
 use crate::connection::Connection;
 use crate::message::{Message, Messageable};
+use crate::AddressedMessageQueue;
 use parking_lot::Mutex;
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
@@ -7,7 +8,7 @@ use tokio::net::TcpListener;
 
 pub struct ServerInterface<T: Messageable> {
     port: u16,
-    messages_in: Arc<Mutex<VecDeque<(std::net::SocketAddr, Message<T>)>>>,
+    messages_in: Arc<Mutex<AddressedMessageQueue<T>>>,
     connections: Arc<Mutex<HashMap<std::net::SocketAddr, Connection<T>>>>,
 }
 

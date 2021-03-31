@@ -6,14 +6,17 @@ pub mod component;
 use crate::camera::Camera;
 use component::DrawComponent;
 use component::MouseComponent;
+use component::MousePick;
 use enum_dispatch::enum_dispatch;
 use hermes::message::Pod;
 
 pub mod cube;
 pub mod plane;
+pub mod terrain;
 pub mod triangle;
 
 use cube::Cuboid;
+use terrain::Terrain;
 //use plane::Plane;
 //use triangle::Triangle;
 
@@ -32,6 +35,7 @@ pub trait Entity: Pod {
 #[enum_dispatch]
 #[derive(Debug, Copy, Clone)]
 pub enum EntityKind {
+    Terrain,
     Cuboid,
     //Plane,
     //Triangle,

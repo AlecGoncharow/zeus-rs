@@ -1,4 +1,5 @@
 use crate::context::Context;
+use anyhow::*;
 use winit::dpi;
 use winit::event::ElementState;
 use winit::event::Event;
@@ -15,14 +16,10 @@ use crate::input::{keyboard, mouse};
 pub trait EventHandler {
     // Called upon each logic update to the game.
     /// This should be where the game's logic takes place.
-    fn update(&mut self, _ctx: &mut Context) -> Result<(), ()>;
+    fn update(&mut self, _ctx: &mut Context) -> Result<()>;
 
     /// Called to do the drawing of your game.
-    /// You probably want to start this with
-    /// [`graphics::clear()`](../graphics/fn.clear.html) and end it
-    /// with [`graphics::present()`](../graphics/fn.present.html) and
-    /// maybe [`timer::yield_now()`](../timer/fn.yield_now.html).
-    fn draw(&mut self, _ctx: &mut Context) -> Result<(), ()>;
+    fn draw(&mut self, _ctx: &mut Context) -> Result<()>;
 
     /// A mouse button was pressed
     fn mouse_button_down_event(
@@ -53,11 +50,6 @@ pub trait EventHandler {
     fn mouse_wheel_event(&mut self, _ctx: &mut Context, _x: f32, _y: f32) {}
 
     /// A keyboard button was pressed.
-    ///
-    /// The default implementation of this will call `ggez::event::quit()`
-    /// when the escape key is pressed.  If you override this with
-    /// your own event handler you have to re-implment that
-    /// functionality yourself.
     fn key_down_event(&mut self, ctx: &mut Context, keycode: VirtualKeyCode, _repeat: bool) {
         if keycode == VirtualKeyCode::Escape {
             quit(ctx);
@@ -74,15 +66,14 @@ pub trait EventHandler {
     /// Called when the window is shown or hidden.
     fn focus_event(&mut self, _ctx: &mut Context, _gained: bool) {}
 
-    /// Called upon a quit event.  If it returns true,
+    /// Called upon a quit event.  If it returns false,
     /// the game does not exit (the quit event is cancelled).
     fn quit_event(&mut self, _ctx: &mut Context) -> bool {
         println!("quit_event() callback called, quitting...");
         true
     }
 
-    /// Called when the user resizes the window, or when it is resized
-    /// via [`graphics::set_mode()`](../graphics/fn.set_mode.html).
+    /// Called when the user resizes the window
     fn resize_event(&mut self, _ctx: &mut Context, _width: f32, _height: f32) {}
 
     fn key_mods_changed(&mut self, _ctx: &mut Context, _modifiers_state: ModifiersState) {}

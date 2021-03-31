@@ -1,8 +1,11 @@
+pub mod color;
 pub mod renderer;
 pub mod texture;
 pub mod topology;
-pub mod color;
+pub mod vertex;
 
+pub use color::Color;
+pub use topology::Mode;
 pub use topology::PolygonMode;
 pub use topology::Topology;
 
@@ -35,16 +38,16 @@ pub trait Drawable {
         Mat4::identity()
     }
 
-    /// vertex buffer values (Position, Color)
-    fn vertices(&self) -> &[(Vec3, color::Color)];
+    /// vertex buffer values (Position, Color, Normal)
+    fn vertices(&self) -> &[(Vec3, color::Color, Vec3)];
 
     /// index buffer values
     fn indices(&self) -> Option<&[u16]> {
         None
     }
 
-    fn draw_mode(&self) -> Topology {
-        Topology::TriangleList(PolygonMode::Fill)
+    fn draw_mode(&self) -> Mode {
+        Mode::Normal(Topology::TriangleList(PolygonMode::Fill))
     }
 
     fn rotate(&mut self, _theta: f32, _axis: Vec3) {}

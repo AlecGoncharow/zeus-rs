@@ -7,6 +7,7 @@ use pantheon::graphics::Topology;
 use pantheon::input::keyboard;
 use pantheon::input::mouse;
 
+use pantheon::anyhow::*;
 use pantheon::winit::event::ModifiersState;
 use pantheon::winit::event::MouseButton;
 use pantheon::winit::event::VirtualKeyCode;
@@ -14,7 +15,7 @@ use pantheon::winit::event::VirtualKeyCode;
 use pantheon::math::*;
 
 use pantheon::graphics::color::Color;
-
+use pantheon::graphics::Mode;
 
 use core::camera::Camera;
 mod entity_manager;
@@ -36,24 +37,29 @@ struct State {
     network_client: ClientInterface<GameMessage>,
     network_queue: Vec<(std::net::SocketAddr, Message<GameMessage>)>,
     fps: f32,
+    debug: bool,
 }
 
 impl EventHandler for State {
-    fn draw(&mut self, ctx: &mut Context) -> Result<(), ()> {
+    fn draw(&mut self, ctx: &mut Context) -> Result<()> {
         ctx.start_drawing();
         self.frame += 1;
 
-        let fill_mode = Topology::TriangleList(PolygonMode::Fill);
+        let fill_mode = Mode::Normal(Topology::TriangleList(PolygonMode::Fill));
         ctx.gfx_context.model_transform = Mat4::identity();
         ctx.draw(fill_mode, &self.plane);
 
         self.entity_manager.draw(ctx);
 
+        if self.debug {
+            self.entity_manager.debug_draw(ctx);
+        }
+
         ctx.render();
         Ok(())
     }
 
-    fn update(&mut self, ctx: &mut Context) -> Result<(), ()> {
+    fn update(&mut self, ctx: &mut Context) -> Result<()> {
         //self.camera.update();
         //if self.mouse_down {
         //    self.camera.update_pitch_and_angle(ctx);
@@ -102,6 +108,24 @@ impl EventHandler for State {
         }
 
         Ok(())
+    }
+
+    fn key_down_event(&mut self, ctx: &mut Context, keycode: VirtualKeyCode, _repeat: bool) {
+        if keycode == VirtualKeyCode::Escape {
+            pantheon::event::quit(ctx);
+        }
+
+        if keycode == VirtualKeyCode::L {
+            if let Some(_) = ctx.forced_draw_mode {
+                ctx.forced_draw_mode = None;
+            } else {
+                ctx.forced_draw_mode = Some(PolygonMode::Line);
+            }
+        }
+
+        if keycode == VirtualKeyCode::P {
+            self.debug = !self.debug;
+        }
     }
 
     fn key_up_event(&mut self, _ctx: &mut Context, keycode: VirtualKeyCode) {
@@ -203,7 +227,7 @@ async fn main() {
     let (mut ctx, event_loop) = Context::new((0.529, 0.81, 0.922, 1.0).into());
     let mut grid: Vec<(Vec3, Color)> = vec![];
     populate_grid(&mut grid, 50, -5.);
-    populate_grid(&mut grid, 50, 15.);
+    //populate_grid(&mut grid, 50, 15.);
     println!(
         "{:#?}",
         (
@@ -231,10 +255,11 @@ async fn main() {
         fps: 0.,
         network_client,
         network_queue: vec![],
+        debug: false,
     };
 
     ctx.gfx_context.view_transform = my_game.entity_manager.camera.view_matrix();
     ctx.gfx_context.projection_transform = my_game.entity_manager.camera.projection_matrix();
 
-    let _ = pantheon::event::run(event_loop, ctx, my_game);
+    pantheon::event::run(event_loop, ctx, my_game);
 }

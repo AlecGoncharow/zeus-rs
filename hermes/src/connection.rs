@@ -1,4 +1,5 @@
 use crate::message::{Message, MessageHeader, Messageable};
+use crate::AddressedMessageQueue;
 use parking_lot::Mutex;
 use std::collections::VecDeque;
 use std::sync::Arc;
@@ -7,7 +8,7 @@ use tokio::net::TcpStream;
 use tokio::time::{sleep, Duration};
 
 pub struct Connection<T: Messageable> {
-    messages_in: Arc<Mutex<VecDeque<(std::net::SocketAddr, Message<T>)>>>,
+    messages_in: Arc<Mutex<AddressedMessageQueue<T>>>,
     messages_out: Arc<Mutex<VecDeque<Message<T>>>>,
 
     is_connected: Arc<Mutex<bool>>,
@@ -18,7 +19,7 @@ pub struct Connection<T: Messageable> {
 }
 
 impl<T: Messageable> Connection<T> {
-    pub fn new(messages_in: Arc<Mutex<VecDeque<(std::net::SocketAddr, Message<T>)>>>) -> Self {
+    pub fn new(messages_in: Arc<Mutex<AddressedMessageQueue<T>>>) -> Self {
         let messages_out = Arc::new(Mutex::new(VecDeque::new()));
 
         Self {
@@ -32,7 +33,7 @@ impl<T: Messageable> Connection<T> {
     }
 
     pub fn from_stream(
-        messages_in: Arc<Mutex<VecDeque<(std::net::SocketAddr, Message<T>)>>>,
+        messages_in: Arc<Mutex<AddressedMessageQueue<T>>>,
         stream: tokio::net::TcpStream,
     ) -> Self {
         let messages_out = Arc::new(Mutex::new(VecDeque::new()));
@@ -72,7 +73,7 @@ impl<T: Messageable> Connection<T> {
         if let Some(mut stream) = self.read_stream.take() {
             let messages_in = self.messages_in.clone();
             let is_connected = Arc::clone(&self.is_connected);
-            let peer_addr = self.peer_addr.unwrap().clone();
+            let peer_addr = self.peer_addr.unwrap();
             tokio::spawn(async move {
                 let mut buf = [0; 1024];
 
@@ -141,7 +142,7 @@ impl<T: Messageable> Connection<T> {
         if let Some(mut stream) = self.write_stream.take() {
             let messages_out = Arc::clone(&self.messages_out);
             let is_connected = Arc::clone(&self.is_connected);
-            let peer_addr = self.peer_addr.unwrap().clone();
+            let peer_addr = self.peer_addr.unwrap();
             tokio::spawn(async move {
                 loop {
                     if messages_out.lock().len() > 0 {

@@ -1,7 +1,7 @@
 use core::message::{Complex, GameMessage};
-use hermes::message::Message;
-use hermes::server::ServerInterface;
 use hermes::tokio;
+use hermes::Message;
+use hermes::ServerInterface;
 
 use core::entity::cube::Cuboid;
 use core::entity::EntityKind;
@@ -27,6 +27,7 @@ fn generate_cubes(state: &mut ServerState) {
     let cube = Cuboid::cube(1.0, (0, 0, 0).into(), None);
     state.entity_manager.push_entity(EntityKind::from(cube));
 
+    /*
     let cube = Cuboid::cube(1.0, (10, 0, 10).into(), None);
     state.entity_manager.push_entity(EntityKind::from(cube));
 
@@ -51,6 +52,7 @@ fn generate_cubes(state: &mut ServerState) {
     let cube = Cuboid::cube(5.0, (5, 5, 5).into(), None);
     state.entity_manager.push_entity(EntityKind::from(cube));
 
+    */
     //let cube = Cuboid::cube(100.0, (0, -105, 0).into(), None);
     //state.entity_manager.push_entity(EntityKind::from(cube));
 }

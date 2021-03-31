@@ -1,11 +1,31 @@
 use super::Context;
 use crate::camera::Camera;
-use pantheon::math::Vec3;
 use enum_dispatch::enum_dispatch;
+use pantheon::math::Vec3;
 
 #[enum_dispatch(EntityKind)]
 pub trait DrawComponent {
     fn draw(&mut self, ctx: &mut Context);
+
+    /// this offers an additional draw call to draw stuff like surface norms and what not
+    /// to keep the main draw call lean
+    fn debug_draw(&mut self, _ctx: &mut Context) {}
+}
+
+pub struct MousePick<'a> {
+    pub entity: &'a mut dyn MouseComponent,
+    pub point: Vec3,
+    pub distance: f32,
+}
+
+impl<'a> MousePick<'a> {
+    pub fn new(entity: &'a mut dyn MouseComponent, point: Vec3, distance: f32) -> Self {
+        Self {
+            entity,
+            point,
+            distance,
+        }
+    }
 }
 
 /// this is useful because it allows 3D picking to ignore entities which aren't part of the
@@ -21,5 +41,5 @@ pub trait MouseComponent {
         ctx: &mut Context,
         camera_origin: Vec3,
         mouse_direction: Vec3,
-    ) -> Option<(&mut dyn MouseComponent, Vec3, f32)>;
+    ) -> Option<MousePick>;
 }

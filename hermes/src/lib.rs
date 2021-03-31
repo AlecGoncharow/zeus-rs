@@ -7,8 +7,13 @@ pub mod connection;
 pub mod message;
 pub mod server;
 
-use message::{Message, Messageable};
+pub use client::*;
+pub use connection::*;
+pub use message::*;
+pub use server::*;
 use tokio::sync::oneshot;
+
+pub type AddressedMessageQueue<T> = std::collections::VecDeque<(std::net::SocketAddr, Message<T>)>;
 
 type Responder<T> = oneshot::Sender<Result<T, Box<dyn std::error::Error + Send>>>;
 #[derive(Debug)]

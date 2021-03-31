@@ -1,9 +1,8 @@
 use crate::graphics;
-use crate::graphics::Topology;
+use crate::graphics::topology::{Mode, PolygonMode};
+use crate::graphics::vertex::*;
 use crate::input::{keyboard, mouse};
 use crate::math::Vec2;
-use crate::math::Vec3;
-use crate::graphics::color::Color;
 use crate::timer;
 use futures::executor::block_on;
 use std::sync::Arc;
@@ -29,6 +28,7 @@ pub struct Context {
     pub surface: wgpu::Surface,
     pub adapter: wgpu::Adapter,
     pub event_loop_proxy: std::sync::Mutex<winit::event_loop::EventLoopProxy<EngineEvent>>,
+    pub forced_draw_mode: Option<PolygonMode>,
 }
 
 impl<'a> Context {
@@ -102,6 +102,7 @@ impl<'a> Context {
             adapter,
             sc_desc,
             event_loop_proxy,
+            forced_draw_mode: None,
         };
 
         (ctx, event_loop)
@@ -142,11 +143,12 @@ impl<'a> Context {
                 }
                 _ => (),
             },
-            Event::DeviceEvent { event, .. } => {
-                if let DeviceEvent::MouseMotion { delta: (x, y) } = event {
-                    self.mouse_context
-                        .set_last_delta(Vec2::new(*x as f32, *y as f32));
-                }
+            Event::DeviceEvent {
+                event: DeviceEvent::MouseMotion { delta: (x, y) },
+                ..
+            } => {
+                self.mouse_context
+                    .set_last_delta(Vec2::new(*x as f32, *y as f32));
             }
 
             _ => (),
@@ -156,6 +158,10 @@ impl<'a> Context {
     pub fn set_camera(&mut self, camera: Arc<impl crate::graphics::CameraProjection + 'static>) {
         self.gfx_context.projection_transform = camera.projection_matrix();
         self.gfx_context.view_transform = camera.view_matrix();
+    }
+
+    pub fn set_cursor_icon(&mut self, icon: winit::window::CursorIcon) {
+        self.window.set_cursor_icon(icon);
     }
 
     pub fn start_drawing(&mut self) {
@@ -206,23 +212,58 @@ impl<'a> Context {
         }
     }
 
-    pub fn draw(&mut self, mode: Topology, verts: &[(Vec3, Color)]) {
-        self.gfx_context.draw(
-            &self.frame.as_ref().unwrap().output.view,
-            &self.device,
-            mode,
-            verts,
-        );
+    pub fn draw<F>(&mut self, mut mode: Mode, verts: &[F])
+    where
+        F: Into<VertexKind>,
+    {
+        if let Some(polygon_mode) = self.forced_draw_mode {
+            mode.inner_mut().set_inner(polygon_mode);
+        }
+
+        match mode {
+            Mode::Normal(_) => self.gfx_context.draw::<F, graphics::vertex::Vertex>(
+                &self.frame.as_ref().unwrap().output.view,
+                &self.device,
+                mode,
+                verts,
+            ),
+            Mode::Shaded(_) => self.gfx_context.draw::<F, graphics::vertex::ShadedVertex>(
+                &self.frame.as_ref().unwrap().output.view,
+                &self.device,
+                mode,
+                verts,
+            ),
+        }
     }
 
-    pub fn draw_indexed(&mut self, mode: Topology, verts: &[(Vec3, Color)], indices: &[u16]) {
-        self.gfx_context.draw_indexed(
-            &self.frame.as_ref().unwrap().output.view,
-            &self.device,
-            mode,
-            verts,
-            indices,
-        );
+    pub fn draw_indexed<F>(&mut self, mut mode: Mode, verts: &[F], indices: &[u16])
+    where
+        F: Into<VertexKind>,
+    {
+        if let Some(polygon_mode) = self.forced_draw_mode {
+            mode.inner_mut().set_inner(polygon_mode);
+        }
+
+        match mode {
+            Mode::Normal(_) => self
+                .gfx_context
+                .draw_indexed::<F, graphics::vertex::Vertex>(
+                    &self.frame.as_ref().unwrap().output.view,
+                    &self.device,
+                    mode,
+                    verts,
+                    indices,
+                ),
+            Mode::Shaded(_) => self
+                .gfx_context
+                .draw_indexed::<F, graphics::vertex::ShadedVertex>(
+                    &self.frame.as_ref().unwrap().output.view,
+                    &self.device,
+                    mode,
+                    verts,
+                    indices,
+                ),
+        }
     }
 
     pub fn render(&mut self) {

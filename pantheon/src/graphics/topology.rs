@@ -1,6 +1,42 @@
 use std::slice::Iter;
 use wgpu::PrimitiveTopology;
 
+#[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
+pub enum Mode {
+    Normal(Topology),
+    Shaded(Topology),
+}
+
+impl Mode {
+    pub fn inner(self) -> Topology {
+        match self {
+            Mode::Normal(inner) => inner,
+            Mode::Shaded(inner) => inner,
+        }
+    }
+
+    pub fn inner_mut(&mut self) -> &mut Topology {
+        match self {
+            Mode::Normal(ref mut inner) => inner,
+            Mode::Shaded(ref mut inner) => inner,
+        }
+    }
+
+    pub fn normal_modes() -> Vec<Mode> {
+        Topology::iterator()
+            .copied()
+            .map(|inner| Mode::Normal(inner))
+            .collect()
+    }
+
+    pub fn shaded_modes() -> Vec<Mode> {
+        Topology::iterator()
+            .copied()
+            .map(|inner| Mode::Shaded(inner))
+            .collect()
+    }
+}
+
 // this is fine
 #[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
 pub enum Topology {
@@ -37,6 +73,16 @@ impl Topology {
             | Topology::LineStrip(PolygonMode::Point)
             | Topology::TriangleList(PolygonMode::Point)
             | Topology::TriangleStrip(PolygonMode::Point) => PolygonMode::Point,
+        }
+    }
+
+    pub fn set_inner(&mut self, mode: PolygonMode) {
+        match self {
+            Topology::PointList(ref mut inner)
+            | Topology::LineList(ref mut inner)
+            | Topology::LineStrip(ref mut inner)
+            | Topology::TriangleList(ref mut inner)
+            | Topology::TriangleStrip(ref mut inner) => *inner = mode,
         }
     }
 
@@ -77,6 +123,28 @@ impl From<&Topology> for PrimitiveTopology {
             Topology::TriangleList(_) => PrimitiveTopology::TriangleList,
             Topology::TriangleStrip(_) => PrimitiveTopology::TriangleStrip,
         }
+    }
+}
+
+impl From<Topology> for PrimitiveTopology {
+    fn from(top: Topology) -> PrimitiveTopology {
+        match top {
+            Topology::PointList(_) => PrimitiveTopology::PointList,
+            Topology::LineList(_) => PrimitiveTopology::LineList,
+            Topology::LineStrip(_) => PrimitiveTopology::LineStrip,
+            Topology::TriangleList(_) => PrimitiveTopology::TriangleList,
+            Topology::TriangleStrip(_) => PrimitiveTopology::TriangleStrip,
+        }
+    }
+}
+
+impl From<Mode> for usize {
+    fn from(mode: Mode) -> Self {
+        let shifted: usize = match mode {
+            Mode::Normal(_) => 0b0,
+            Mode::Shaded(_) => 0b1111,
+        };
+        shifted + usize::from(mode.inner())
     }
 }
 
