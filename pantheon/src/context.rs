@@ -1,5 +1,5 @@
 use crate::graphics;
-use crate::graphics::topology::{Mode, PolygonMode};
+use crate::graphics::mode::{DrawMode, PolygonMode};
 use crate::graphics::vertex::*;
 use crate::input::{keyboard, mouse};
 use crate::math::Vec2;
@@ -212,7 +212,7 @@ impl<'a> Context {
         }
     }
 
-    pub fn draw<F>(&mut self, mut mode: Mode, verts: &[F])
+    pub fn draw<F>(&mut self, mut mode: DrawMode, verts: &[F])
     where
         F: Into<VertexKind>,
     {
@@ -221,13 +221,13 @@ impl<'a> Context {
         }
 
         match mode {
-            Mode::Normal(_) => self.gfx_context.draw::<F, graphics::vertex::Vertex>(
+            DrawMode::Normal(_) => self.gfx_context.draw::<F, graphics::vertex::Vertex>(
                 &self.frame.as_ref().unwrap().output.view,
                 &self.device,
                 mode,
                 verts,
             ),
-            Mode::Shaded(_) => self.gfx_context.draw::<F, graphics::vertex::ShadedVertex>(
+            DrawMode::Shaded(_) => self.gfx_context.draw::<F, graphics::vertex::ShadedVertex>(
                 &self.frame.as_ref().unwrap().output.view,
                 &self.device,
                 mode,
@@ -236,7 +236,7 @@ impl<'a> Context {
         }
     }
 
-    pub fn draw_indexed<F>(&mut self, mut mode: Mode, verts: &[F], indices: &[u16])
+    pub fn draw_indexed<F>(&mut self, mut mode: DrawMode, verts: &[F], indices: &[u16])
     where
         F: Into<VertexKind>,
     {
@@ -245,7 +245,7 @@ impl<'a> Context {
         }
 
         match mode {
-            Mode::Normal(_) => self
+            DrawMode::Normal(_) => self
                 .gfx_context
                 .draw_indexed::<F, graphics::vertex::Vertex>(
                     &self.frame.as_ref().unwrap().output.view,
@@ -254,7 +254,7 @@ impl<'a> Context {
                     verts,
                     indices,
                 ),
-            Mode::Shaded(_) => self
+            DrawMode::Shaded(_) => self
                 .gfx_context
                 .draw_indexed::<F, graphics::vertex::ShadedVertex>(
                     &self.frame.as_ref().unwrap().output.view,

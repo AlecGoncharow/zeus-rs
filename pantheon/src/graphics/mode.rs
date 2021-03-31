@@ -2,37 +2,37 @@ use std::slice::Iter;
 use wgpu::PrimitiveTopology;
 
 #[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
-pub enum Mode {
+pub enum DrawMode {
     Normal(Topology),
     Shaded(Topology),
 }
 
-impl Mode {
+impl DrawMode {
     pub fn inner(self) -> Topology {
         match self {
-            Mode::Normal(inner) => inner,
-            Mode::Shaded(inner) => inner,
+            DrawMode::Normal(inner) => inner,
+            DrawMode::Shaded(inner) => inner,
         }
     }
 
     pub fn inner_mut(&mut self) -> &mut Topology {
         match self {
-            Mode::Normal(ref mut inner) => inner,
-            Mode::Shaded(ref mut inner) => inner,
+            DrawMode::Normal(ref mut inner) => inner,
+            DrawMode::Shaded(ref mut inner) => inner,
         }
     }
 
-    pub fn normal_modes() -> Vec<Mode> {
+    pub fn normal_modes() -> Vec<DrawMode> {
         Topology::iterator()
             .copied()
-            .map(|inner| Mode::Normal(inner))
+            .map(|inner| DrawMode::Normal(inner))
             .collect()
     }
 
-    pub fn shaded_modes() -> Vec<Mode> {
+    pub fn shaded_modes() -> Vec<DrawMode> {
         Topology::iterator()
             .copied()
-            .map(|inner| Mode::Shaded(inner))
+            .map(|inner| DrawMode::Shaded(inner))
             .collect()
     }
 }
@@ -138,11 +138,11 @@ impl From<Topology> for PrimitiveTopology {
     }
 }
 
-impl From<Mode> for usize {
-    fn from(mode: Mode) -> Self {
+impl From<DrawMode> for usize {
+    fn from(mode: DrawMode) -> Self {
         let shifted: usize = match mode {
-            Mode::Normal(_) => 0b0,
-            Mode::Shaded(_) => 0b1111,
+            DrawMode::Normal(_) => 0b0,
+            DrawMode::Shaded(_) => 0b1111,
         };
         shifted + usize::from(mode.inner())
     }

@@ -2,8 +2,8 @@ use winit::window::Window;
 
 use wgpu::util::DeviceExt;
 
-use crate::graphics::topology::Mode;
-use crate::graphics::topology::PolygonMode;
+use crate::graphics::mode::DrawMode;
+use crate::graphics::mode::PolygonMode;
 use crate::graphics::Topology;
 use crate::math::Mat4;
 
@@ -132,7 +132,7 @@ impl GraphicsContext {
             &fs_module,
             sc_desc,
             Vertex::desc,
-            Mode::normal_modes(),
+            DrawMode::normal_modes(),
         );
 
         Self::populate_pipelines(
@@ -143,7 +143,7 @@ impl GraphicsContext {
             &shaded_fs_module,
             sc_desc,
             ShadedVertex::desc,
-            Mode::shaded_modes(),
+            DrawMode::shaded_modes(),
         );
 
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -208,7 +208,7 @@ impl GraphicsContext {
             &self.fs_module,
             sc_desc,
             Vertex::desc,
-            Mode::normal_modes(),
+            DrawMode::normal_modes(),
         );
 
         Self::populate_pipelines(
@@ -219,7 +219,7 @@ impl GraphicsContext {
             &self.shaded_fs_module,
             sc_desc,
             ShadedVertex::desc,
-            Mode::shaded_modes(),
+            DrawMode::shaded_modes(),
         );
     }
 
@@ -268,7 +268,7 @@ impl GraphicsContext {
         &mut self,
         view: &wgpu::TextureView,
         device: &wgpu::Device,
-        mode: Mode,
+        mode: DrawMode,
         verts: &[F],
     ) where
         T: bytemuck::Pod,
@@ -334,7 +334,7 @@ impl GraphicsContext {
         &mut self,
         view: &wgpu::TextureView,
         device: &wgpu::Device,
-        mode: Mode,
+        mode: DrawMode,
         verts: &[F],
         indices: &[u16],
     ) where
@@ -423,7 +423,7 @@ impl GraphicsContext {
         fs_module: &wgpu::ShaderModule,
         sc_desc: &wgpu::SwapChainDescriptor,
         vert_desc: fn() -> wgpu::VertexBufferLayout<'a>,
-        modes: Vec<Mode>,
+        modes: Vec<DrawMode>,
     ) {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {

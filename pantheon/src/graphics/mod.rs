@@ -1,13 +1,13 @@
 pub mod color;
 pub mod renderer;
 pub mod texture;
-pub mod topology;
+pub mod mode;
 pub mod vertex;
 
 pub use color::Color;
-pub use topology::Mode;
-pub use topology::PolygonMode;
-pub use topology::Topology;
+pub use mode::DrawMode;
+pub use mode::PolygonMode;
+pub use mode::Topology;
 
 use crate::math::Mat4;
 use crate::math::Vec3;
@@ -46,8 +46,8 @@ pub trait Drawable {
         None
     }
 
-    fn draw_mode(&self) -> Mode {
-        Mode::Normal(Topology::TriangleList(PolygonMode::Fill))
+    fn draw_mode(&self) -> DrawMode {
+        DrawMode::Normal(Topology::TriangleList(PolygonMode::Fill))
     }
 
     fn rotate(&mut self, _theta: f32, _axis: Vec3) {}

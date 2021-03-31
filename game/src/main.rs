@@ -15,7 +15,7 @@ use pantheon::winit::event::VirtualKeyCode;
 use pantheon::math::*;
 
 use pantheon::graphics::color::Color;
-use pantheon::graphics::Mode;
+use pantheon::graphics::DrawMode;
 
 use core::camera::Camera;
 mod entity_manager;
@@ -45,7 +45,7 @@ impl EventHandler for State {
         ctx.start_drawing();
         self.frame += 1;
 
-        let fill_mode = Mode::Normal(Topology::TriangleList(PolygonMode::Fill));
+        let fill_mode = DrawMode::Normal(Topology::TriangleList(PolygonMode::Fill));
         ctx.gfx_context.model_transform = Mat4::identity();
         ctx.draw(fill_mode, &self.plane);
 

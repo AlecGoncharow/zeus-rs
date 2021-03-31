@@ -5,7 +5,7 @@ use super::Entity;
 use crate::camera::Camera;
 use pantheon::context::Context;
 use pantheon::graphics::color::Color;
-use pantheon::graphics::topology::Mode;
+use pantheon::graphics::mode::DrawMode;
 use pantheon::graphics::Drawable;
 use pantheon::graphics::PolygonMode;
 use pantheon::graphics::Topology;
@@ -46,13 +46,13 @@ pub fn get_cube_verts(size: f32) -> [Vec3; 8] {
 pub fn cube_normals() -> [Vec3; 8] {
     [
         (0, 0, 1).into(),
-        (1, 0, 0).into(),
-        (0, 1, 0).into(),
-        (-1, 0, 0).into(),
-        (0, -1, 0).into(),
+        (0, 0, 1).into(),
+        (0, 0, 1).into(),
+        (0, 0, 1).into(),
         (0, 0, -1).into(),
-        (0, 0, 0).into(),
-        (0, 0, 0).into(),
+        (0, 0, -1).into(),
+        (0, 0, -1).into(),
+        (0, 0, -1).into(),
     ]
 }
 
@@ -209,7 +209,7 @@ impl DrawComponent for Cuboid {
         ctx.gfx_context.model_transform =
             Mat4::translation::<f32>(self.position.into()) * Mat4::scalar(1., 1., 1.);
 
-        ctx.draw(Mode::Normal(Topology::LineList(PolygonMode::Fill)), &lines);
+        ctx.draw(DrawMode::Normal(Topology::LineList(PolygonMode::Fill)), &lines);
     }
 }
 
@@ -345,8 +345,8 @@ impl Drawable for Cuboid {
         Some(&self.indices)
     }
 
-    fn draw_mode(&self) -> Mode {
-        Mode::Shaded(Topology::TriangleList(self.draw_mode))
+    fn draw_mode(&self) -> DrawMode {
+        DrawMode::Shaded(Topology::TriangleList(self.draw_mode))
     }
 
     fn rotate(&mut self, theta: f32, axis: Vec3) {
