@@ -45,13 +45,13 @@ pub fn get_cube_verts(size: f32) -> [Vec3; 8] {
 
 pub fn cube_normals() -> [Vec3; 8] {
     [
-        (0, 0, 1).into(),
-        (1, 0, 0).into(),
-        (0, 1, 0).into(),
+        (0, 0, 1).into(),  // front
+        (1, 0, 0).into(),   // right
+        (0, 1, 0).into(),   // bottom  
+        (-1, 0, 0).into(),  // left
+        (0, -1, 0).into(),  // top
+        (0, 0, -1).into(),   // back
         (0, 0, 0).into(),
-        (-1, 0, 0).into(),
-        (0, -1, 0).into(),
-        (0, 0, -1).into(),
         (0, 0, 0).into(),
     ]
 }
@@ -167,7 +167,7 @@ impl Entity for Cuboid {
     fn update(&mut self, ctx: &mut Context) {
         self.moused_over = false;
         let delta_time = ctx.timer_context.delta_time();
-        self.rotate(delta_time * 0.2 * std::f32::consts::PI, (0, 1, 1).into());
+        self.rotate(delta_time * 0.2 * std::f32::consts::PI, (1, 1, 1).into());
     }
 }
 
