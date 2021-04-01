@@ -6,4 +6,3 @@ members = [
     "core",
     "server"
 ]
-default-members = ["game"]

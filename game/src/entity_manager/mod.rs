@@ -90,7 +90,7 @@ impl EntityManager {
             }
         });
         let after = std::time::Instant::now();
-        if ctx.timer_context.frame_count % pantheon::timer::MAX_SAMPLES == 0 {
+        if ctx.timer_context.frame_count % (pantheon::timer::MAX_SAMPLES * 10) == 0 {
             println!(
                 "Iterate turnaround time: ns {:#?}",
                 (after - before).subsec_nanos()

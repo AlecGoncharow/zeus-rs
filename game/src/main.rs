@@ -103,7 +103,7 @@ impl EventHandler for State {
         self.entity_manager.update(ctx);
 
         self.fps = 1.0 / ctx.timer_context.average_tick;
-        if ctx.timer_context.frame_count % pantheon::timer::MAX_SAMPLES == 0 {
+        if ctx.timer_context.frame_count % (pantheon::timer::MAX_SAMPLES * 10) == 0 {
             println!("FPS: {:#?}", self.fps);
         }
 

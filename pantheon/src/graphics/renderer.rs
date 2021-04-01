@@ -304,8 +304,11 @@ impl GraphicsContext {
             usage: wgpu::BufferUsage::VERTEX,
         });
 
-        let buffer_data: [[f32; 4]; 4] =
-            (self.projection_transform * self.view_transform * self.model_transform).into();
+        let buffer_data: [[[f32; 4]; 4]; 3] = [
+            self.projection_transform.into(),
+            self.view_transform.into(),
+            self.model_transform.into(),
+        ];
 
         self.uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Uniform Buffer"),
@@ -377,8 +380,15 @@ impl GraphicsContext {
             usage: wgpu::BufferUsage::INDEX,
         });
 
+        /*
         let buffer_data: [[f32; 4]; 4] =
             (self.projection_transform * self.view_transform * self.model_transform).into();
+        */
+        let buffer_data: [[[f32; 4]; 4]; 3] = [
+            self.projection_transform.into(),
+            self.view_transform.into(),
+            self.model_transform.into(),
+        ];
 
         self.uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Uniform Buffer"),
