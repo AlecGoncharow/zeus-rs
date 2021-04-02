@@ -29,6 +29,7 @@ pub struct Context {
     pub adapter: wgpu::Adapter,
     pub event_loop_proxy: std::sync::Mutex<winit::event_loop::EventLoopProxy<EngineEvent>>,
     pub forced_draw_mode: Option<PolygonMode>,
+    pub should_resize: bool,
 }
 
 impl<'a> Context {
@@ -103,6 +104,7 @@ impl<'a> Context {
             sc_desc,
             event_loop_proxy,
             forced_draw_mode: None,
+            should_resize: false,
         };
 
         (ctx, event_loop)

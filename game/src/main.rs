@@ -32,7 +32,7 @@ use hermes::tokio;
 struct State {
     frame: u32,
     entity_manager: EntityManager,
-    plane: Vec<(Vec3, Color)>,
+    plane: Vec<(Vec3, Color, Vec3)>,
     mouse_down: bool,
     network_client: ClientInterface<GameMessage>,
     network_queue: Vec<(std::net::SocketAddr, Message<GameMessage>)>,
@@ -45,7 +45,7 @@ impl EventHandler for State {
         ctx.start_drawing();
         self.frame += 1;
 
-        let fill_mode = DrawMode::Normal(Topology::TriangleList(PolygonMode::Fill));
+        let fill_mode = DrawMode::Shaded(Topology::TriangleList(PolygonMode::Fill));
         ctx.gfx_context.model_transform = Mat4::identity();
         ctx.draw(fill_mode, &self.plane);
 
@@ -188,25 +188,41 @@ impl EventHandler for State {
 }
 
 #[allow(dead_code)]
-fn get_corner_positions(row: f32, col: f32, y: f32) -> [(Vec3, Color); 4] {
+fn get_corner_positions(row: f32, col: f32, y: f32) -> [(Vec3, Color, Vec3); 4] {
     [
-        ((col, y, row).into(), Color::floats(0.3, 0.3, 0.3)),
-        ((col, y, row + 1.0).into(), Color::floats(0.4, 0.4, 0.4)),
-        ((col + 1.0, y, row).into(), Color::floats(0.5, 0.5, 0.5)),
-        ((col + 1.0, y, row + 1.0).into(), Color::floats(1., 1., 1.)),
+        (
+            (col, y, row).into(),
+            Color::floats(0.3, 0.3, 0.3),
+            (0, 1, 0).into(),
+        ),
+        (
+            (col, y, row + 1.0).into(),
+            Color::floats(0.4, 0.4, 0.4),
+            (0, 1, 0).into(),
+        ),
+        (
+            (col + 1.0, y, row).into(),
+            Color::floats(0.5, 0.5, 0.5),
+            (0, 1, 0).into(),
+        ),
+        (
+            (col + 1.0, y, row + 1.0).into(),
+            Color::floats(1., 1., 1.),
+            (0, 1, 0).into(),
+        ),
     ]
 }
 
 #[allow(dead_code)]
-fn populate_grid(grid: &mut Vec<(Vec3, Color)>, size: i32, y: f32) {
+fn populate_grid(grid: &mut Vec<(Vec3, Color, Vec3)>, size: i32, y: f32) {
     for row in -size..size {
         for col in -size..size {
             let pos = get_corner_positions(row as f32, col as f32, y);
             grid.push(pos[0]);
             grid.push(pos[1]);
+            grid.push(pos[3]);
+            grid.push(pos[0]);
             grid.push(pos[2]);
-            grid.push(pos[2]);
-            grid.push(pos[1]);
             grid.push(pos[3]);
         }
     }
@@ -225,7 +241,7 @@ async fn main() {
     network_client.send(message).await.unwrap();
 
     let (mut ctx, event_loop) = Context::new((0.529, 0.81, 0.922, 1.0).into());
-    let mut grid: Vec<(Vec3, Color)> = vec![];
+    let mut grid: Vec<(Vec3, Color, Vec3)> = vec![];
     populate_grid(&mut grid, 50, -5.);
     //populate_grid(&mut grid, 50, 15.);
     println!(

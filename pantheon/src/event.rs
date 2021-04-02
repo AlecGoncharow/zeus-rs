@@ -99,6 +99,7 @@ where
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::Resized(logical_size) => {
                     // let actual_size = logical_size;
+
                     state.resize_event(
                         &mut ctx,
                         logical_size.width as f32,

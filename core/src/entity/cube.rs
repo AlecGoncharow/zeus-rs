@@ -46,11 +46,11 @@ pub fn get_cube_verts(size: f32) -> [Vec3; 8] {
 pub fn cube_normals() -> [Vec3; 8] {
     [
         (0, 0, 1).into(),  // front
-        (1, 0, 0).into(),   // right
-        (0, 1, 0).into(),   // bottom  
-        (-1, 0, 0).into(),  // left
-        (0, -1, 0).into(),  // top
-        (0, 0, -1).into(),   // back
+        (1, 0, 0).into(),  // right
+        (0, 1, 0).into(),  // bottom
+        (-1, 0, 0).into(), // left
+        (0, -1, 0).into(), // top
+        (0, 0, -1).into(), // back
         (0, 0, 0).into(),
         (0, 0, 0).into(),
     ]
@@ -161,6 +161,18 @@ impl Cuboid {
             moused_over: false,
         }
     }
+
+    pub fn set_color(&mut self, new_color: Color) {
+        for (_, color, _) in self.vertices.iter_mut() {
+            *color = new_color;
+        }
+    }
+
+    pub fn invert_surface_norms(&mut self) {
+        for (_, _, norm) in self.vertices.iter_mut() {
+            *norm *= -1.;
+        }
+    }
 }
 
 impl Entity for Cuboid {
@@ -206,8 +218,7 @@ impl DrawComponent for Cuboid {
             lines.push((vert + (3. * norm), end_color));
         }
 
-        ctx.gfx_context.model_transform =
-            Mat4::translation::<f32>(self.position.into()) * Mat4::scalar(1., 1., 1.);
+        ctx.gfx_context.model_transform = Mat4::translation::<f32>(self.position.into());
 
         ctx.draw(
             DrawMode::Normal(Topology::LineList(PolygonMode::Fill)),

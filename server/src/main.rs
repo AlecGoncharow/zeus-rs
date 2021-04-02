@@ -4,7 +4,9 @@ use hermes::Message;
 use hermes::ServerInterface;
 
 use core::entity::cube::Cuboid;
+use core::entity::sun::Sun;
 use core::entity::EntityKind;
+use core::Color;
 
 mod entity_manager;
 use entity_manager::EntityManager;
@@ -26,6 +28,13 @@ impl ServerState {
 fn generate_cubes(state: &mut ServerState) {
     let cube = Cuboid::cube(1.0, (0, 0, 0).into(), None);
     state.entity_manager.push_entity(EntityKind::from(cube));
+
+    let sun = Sun::new(
+        (2, 2, 0).into(),
+        Color::new(255, 250, 209),
+        Color::new(255, 250, 209),
+    );
+    state.entity_manager.push_entity(EntityKind::from(sun));
 
     /*
     let cube = Cuboid::cube(1.0, (10, 0, 10).into(), None);

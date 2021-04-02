@@ -4,8 +4,10 @@ use wgpu::util::DeviceExt;
 
 use crate::graphics::mode::DrawMode;
 use crate::graphics::mode::PolygonMode;
+use crate::graphics::mode::MODE_COUNT;
+use crate::graphics::Color;
 use crate::graphics::Topology;
-use crate::math::Mat4;
+use crate::math::{Mat4, Vec3};
 
 use super::vertex::ShadedVertex;
 use super::vertex::Vertex;
@@ -13,17 +15,17 @@ use super::vertex::Vertex;
 const VERTICES: &[ShadedVertex] = &[
     ShadedVertex {
         position: [0.0, 0.5, 0.0],
-        color: [255, 0, 0, 0],
+        color: [255., 0., 0., 0.],
         normal: [0.0, 0.5, 0.0],
     },
     ShadedVertex {
         position: [-0.5, -0.5, 0.0],
-        color: [0, 255, 0, 0],
+        color: [0., 255., 0., 0.],
         normal: [0.0, 0.5, 0.0],
     },
     ShadedVertex {
         position: [0.5, -0.5, 0.0],
-        color: [0, 0, 255, 0],
+        color: [0., 0., 255., 0.],
         normal: [0.0, 0.5, 0.0],
     },
 ];
@@ -37,10 +39,6 @@ pub struct GraphicsContext {
     pub size: winit::dpi::PhysicalSize<u32>,
     pub clear_color: wgpu::Color,
     render_pipelines: Vec<wgpu::RenderPipeline>,
-    vs_module: wgpu::ShaderModule,
-    fs_module: wgpu::ShaderModule,
-    shaded_vs_module: wgpu::ShaderModule,
-    shaded_fs_module: wgpu::ShaderModule,
     pub(crate) command_encoder: Option<wgpu::CommandEncoder>,
     pub(crate) command_buffers: Vec<wgpu::CommandBuffer>,
     vertex_buffer: wgpu::Buffer,
@@ -55,10 +53,52 @@ pub struct GraphicsContext {
     pub projection_transform: Mat4,
     pub view_transform: Mat4,
     pub model_transform: Mat4,
+
+    pub light_position: Vec3,
+    pub light_color: Color,
+}
+
+#[repr(C)]
+pub struct UniformItems {
+    pub model: Mat4,
+    pub view: Mat4,
+    pub projection: Mat4,
+    pub light_position: Vec3,
+    _padding: u32,
+    pub light_color: Color,
+}
+
+impl UniformItems {
+    pub fn new(
+        model: Mat4,
+        view: Mat4,
+        projection: Mat4,
+        light_position: Vec3,
+        light_color: Color,
+    ) -> Self {
+        Self {
+            model,
+            view,
+            projection,
+            light_position,
+            _padding: 0,
+            light_color,
+        }
+    }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        unsafe {
+            let data_ptr: *const Self = self;
+            let byte_ptr: *const u8 = data_ptr as *const _;
+            let byte_slice: &[u8] =
+                std::slice::from_raw_parts(byte_ptr, std::mem::size_of::<Self>());
+
+            byte_slice
+        }
+    }
 }
 
 impl GraphicsContext {
-    // Creating some of the wgpu types requires async code
     pub async fn new(
         window: &Window,
         device: &wgpu::Device,
@@ -119,11 +159,7 @@ impl GraphicsContext {
             "depth_texture",
         );
 
-        let mut render_pipelines: Vec<wgpu::RenderPipeline> = Vec::with_capacity(0b1111);
-        // safety: new len == capacity
-        // safety: elements are all going to be initailized in the populate_pipelines call.
-        // Operation makes indexing into vector easier
-        unsafe { render_pipelines.set_len(0b1111) }
+        let mut render_pipelines: Vec<wgpu::RenderPipeline> = Vec::with_capacity(MODE_COUNT);
         Self::populate_pipelines(
             &mut render_pipelines,
             device,
@@ -164,10 +200,6 @@ impl GraphicsContext {
             size,
             clear_color,
             render_pipelines,
-            vs_module,
-            fs_module,
-            shaded_vs_module,
-            shaded_fs_module,
 
             command_encoder: None,
             command_buffers: vec![],
@@ -183,6 +215,9 @@ impl GraphicsContext {
             model_transform: Mat4::identity(),
             view_transform: Mat4::identity(),
             projection_transform: Mat4::identity(),
+
+            light_position: Vec3::new(20, -20, 0),
+            light_color: Color::new(255, 250, 209),
         }
     }
 
@@ -200,27 +235,6 @@ impl GraphicsContext {
             "depth_texture",
         );
         self.window_dims = window.inner_size().cast::<f32>();
-        Self::populate_pipelines(
-            &mut self.render_pipelines,
-            device,
-            &self.uniform_bind_group_layout,
-            &self.vs_module,
-            &self.fs_module,
-            sc_desc,
-            Vertex::desc,
-            DrawMode::normal_modes(),
-        );
-
-        Self::populate_pipelines(
-            &mut self.render_pipelines,
-            device,
-            &self.uniform_bind_group_layout,
-            &self.shaded_vs_module,
-            &self.shaded_fs_module,
-            sc_desc,
-            ShadedVertex::desc,
-            DrawMode::shaded_modes(),
-        );
     }
 
     pub fn start(&mut self, device: &wgpu::Device, view: &wgpu::TextureView, queue: &wgpu::Queue) {
@@ -304,15 +318,17 @@ impl GraphicsContext {
             usage: wgpu::BufferUsage::VERTEX,
         });
 
-        let buffer_data: [[[f32; 4]; 4]; 3] = [
-            self.projection_transform.into(),
-            self.view_transform.into(),
-            self.model_transform.into(),
-        ];
+        let uniform_items = UniformItems::new(
+            self.projection_transform,
+            self.view_transform,
+            self.model_transform,
+            self.light_position,
+            self.light_color,
+        );
 
         self.uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Uniform Buffer"),
-            contents: bytemuck::cast_slice(&buffer_data),
+            contents: uniform_items.as_bytes(),
             usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
         });
 
@@ -384,15 +400,26 @@ impl GraphicsContext {
         let buffer_data: [[f32; 4]; 4] =
             (self.projection_transform * self.view_transform * self.model_transform).into();
         */
+
+        // let mvp = self.projection_transform * self.view_transform * self.model_transform;
+        let uniform_items = UniformItems::new(
+            self.projection_transform,
+            self.view_transform,
+            self.model_transform,
+            self.light_position,
+            self.light_color,
+        );
+        /*
         let buffer_data: [[[f32; 4]; 4]; 3] = [
             self.projection_transform.into(),
             self.view_transform.into(),
             self.model_transform.into(),
         ];
+        */
 
         self.uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Uniform Buffer"),
-            contents: bytemuck::cast_slice(&buffer_data),
+            contents: uniform_items.as_bytes(),
             usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
         });
 
@@ -487,7 +514,8 @@ impl GraphicsContext {
                 },
             });
 
-            pipelines.insert(usize::from(mode), render_pipeline);
+            //pipelines[usize::from(mode)] = render_pipeline;
+            pipelines.push(render_pipeline);
         }
     }
 }

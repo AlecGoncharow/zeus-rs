@@ -12,11 +12,14 @@ use hermes::message::Pod;
 
 pub mod cube;
 pub mod plane;
+pub mod sun;
 pub mod terrain;
 pub mod triangle;
 
 use cube::Cuboid;
+use sun::Sun;
 use terrain::Terrain;
+
 //use plane::Plane;
 //use triangle::Triangle;
 
@@ -28,6 +31,7 @@ enum Message {
 
 #[enum_dispatch(EntityKind)]
 pub trait Entity: Pod {
+    fn init(&mut self, _ctx: &mut Context) {}
     // TODO add callback message function
     fn update(&mut self, ctx: &mut Context);
 }
@@ -37,6 +41,7 @@ pub trait Entity: Pod {
 pub enum EntityKind {
     Terrain,
     Cuboid,
+    Sun,
     //Plane,
     //Triangle,
 }

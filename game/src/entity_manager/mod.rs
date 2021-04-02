@@ -17,6 +17,7 @@ use core::entity::{Entity, EntityKind};
 #[allow(dead_code)]
 pub struct EntityManager {
     pub camera: Camera,
+    new_entities: Vec<EntityKind>,
     entities: Vec<EntityKind>,
     commands: Vec<CommandKind>,
 }
@@ -36,6 +37,7 @@ impl EntityManager {
     pub fn new(camera: Camera) -> Self {
         Self {
             camera,
+            new_entities: vec![],
             entities: vec![],
             commands: vec![],
         }
@@ -66,6 +68,11 @@ impl EntityManager {
     }
 
     pub fn update(&mut self, ctx: &mut Context) {
+        for mut entity in self.new_entities.drain(..) {
+            entity.init(ctx);
+            self.entities.push(entity);
+        }
+
         let mouse_ray = Self::get_mouse_ray(ctx);
 
         let camera_origin = self.camera.origin;
@@ -119,6 +126,6 @@ impl EntityManager {
     }
 
     pub fn push_entity(&mut self, entity: EntityKind) {
-        self.entities.push(entity);
+        self.new_entities.push(entity);
     }
 }
