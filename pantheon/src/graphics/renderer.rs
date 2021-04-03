@@ -1,3 +1,5 @@
+use std::usize;
+
 use winit::window::Window;
 
 use wgpu::util::DeviceExt;
@@ -90,10 +92,7 @@ impl UniformItems {
         unsafe {
             let data_ptr: *const Self = self;
             let byte_ptr: *const u8 = data_ptr as *const _;
-            let byte_slice: &[u8] =
-                std::slice::from_raw_parts(byte_ptr, std::mem::size_of::<Self>());
-
-            byte_slice
+            std::slice::from_raw_parts(byte_ptr, std::mem::size_of::<Self>())
         }
     }
 }
@@ -514,7 +513,10 @@ impl GraphicsContext {
                 },
             });
 
-            //pipelines[usize::from(mode)] = render_pipeline;
+            if usize::from(mode) != pipelines.len() {
+                panic!("Render pipeline construction broke");
+            }
+
             pipelines.push(render_pipeline);
         }
     }
