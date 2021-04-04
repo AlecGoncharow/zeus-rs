@@ -36,7 +36,7 @@ impl TerrainGenerator {
             .generate(&heights, self.perlin_noise.amplitude);
 
         println!("[terrain proc gen] generating mesh");
-        let mesh = Self::create_mesh(&heights, &colors, size);
+        let mesh = Self::create_mesh(&heights, &colors, size + 1);
 
         println!("[terrain proc gen] generating indices");
         let indices = index_gen::generate_index_buffer(size + 1);
@@ -52,11 +52,11 @@ impl TerrainGenerator {
     fn create_mesh(heights: &Vec<f32>, colors: &Vec<Color>, size: usize) -> Vec<ShadedVertex> {
         let mut buffer = Vec::new();
         let mut last_row: Vec<GridSquare> = Vec::new();
-        for row in 0..size {
-            for col in 0..size {
+        for row in 0..(size - 1) {
+            for col in 0..(size - 1) {
                 let square = GridSquare::new(row, col, heights, colors, size);
                 square.push_vertex_data(&mut buffer);
-                if row == size - 1 {
+                if row == size - 2 {
                     last_row.push(square);
                 }
             }
@@ -140,7 +140,7 @@ mod index_gen {
         for col in 0..(vert_count - 1) {
             let top_left = ((row * row_len) + col) as u32;
             let top_right = top_left + 1;
-            let bot_left = top_left + vert_count as u32 - 1;
+            let bot_left = top_left + vert_count as u32;
             let bot_right = bot_left + 1;
 
             let right_handed = col % 2 != row % 2;
@@ -298,8 +298,8 @@ impl GridSquare {
     }
 
     pub fn push_vertex_data(&self, buffer: &mut Vec<ShadedVertex>) {
-        buffer.push((self.vert_pos[0], self.vert_colors[0], self.left_norm).into());
         // top left
+        buffer.push((self.vert_pos[0], self.vert_colors[0], self.left_norm).into());
         if self.row != self.last_index || self.col == self.last_index {
             // top right
             buffer.push((self.vert_pos[2], self.vert_colors[2], self.right_norm).into());
@@ -309,7 +309,7 @@ impl GridSquare {
     pub fn push_bottom_data(&self, buffer: &mut Vec<ShadedVertex>) {
         if self.col == 0 {
             // bottom left, only need 1 per row
-            buffer.push((self.vert_pos[1], self.vert_colors[1], self.right_norm).into());
+            buffer.push((self.vert_pos[1], self.vert_colors[1], self.left_norm).into());
         }
         // bottom right
         buffer.push((self.vert_pos[3], self.vert_colors[3], self.right_norm).into());
