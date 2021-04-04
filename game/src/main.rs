@@ -264,7 +264,7 @@ async fn main() {
     );
 
     let terrain_gen = TerrainGenerator::new(perlin, color_gen);
-    let terrain_size = 50;
+    let terrain_size = 250;
     let terrain = terrain_gen.generate(terrain_size);
 
     let my_game = State {
@@ -279,7 +279,7 @@ async fn main() {
                     ctx.gfx_context.window_dims.width,
                     ctx.gfx_context.window_dims.height,
                 ),
-                (1., 100.0),
+                (1., 500.0),
             ),
             terrain,
         ),

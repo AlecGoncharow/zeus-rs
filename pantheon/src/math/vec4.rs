@@ -163,6 +163,10 @@ impl Vec4 {
             Dim::W => (self.x, self.y, self.z).into(),
         }
     }
+
+    pub fn vec3(&self) -> Vec3 {
+        (self.x, self.y, self.z).into()
+    }
 }
 
 impl<T: Into<f64>> From<(T, T, T, T)> for Vec4 {

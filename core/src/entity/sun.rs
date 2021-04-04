@@ -2,12 +2,18 @@ use super::Cuboid;
 use super::DrawComponent;
 use super::Entity;
 use super::MouseComponent;
-use pantheon::Color;
 use pantheon::Vec3;
+use pantheon::{Color, Mat4};
+
+const SUNRISE: Color = Color::floats(1., 0.7922, 0.4863);
+const NOON: Color = Color::floats(0.529, 0.81, 0.922);
+const SUNSET: Color = Color::floats(0.98, 0.8392, 0.647);
+const MIDNIGHT: Color = Color::floats(0.1254, 0.1098, 0.1804);
 
 #[derive(Debug, Copy, Clone)]
 pub struct Sun {
     cube: Cuboid,
+    pub radians: f32,
     pub color: Color,
     pub light_color: Color,
 }
@@ -22,6 +28,7 @@ impl Sun {
         Self {
             cube,
             color,
+            radians: 0.,
             light_color,
         }
     }
@@ -33,6 +40,31 @@ impl Entity for Sun {
     }
 
     fn update(&mut self, ctx: &mut pantheon::context::Context) {
+        let delta_time = ctx.timer_context.delta_time();
+        let rotate = delta_time * 0.2 * std::f32::consts::PI;
+        self.radians += rotate;
+        self.radians %= std::f32::consts::PI * 2.;
+
+        let cos = self.radians.cos();
+        let sin = self.radians.sin();
+        ctx.gfx_context.clear_color = if sin > 0. {
+            if cos > 0. {
+                Color::interpolate(SUNRISE, NOON, sin)
+            } else {
+                Color::interpolate(SUNSET, NOON, sin)
+            }
+        } else {
+            if cos < 0. {
+                Color::interpolate(SUNSET, MIDNIGHT, -sin)
+            } else {
+                Color::interpolate(SUNRISE, MIDNIGHT, -sin)
+            }
+        }
+        .into();
+
+        self.cube.position =
+            (Mat4::rotation(rotate, (1, 0, 1).into()) * self.cube.position.vec4()).vec3();
+
         ctx.gfx_context.light_position = self.cube.position;
     }
 }

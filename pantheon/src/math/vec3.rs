@@ -116,6 +116,11 @@ impl Vec3 {
     }
 
     #[inline]
+    pub fn vec4(self) -> Vec4 {
+        Vec4::from_vec3(self)
+    }
+
+    #[inline]
     pub fn clamp(&self, min: f32, max: f32) -> Self {
         Self {
             x: if self.x < min {

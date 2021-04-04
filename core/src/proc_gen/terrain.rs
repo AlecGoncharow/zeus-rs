@@ -42,7 +42,7 @@ impl TerrainGenerator {
         let indices = index_gen::generate_index_buffer(size + 1);
         println!("[terrain proc gen] done");
 
-        println!("[Mesh] {:#?}", mesh);
+        //println!("[Mesh] {:#?}", mesh);
         println!("[Mesh] {:#?}", mesh.len());
         println!("[Indices] {:#?}", indices.len());
 
@@ -50,8 +50,8 @@ impl TerrainGenerator {
     }
 
     fn create_mesh(heights: &Vec<f32>, colors: &Vec<Color>, size: usize) -> Vec<ShadedVertex> {
-        let mut buffer = Vec::new();
-        let mut last_row: Vec<GridSquare> = Vec::new();
+        let mut buffer = Vec::with_capacity(size * size);
+        let mut last_row: Vec<GridSquare> = Vec::with_capacity(size);
         for row in 0..(size - 1) {
             for col in 0..(size - 1) {
                 let square = GridSquare::new(row, col, heights, colors, size);

@@ -13,7 +13,7 @@ impl Color {
         Self::floats(r as f32 / 255., g as f32 / 255., b as f32 / 255.)
     }
 
-    pub fn floats(r: f32, g: f32, b: f32) -> Self {
+    pub const fn floats(r: f32, g: f32, b: f32) -> Self {
         Self { r, g, b, a: 1.0 }
     }
 
@@ -37,5 +37,16 @@ impl From<(f32, f32, f32)> for Color {
 impl From<(u8, u8, u8)> for Color {
     fn from(tuple: (u8, u8, u8)) -> Self {
         Self::new(tuple.0, tuple.1, tuple.2)
+    }
+}
+
+impl From<Color> for wgpu::Color {
+    fn from(color: Color) -> Self {
+        Self {
+            r: color.r as f64,
+            g: color.g as f64,
+            b: color.b as f64,
+            a: color.a as f64,
+        }
     }
 }
