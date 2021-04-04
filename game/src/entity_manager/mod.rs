@@ -1,3 +1,4 @@
+use core::entity::terrain::Terrain;
 use pantheon::context::Context;
 use pantheon::input::mouse;
 use pantheon::math::Dim;
@@ -17,6 +18,7 @@ use core::entity::{Entity, EntityKind};
 #[allow(dead_code)]
 pub struct EntityManager {
     pub camera: Camera,
+    terrain: Terrain,
     new_entities: Vec<EntityKind>,
     entities: Vec<EntityKind>,
     commands: Vec<CommandKind>,
@@ -34,9 +36,10 @@ pub trait Command {
 pub enum CommandKind {}
 
 impl EntityManager {
-    pub fn new(camera: Camera) -> Self {
+    pub fn new(camera: Camera, terrain: Terrain) -> Self {
         Self {
             camera,
+            terrain,
             new_entities: vec![],
             entities: vec![],
             commands: vec![],
@@ -114,12 +117,14 @@ impl EntityManager {
     }
 
     pub fn draw(&mut self, ctx: &mut Context) {
+        self.terrain.draw(ctx);
         self.entities.iter_mut().for_each(|entity| {
             entity.draw(ctx);
         });
     }
 
     pub fn debug_draw(&mut self, ctx: &mut Context) {
+        self.terrain.draw(ctx);
         self.entities.iter_mut().for_each(|entity| {
             entity.debug_draw(ctx);
         });

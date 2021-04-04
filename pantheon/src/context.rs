@@ -1,6 +1,5 @@
 use crate::graphics;
 use crate::graphics::mode::{DrawMode, PolygonMode};
-use crate::graphics::vertex::*;
 use crate::input::{keyboard, mouse};
 use crate::math::Vec2;
 use crate::timer;
@@ -216,56 +215,35 @@ impl<'a> Context {
 
     pub fn draw<F>(&mut self, mut mode: DrawMode, verts: &[F])
     where
-        F: Into<VertexKind>,
+        F: bytemuck::Pod,
     {
         if let Some(polygon_mode) = self.forced_draw_mode {
             mode.inner_mut().set_inner(polygon_mode);
         }
 
-        match mode {
-            DrawMode::Normal(_) => self.gfx_context.draw::<F, graphics::vertex::Vertex>(
-                &self.frame.as_ref().unwrap().output.view,
-                &self.device,
-                mode,
-                verts,
-            ),
-            DrawMode::Shaded(_) => self.gfx_context.draw::<F, graphics::vertex::ShadedVertex>(
-                &self.frame.as_ref().unwrap().output.view,
-                &self.device,
-                mode,
-                verts,
-            ),
-        }
+        self.gfx_context.draw::<F>(
+            &self.frame.as_ref().unwrap().output.view,
+            &self.device,
+            mode,
+            verts,
+        );
     }
 
-    pub fn draw_indexed<F>(&mut self, mut mode: DrawMode, verts: &[F], indices: &[u16])
+    pub fn draw_indexed<F>(&mut self, mut mode: DrawMode, verts: &[F], indices: &[u32])
     where
-        F: Into<VertexKind>,
+        F: bytemuck::Pod,
     {
         if let Some(polygon_mode) = self.forced_draw_mode {
             mode.inner_mut().set_inner(polygon_mode);
         }
 
-        match mode {
-            DrawMode::Normal(_) => self
-                .gfx_context
-                .draw_indexed::<F, graphics::vertex::Vertex>(
-                    &self.frame.as_ref().unwrap().output.view,
-                    &self.device,
-                    mode,
-                    verts,
-                    indices,
-                ),
-            DrawMode::Shaded(_) => self
-                .gfx_context
-                .draw_indexed::<F, graphics::vertex::ShadedVertex>(
-                    &self.frame.as_ref().unwrap().output.view,
-                    &self.device,
-                    mode,
-                    verts,
-                    indices,
-                ),
-        }
+        self.gfx_context.draw_indexed::<F>(
+            &self.frame.as_ref().unwrap().output.view,
+            &self.device,
+            mode,
+            verts,
+            indices,
+        );
     }
 
     pub fn render(&mut self) {

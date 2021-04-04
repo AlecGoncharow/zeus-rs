@@ -6,6 +6,8 @@ use crate::camera::Camera;
 use pantheon::context::Context;
 use pantheon::graphics::color::Color;
 use pantheon::graphics::mode::DrawMode;
+use pantheon::graphics::vertex::ShadedVertex;
+use pantheon::graphics::vertex::Vertex;
 use pantheon::graphics::Drawable;
 use pantheon::graphics::PolygonMode;
 use pantheon::graphics::Topology;
@@ -57,7 +59,7 @@ pub fn cube_normals() -> [Vec3; 8] {
 }
 
 #[rustfmt::skip]
-fn cube_indices() -> [u16; 36] {
+fn cube_indices() -> [u32; 36] {
     [
         // front
         0, 1, 2,
@@ -98,9 +100,9 @@ pub fn cuboid_default_colors() -> [Color; 8] {
 
 #[derive(Debug, Copy, Clone)]
 pub struct Cuboid {
-    vertices: [(Vec3, Color, Vec3); 8],
+    vertices: [ShadedVertex; 8],
     faces: [(Triangle, Triangle); 6],
-    indices: [u16; 36],
+    indices: [u32; 36],
     pub draw_mode: PolygonMode,
     pub position: Vec3,
     pub rotation: Mat4,
@@ -119,10 +121,11 @@ impl Cuboid {
             Vec3::new_from_one(1),
             Color::new(0, 0, 0),
             Vec3::new_from_one(1),
-        ); 8];
+        )
+            .into(); 8];
 
         for i in 0..8 {
-            vertices[i] = (pos[i], colors[i], normals[i]);
+            vertices[i] = (pos[i], colors[i], normals[i]).into();
         }
 
         let faces = [
@@ -163,14 +166,14 @@ impl Cuboid {
     }
 
     pub fn set_color(&mut self, new_color: Color) {
-        for (_, color, _) in self.vertices.iter_mut() {
-            *color = new_color;
+        for vert in self.vertices.iter_mut() {
+            vert.color = new_color;
         }
     }
 
     pub fn invert_surface_norms(&mut self) {
-        for (_, _, norm) in self.vertices.iter_mut() {
-            *norm *= -1.;
+        for vert in self.vertices.iter_mut() {
+            vert.normal *= -1.;
         }
     }
 }
@@ -205,17 +208,17 @@ impl DrawComponent for Cuboid {
         ctx.gfx_context.model_transform = self.model_matrix();
         //ctx.draw(Topology::TriangleList(PolygonMode::Line), &face_lines);
 
-        ctx.draw_indexed(self.draw_mode(), &self.vertices, self.indices().unwrap());
+        ctx.draw_indexed(self.draw_mode(), &self.vertices, &self.indices);
     }
 
     fn debug_draw(&mut self, ctx: &mut Context) {
-        let mut lines = vec![];
+        let mut lines: Vec<Vertex> = vec![];
         let color = Color::new(0, 0, 0);
         let end_color = Color::new(255, 0, 255);
 
-        for (vert, _, norm) in self.vertices.iter().copied() {
-            lines.push((vert, color));
-            lines.push((vert + (3. * norm), end_color));
+        for vert in self.vertices.iter().copied() {
+            lines.push((vert.position, color).into());
+            lines.push((vert.position + (3. * vert.normal), end_color).into());
         }
 
         ctx.gfx_context.model_transform = Mat4::translation::<f32>(self.position.into());
@@ -349,16 +352,6 @@ impl Drawable for Cuboid {
         Mat4::translation::<f32>(self.position.into()) * self.rotation
     }
 
-    /// vertex buffer values (Position, Color)
-    fn vertices(&self) -> &[(Vec3, Color, Vec3)] {
-        &self.vertices
-    }
-
-    /// index buffer values
-    fn indices(&self) -> Option<&[u16]> {
-        Some(&self.indices)
-    }
-
     fn draw_mode(&self) -> DrawMode {
         DrawMode::Shaded(Topology::TriangleList(self.draw_mode))
     }
@@ -367,8 +360,8 @@ impl Drawable for Cuboid {
         let rot = Mat4::rotation(theta, axis);
         self.rotation = rot * self.rotation;
 
-        for (_, _, norm) in self.vertices.iter_mut() {
-            *norm = (rot * Vec4::from_vec3(*norm)).truncate(Dim::W);
+        for vert in self.vertices.iter_mut() {
+            vert.normal = (rot * Vec4::from_vec3(vert.normal)).truncate(Dim::W);
         }
     }
 

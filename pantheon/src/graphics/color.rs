@@ -16,6 +16,16 @@ impl Color {
     pub fn floats(r: f32, g: f32, b: f32) -> Self {
         Self { r, g, b, a: 1.0 }
     }
+
+    pub fn interpolate(color_1: Self, color_2: Self, blend: f32) -> Self {
+        let color_1_weight = 1. - blend;
+        Self {
+            r: (color_1_weight * color_1.r) + (blend * color_2.r),
+            g: (color_1_weight * color_1.g) + (blend * color_2.g),
+            b: (color_1_weight * color_1.b) + (blend * color_2.b),
+            a: (color_1_weight * color_1.a) + (blend * color_2.a),
+        }
+    }
 }
 
 impl From<(f32, f32, f32)> for Color {

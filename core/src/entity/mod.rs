@@ -18,7 +18,6 @@ pub mod triangle;
 
 use cube::Cuboid;
 use sun::Sun;
-use terrain::Terrain;
 
 //use plane::Plane;
 //use triangle::Triangle;
@@ -39,7 +38,6 @@ pub trait Entity: Pod {
 #[enum_dispatch]
 #[derive(Debug, Copy, Clone)]
 pub enum EntityKind {
-    Terrain,
     Cuboid,
     Sun,
     //Plane,

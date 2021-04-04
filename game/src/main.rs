@@ -2,7 +2,6 @@ use pantheon::context::Context;
 use pantheon::event::EventHandler;
 
 use pantheon::graphics::PolygonMode;
-use pantheon::graphics::Topology;
 
 use pantheon::input::keyboard;
 use pantheon::input::mouse;
@@ -15,7 +14,6 @@ use pantheon::winit::event::VirtualKeyCode;
 use pantheon::math::*;
 
 use pantheon::graphics::color::Color;
-use pantheon::graphics::DrawMode;
 
 use core::camera::Camera;
 mod entity_manager;
@@ -23,6 +21,10 @@ use entity_manager::EntityManager;
 
 use core::entity::EntityKind;
 use core::message::GameMessage;
+use core::proc_gen;
+use proc_gen::color::ColorGenerator;
+use proc_gen::noise::Perlin;
+use proc_gen::terrain::TerrainGenerator;
 
 use hermes::client::ClientInterface;
 use hermes::message::Message;
@@ -32,7 +34,6 @@ use hermes::tokio;
 struct State {
     frame: u32,
     entity_manager: EntityManager,
-    plane: Vec<(Vec3, Color, Vec3)>,
     mouse_down: bool,
     network_client: ClientInterface<GameMessage>,
     network_queue: Vec<(std::net::SocketAddr, Message<GameMessage>)>,
@@ -45,9 +46,7 @@ impl EventHandler for State {
         ctx.start_drawing();
         self.frame += 1;
 
-        let fill_mode = DrawMode::Shaded(Topology::TriangleList(PolygonMode::Fill));
         ctx.gfx_context.model_transform = Mat4::identity();
-        ctx.draw(fill_mode, &self.plane);
 
         self.entity_manager.draw(ctx);
 
@@ -104,7 +103,7 @@ impl EventHandler for State {
 
         self.fps = 1.0 / ctx.timer_context.average_tick;
         if ctx.timer_context.frame_count % (pantheon::timer::MAX_SAMPLES * 10) == 0 {
-            println!("FPS: {:#?}", self.fps);
+            println!("FPS: {:#?}", self.fps)
         }
 
         Ok(())
@@ -241,8 +240,6 @@ async fn main() {
     network_client.send(message).await.unwrap();
 
     let (mut ctx, event_loop) = Context::new((0.529, 0.81, 0.922, 1.0).into());
-    let mut grid: Vec<(Vec3, Color, Vec3)> = vec![];
-    populate_grid(&mut grid, 50, -5.);
     //populate_grid(&mut grid, 50, 15.);
     println!(
         "{:#?}",
@@ -252,20 +249,40 @@ async fn main() {
         )
     );
 
+    let mut perlin = Perlin::default();
+    perlin.seed = 0;
+
+    let color_gen = ColorGenerator::new(
+        vec![
+            (201, 178, 99).into(),
+            (135, 184, 82).into(),
+            (80, 171, 93).into(),
+            (120, 120, 120).into(),
+            (200, 200, 210).into(),
+        ],
+        0.45,
+    );
+
+    let terrain_gen = TerrainGenerator::new(perlin, color_gen);
+    let terrain_size = 50;
+    let terrain = terrain_gen.generate(terrain_size);
+
     let my_game = State {
         frame: 0,
-        entity_manager: EntityManager::new(Camera::new(
-            Vec3::new_from_one(1),
-            Vec3::new_from_one(0),
-            (0, -1, 0).into(),
-            90.0,
-            (
-                ctx.gfx_context.window_dims.width,
-                ctx.gfx_context.window_dims.height,
+        entity_manager: EntityManager::new(
+            Camera::new(
+                (20, 20, 20).into(),
+                Vec3::new_from_one(0),
+                (0, -1, 0).into(),
+                90.0,
+                (
+                    ctx.gfx_context.window_dims.width,
+                    ctx.gfx_context.window_dims.height,
+                ),
+                (1., 100.0),
             ),
-            (1., 100.0),
-        )),
-        plane: grid,
+            terrain,
+        ),
 
         mouse_down: false,
         fps: 0.,

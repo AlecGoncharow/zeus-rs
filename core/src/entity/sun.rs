@@ -13,8 +13,8 @@ pub struct Sun {
 }
 
 impl Sun {
-    pub fn new(pos: Vec3, color: Color, light_color: Color) -> Self {
-        let mut cube = Cuboid::cube(1.0, pos, None);
+    pub fn new(pos: Vec3, size: f32, color: Color, light_color: Color) -> Self {
+        let mut cube = Cuboid::cube(size, pos, None);
 
         cube.set_color(color);
         cube.invert_surface_norms();

@@ -10,3 +10,4 @@ edition = "2018"
 hermes = { path = "../hermes" }
 pantheon = { path = "../pantheon" }
 enum_dispatch = "0.3"
+rand = { version = "0.8", features = ["small_rng"] }

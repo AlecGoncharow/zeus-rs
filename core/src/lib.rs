@@ -1,6 +1,7 @@
 pub mod camera;
 pub mod entity;
 pub mod message;
+pub mod proc_gen;
 
 pub use pantheon::Color;
 

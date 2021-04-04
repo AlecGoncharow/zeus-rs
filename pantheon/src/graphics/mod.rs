@@ -1,7 +1,7 @@
 pub mod color;
+pub mod mode;
 pub mod renderer;
 pub mod texture;
-pub mod mode;
 pub mod vertex;
 
 pub use color::Color;
@@ -36,14 +36,6 @@ pub trait Drawable {
     /// R*T Matrix to translate model from model space to world space
     fn model_matrix(&self) -> Mat4 {
         Mat4::identity()
-    }
-
-    /// vertex buffer values (Position, Color, Normal)
-    fn vertices(&self) -> &[(Vec3, color::Color, Vec3)];
-
-    /// index buffer values
-    fn indices(&self) -> Option<&[u16]> {
-        None
     }
 
     fn draw_mode(&self) -> DrawMode {

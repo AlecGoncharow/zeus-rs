@@ -12,25 +12,9 @@ use crate::math::{Mat4, Vec3};
 use super::vertex::ShadedVertex;
 use super::vertex::Vertex;
 
-const VERTICES: &[ShadedVertex] = &[
-    ShadedVertex {
-        position: [0.0, 0.5, 0.0],
-        color: [255., 0., 0., 0.],
-        normal: [0.0, 0.5, 0.0],
-    },
-    ShadedVertex {
-        position: [-0.5, -0.5, 0.0],
-        color: [0., 255., 0., 0.],
-        normal: [0.0, 0.5, 0.0],
-    },
-    ShadedVertex {
-        position: [0.5, -0.5, 0.0],
-        color: [0., 0., 255., 0.],
-        normal: [0.0, 0.5, 0.0],
-    },
-];
+const VERTICES: &[ShadedVertex] = &[];
 
-const INDICES: &[u16] = &[0, 1, 2];
+const INDICES: &[u16] = &[];
 
 const UNIFORM: &[f32] = &[
     1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5, 1.0,
@@ -278,15 +262,14 @@ impl GraphicsContext {
             Some(device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None }));
     }
 
-    pub fn draw<F, T>(
+    pub fn draw<T>(
         &mut self,
         view: &wgpu::TextureView,
         device: &wgpu::Device,
         mode: DrawMode,
-        verts: &[F],
+        verts: &[T],
     ) where
         T: bytemuck::Pod,
-        F: Into<crate::graphics::vertex::VertexKind>,
     {
         let mut encoder = self.command_encoder.take().unwrap();
 
@@ -311,10 +294,9 @@ impl GraphicsContext {
         });
         render_pass.set_pipeline(&self.render_pipelines[usize::from(mode)]);
 
-        let vertices: &[T] = unsafe { &*(verts as *const [F] as *const [T]) };
         self.vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(&vertices),
+            contents: bytemuck::cast_slice(&verts),
             usage: wgpu::BufferUsage::VERTEX,
         });
 
@@ -349,16 +331,15 @@ impl GraphicsContext {
         self.command_encoder = Some(encoder);
     }
 
-    pub fn draw_indexed<F, T>(
+    pub fn draw_indexed<T>(
         &mut self,
         view: &wgpu::TextureView,
         device: &wgpu::Device,
         mode: DrawMode,
-        verts: &[F],
-        indices: &[u16],
+        verts: &[T],
+        indices: &[u32],
     ) where
         T: bytemuck::Pod,
-        F: Into<crate::graphics::vertex::VertexKind>,
     {
         let mut encoder = self.command_encoder.take().unwrap();
 
@@ -383,10 +364,10 @@ impl GraphicsContext {
         });
         render_pass.set_pipeline(&self.render_pipelines[usize::from(mode)]);
 
-        let vertices: &[T] = unsafe { &*(verts as *const [F] as *const [T]) };
+        //let vertices: &[T] = unsafe { &*(verts as *const [F] as *const [T]) };
         self.vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(&vertices),
+            contents: bytemuck::cast_slice(&verts),
             usage: wgpu::BufferUsage::VERTEX,
         });
 
@@ -434,7 +415,7 @@ impl GraphicsContext {
 
         render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+        render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
         render_pass.draw_indexed(0..indices.len() as u32, 0, 0..1);
         drop(render_pass);
 

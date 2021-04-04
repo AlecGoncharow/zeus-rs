@@ -1,28 +1,40 @@
 use super::component::*;
-use super::plane::Plane;
-use super::Entity;
 use crate::camera::Camera;
-use pantheon::context::Context;
+use pantheon::graphics::mode::DrawMode;
+use pantheon::graphics::vertex::ShadedVertex;
+use pantheon::graphics::Drawable;
+use pantheon::graphics::PolygonMode;
+use pantheon::graphics::Topology;
 use pantheon::Vec3;
+use pantheon::{context::Context, Mat4};
 
-#[derive(Debug, Copy, Clone)]
-pub struct Terrain {}
-
-impl Entity for Terrain {
-    fn update(&mut self, _ctx: &mut Context) {}
+#[derive(Debug, Clone)]
+pub struct Terrain {
+    pub verts: Vec<ShadedVertex>,
+    pub indices: Vec<u32>,
 }
 
-impl DrawComponent for Terrain {
-    fn draw(&mut self, _ctx: &mut Context) {}
+impl Terrain {
+    pub fn from_data(verts: Vec<ShadedVertex>, indices: Vec<u32>) -> Self {
+        Self { verts, indices }
+    }
 }
 
-impl MouseComponent for Terrain {
-    fn click_start(&mut self, _ctx: &mut Context) {}
-    fn click_end(&mut self, _ctx: &mut Context) {}
+impl Terrain {
+    pub fn update(&mut self, _ctx: &mut Context) {}
 
-    fn mouse_over(&mut self, _ctx: &mut Context, _pos: Vec3, _camera: &Camera) {}
+    pub fn draw(&mut self, ctx: &mut Context) {
+        //ctx.gfx_context.model_transform = self.model_matrix();
 
-    fn check_collision(
+        ctx.draw_indexed(self.draw_mode(), &self.verts, &self.indices);
+    }
+
+    pub fn click_start(&mut self, _ctx: &mut Context) {}
+    pub fn click_end(&mut self, _ctx: &mut Context) {}
+
+    pub fn mouse_over(&mut self, _ctx: &mut Context, _pos: Vec3, _camera: &Camera) {}
+
+    pub fn check_collision(
         &mut self,
         _ctx: &mut Context,
         _camera_origin: Vec3,
@@ -30,4 +42,18 @@ impl MouseComponent for Terrain {
     ) -> Option<MousePick> {
         None
     }
+}
+
+impl Drawable for Terrain {
+    fn model_matrix(&self) -> Mat4 {
+        Mat4::scalar_from_one(1)
+    }
+
+    fn draw_mode(&self) -> DrawMode {
+        DrawMode::Shaded(Topology::TriangleList(PolygonMode::Fill))
+    }
+
+    fn rotate(&mut self, theta: f32, axis: Vec3) {}
+
+    fn translate(&mut self, tuple: (f32, f32, f32)) {}
 }
