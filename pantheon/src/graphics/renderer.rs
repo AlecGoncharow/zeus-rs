@@ -21,28 +21,6 @@ const INDICES: &[u16] = &[];
 const UNIFORM: &[f32] = &[
     1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5, 1.0,
 ];
-pub struct GraphicsContext {
-    pub size: winit::dpi::PhysicalSize<u32>,
-    pub clear_color: wgpu::Color,
-    render_pipelines: Vec<wgpu::RenderPipeline>,
-    pub(crate) command_encoder: Option<wgpu::CommandEncoder>,
-    pub(crate) command_buffers: Vec<wgpu::CommandBuffer>,
-    vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
-    uniform_buffer: wgpu::Buffer,
-    uniform_bind_group_layout: wgpu::BindGroupLayout,
-    uniform_bind_group: wgpu::BindGroup,
-    depth_texture: crate::graphics::texture::Texture,
-
-    pub window_dims: winit::dpi::PhysicalSize<f32>,
-
-    pub projection_transform: Mat4,
-    pub view_transform: Mat4,
-    pub model_transform: Mat4,
-
-    pub light_position: Vec3,
-    pub light_color: Color,
-}
 
 #[repr(C)]
 pub struct UniformItems {
@@ -79,6 +57,29 @@ impl UniformItems {
             std::slice::from_raw_parts(byte_ptr, std::mem::size_of::<Self>())
         }
     }
+}
+
+pub struct GraphicsContext {
+    pub size: winit::dpi::PhysicalSize<u32>,
+    pub clear_color: wgpu::Color,
+    render_pipelines: Vec<wgpu::RenderPipeline>,
+    pub(crate) command_encoder: Option<wgpu::CommandEncoder>,
+    pub(crate) command_buffers: Vec<wgpu::CommandBuffer>,
+    vertex_buffer: wgpu::Buffer,
+    index_buffer: wgpu::Buffer,
+    uniform_buffer: wgpu::Buffer,
+    uniform_bind_group_layout: wgpu::BindGroupLayout,
+    uniform_bind_group: wgpu::BindGroup,
+    depth_texture: crate::graphics::texture::Texture,
+
+    pub window_dims: winit::dpi::PhysicalSize<f32>,
+
+    pub projection_transform: Mat4,
+    pub view_transform: Mat4,
+    pub model_transform: Mat4,
+
+    pub light_position: Vec3,
+    pub light_color: Color,
 }
 
 impl GraphicsContext {
