@@ -286,6 +286,28 @@ impl Mat4 {
 
         Some(1.0 / determinate * cofactors.transpose())
     }
+
+    pub fn projection(fov: f32, aspect_ratio: f32, near_plane: f32, far_plane:f32) -> Self {
+        let mut projection_matrix = Mat4::identity();
+
+    
+        let y_scale = (fov / 2.0).to_radians().atan();
+        let x_scale = y_scale / aspect_ratio;
+        let frustrum_length = near_plane - far_plane;
+        let range_inv = 1.0 / frustrum_length;
+
+        projection_matrix.x.x = x_scale;
+
+        projection_matrix.y.y = -y_scale;
+
+        projection_matrix.z.z = (near_plane + far_plane) * range_inv;
+        projection_matrix.z.w = near_plane * far_plane * range_inv;
+
+        projection_matrix.w.z = -1.0;
+        projection_matrix.w.w = 0.0;
+
+        projection_matrix
+    }
 }
 
 impl Add for Mat4 {

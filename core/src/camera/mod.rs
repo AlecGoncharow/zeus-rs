@@ -104,35 +104,12 @@ impl Camera {
     }
 
     pub fn projection_matrix(&self) -> Mat4 {
-        let mut projection_matrix = Mat4::identity();
-        let near_plane = self.near_plane;
-        let far_plane = self.far_plane;
-        let fov: f32 = self.vfov;
-        let aspect_ratio = self.aspect;
-        //let right = self.lower_left_corner.x + self.horizontal.magnitude();
-        //let left = self.lower_left_corner.x;
-        //let top = self.lower_left_corner.y + self.vertical.magnitude();
-        //let bottom = self.lower_left_corner.y;
-
-        let y_scale = 1.0 / (fov / 2.0).to_radians().tan();
-        let x_scale = y_scale / aspect_ratio;
-        let frustrum_length = near_plane - far_plane;
-        let range_inv = 1.0 / frustrum_length;
-
-        projection_matrix.x.x = x_scale;
-
-        projection_matrix.y.y = -y_scale;
-
-        projection_matrix.z.z = (near_plane + far_plane) * range_inv;
-        projection_matrix.z.w = near_plane * far_plane * range_inv;
-
-        projection_matrix.w.z = -1.0;
-        projection_matrix.w.w = 0.0;
+        let projection_matrix = Mat4::projection(self.vfov, self.aspect, self.near_plane, self.far_plane);
 
         println!("new projection: {:#?}", projection_matrix);
 
         /*
-        let to_vk_ndc: Mat4 = (
+        let to_vk_ndc: Mat4 = 
             (1.0, 0.0, 0.0, 0.0),
             (0.0, -1.0, 0.0, 0.0),
             (0.0, 0.0, 0.5, 0.5),
