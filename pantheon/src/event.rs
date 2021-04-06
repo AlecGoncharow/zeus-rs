@@ -1,4 +1,4 @@
-use crate::context::Context;
+use crate::{context::Context, shader};
 use anyhow::*;
 use winit::dpi;
 use winit::event::ElementState;
@@ -12,7 +12,11 @@ use winit::event::WindowEvent;
 use winit::event_loop::ControlFlow;
 use winit::event_loop::EventLoop;
 
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+
 use crate::input::{keyboard, mouse};
+
 pub trait EventHandler {
     // Called upon each logic update to the game.
     /// This should be where the game's logic takes place.
@@ -91,6 +95,9 @@ pub fn run<S: 'static>(
 where
     S: EventHandler,
 {
+    let shader_reload_handle = Arc::new(AtomicBool::new(false));
+    shader::start_hotloader(Arc::clone(&shader_reload_handle));
+
     events_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Poll;
         ctx.process_event(&event);
@@ -186,6 +193,11 @@ where
             },
             Event::DeviceEvent { .. } => (),
             Event::MainEventsCleared => {
+                if shader_reload_handle.load(Ordering::Relaxed) {
+                    ctx.reload_shaders();
+                    shader_reload_handle.store(false, Ordering::Relaxed);
+                }
+
                 if !ctx.continuing {
                     *control_flow = ControlFlow::Exit;
                 } else {

@@ -26,6 +26,7 @@ impl Terrain {
     pub fn draw(&mut self, ctx: &mut Context) {
         //ctx.gfx_context.model_transform = self.model_matrix();
 
+        ctx.gfx_context.uniforms.model = self.model_matrix();
         ctx.draw_indexed(self.draw_mode(), &self.verts, &self.indices);
     }
 
@@ -46,14 +47,14 @@ impl Terrain {
 
 impl Drawable for Terrain {
     fn model_matrix(&self) -> Mat4 {
-        Mat4::scalar_from_one(1)
+        Mat4::scalar_from_one(2)
     }
 
     fn draw_mode(&self) -> DrawMode {
         DrawMode::Shaded(Topology::TriangleList(PolygonMode::Fill))
     }
 
-    fn rotate(&mut self, theta: f32, axis: Vec3) {}
+    fn rotate(&mut self, _theta: f32, _axis: Vec3) {}
 
-    fn translate(&mut self, tuple: (f32, f32, f32)) {}
+    fn translate(&mut self, _tuple: (f32, f32, f32)) {}
 }

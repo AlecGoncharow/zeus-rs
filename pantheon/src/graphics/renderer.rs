@@ -21,28 +21,13 @@ const INDICES: &[u16] = &[];
 const UNIFORM: &[f32] = &[
     1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5, 1.0,
 ];
-pub struct GraphicsContext {
-    pub size: winit::dpi::PhysicalSize<u32>,
-    pub clear_color: wgpu::Color,
-    render_pipelines: Vec<wgpu::RenderPipeline>,
-    pub(crate) command_encoder: Option<wgpu::CommandEncoder>,
-    pub(crate) command_buffers: Vec<wgpu::CommandBuffer>,
-    vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
-    uniform_buffer: wgpu::Buffer,
-    uniform_bind_group_layout: wgpu::BindGroupLayout,
-    uniform_bind_group: wgpu::BindGroup,
-    depth_texture: crate::graphics::texture::Texture,
 
-    pub window_dims: winit::dpi::PhysicalSize<f32>,
-
-    pub projection_transform: Mat4,
-    pub view_transform: Mat4,
-    pub model_transform: Mat4,
-
-    pub light_position: Vec3,
-    pub light_color: Color,
-}
+type Shaders = (
+    wgpu::ShaderModule,
+    wgpu::ShaderModule,
+    wgpu::ShaderModule,
+    wgpu::ShaderModule,
+);
 
 #[repr(C)]
 pub struct UniformItems {
@@ -81,6 +66,24 @@ impl UniformItems {
     }
 }
 
+pub struct GraphicsContext {
+    pub size: winit::dpi::PhysicalSize<u32>,
+    pub clear_color: wgpu::Color,
+    render_pipelines: Vec<wgpu::RenderPipeline>,
+    pub(crate) command_encoder: Option<wgpu::CommandEncoder>,
+    pub(crate) command_buffers: Vec<wgpu::CommandBuffer>,
+    vertex_buffer: wgpu::Buffer,
+    index_buffer: wgpu::Buffer,
+    uniform_buffer: wgpu::Buffer,
+    uniform_bind_group_layout: wgpu::BindGroupLayout,
+    uniform_bind_group: wgpu::BindGroup,
+    depth_texture: crate::graphics::texture::Texture,
+
+    pub window_dims: winit::dpi::PhysicalSize<f32>,
+
+    pub uniforms: UniformItems,
+}
+
 impl GraphicsContext {
     pub async fn new(
         window: &Window,
@@ -97,14 +100,8 @@ impl GraphicsContext {
             a: clear_color.w.into(),
         };
 
-        let vs_module =
-            device.create_shader_module(&wgpu::include_spirv!("shaders/shader.vert.spv"));
-        let fs_module =
-            device.create_shader_module(&wgpu::include_spirv!("shaders/shader.frag.spv"));
-        let shaded_vs_module =
-            device.create_shader_module(&wgpu::include_spirv!("shaders/shaded.vert.spv"));
-        let shaded_fs_module =
-            device.create_shader_module(&wgpu::include_spirv!("shaders/shaded.frag.spv"));
+        let (vs_module, fs_module, shaded_vs_module, shaded_fs_module) =
+            Self::get_shader_modules(device);
 
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Uniform Buffer"),
@@ -195,13 +192,44 @@ impl GraphicsContext {
 
             window_dims,
 
-            model_transform: Mat4::identity(),
-            view_transform: Mat4::identity(),
-            projection_transform: Mat4::identity(),
-
-            light_position: Vec3::new(20, -20, 0),
-            light_color: Color::new(255, 250, 209),
+            uniforms: UniformItems {
+                model: Mat4::identity(),
+                view: Mat4::identity(),
+                projection: Mat4::identity(),
+                _padding: 0,
+                light_position: Vec3::new(20, -20, 0),
+                light_color: Color::new(255, 250, 209),
+            },
         }
+    }
+
+    pub fn reload_shaders(&mut self, device: &wgpu::Device, sc_desc: &wgpu::SwapChainDescriptor) {
+        let (vs_module, fs_module, shaded_vs_module, shaded_fs_module) =
+            Self::get_shader_modules(device);
+
+        self.render_pipelines.clear();
+
+        Self::populate_pipelines(
+            &mut self.render_pipelines,
+            device,
+            &self.uniform_bind_group_layout,
+            &vs_module,
+            &fs_module,
+            sc_desc,
+            Vertex::desc,
+            DrawMode::normal_modes(),
+        );
+
+        Self::populate_pipelines(
+            &mut self.render_pipelines,
+            device,
+            &self.uniform_bind_group_layout,
+            &shaded_vs_module,
+            &shaded_fs_module,
+            sc_desc,
+            ShadedVertex::desc,
+            DrawMode::shaded_modes(),
+        );
     }
 
     pub fn resize(
@@ -299,17 +327,9 @@ impl GraphicsContext {
             usage: wgpu::BufferUsage::VERTEX,
         });
 
-        let uniform_items = UniformItems::new(
-            self.projection_transform,
-            self.view_transform,
-            self.model_transform,
-            self.light_position,
-            self.light_color,
-        );
-
         self.uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Uniform Buffer"),
-            contents: uniform_items.as_bytes(),
+            contents: self.uniforms.as_bytes(),
             usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
         });
 
@@ -382,13 +402,6 @@ impl GraphicsContext {
         */
 
         // let mvp = self.projection_transform * self.view_transform * self.model_transform;
-        let uniform_items = UniformItems::new(
-            self.projection_transform,
-            self.view_transform,
-            self.model_transform,
-            self.light_position,
-            self.light_color,
-        );
         /*
         let buffer_data: [[[f32; 4]; 4]; 3] = [
             self.projection_transform.into(),
@@ -399,7 +412,7 @@ impl GraphicsContext {
 
         self.uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Uniform Buffer"),
-            contents: uniform_items.as_bytes(),
+            contents: self.uniforms.as_bytes(),
             usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
         });
 
@@ -470,9 +483,9 @@ impl GraphicsContext {
                 }),
 
                 primitive: wgpu::PrimitiveState {
-                    topology: mode.inner().into(), // 1.
+                    topology: mode.inner().into(),
                     strip_index_format: None,
-                    front_face: wgpu::FrontFace::Ccw, // 2.
+                    front_face: wgpu::FrontFace::Ccw,
                     cull_mode: wgpu::CullMode::None,
                     polygon_mode: mode.inner().inner().into(),
                 },
@@ -480,17 +493,17 @@ impl GraphicsContext {
                 depth_stencil: Some(wgpu::DepthStencilState {
                     format: crate::graphics::texture::Texture::DEPTH_FORMAT,
                     depth_write_enabled: true,
-                    depth_compare: wgpu::CompareFunction::Less, // 1.
-                    stencil: wgpu::StencilState::default(),     // 2.
+                    depth_compare: wgpu::CompareFunction::Less,
+                    stencil: wgpu::StencilState::default(),
                     bias: wgpu::DepthBiasState::default(),
                     // Setting this to true requires Features::DEPTH_CLAMPING
                     clamp_depth: false,
                 }),
 
                 multisample: wgpu::MultisampleState {
-                    count: 1,                         // 2.
-                    mask: !0,                         // 3.
-                    alpha_to_coverage_enabled: false, // 4.
+                    count: 1,
+                    mask: !0,
+                    alpha_to_coverage_enabled: false,
                 },
             });
 
@@ -500,5 +513,27 @@ impl GraphicsContext {
 
             pipelines.push(render_pipeline);
         }
+    }
+
+    fn get_shader_modules(device: &wgpu::Device) -> Shaders {
+        let make_module = |path: &str| {
+            let spirv_source = std::fs::read(path).unwrap();
+
+            device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+                label: Some(path),
+                source: wgpu::util::make_spirv(&spirv_source),
+                flags: wgpu::ShaderFlags::VALIDATION,
+            })
+        };
+
+        let vs_module = make_module("pantheon/src/graphics/shaders/build/shader.vert.spv");
+
+        let fs_module = make_module("pantheon/src/graphics/shaders/build/shader.frag.spv");
+
+        let shaded_vs_module = make_module("pantheon/src/graphics/shaders/build/shaded.vert.spv");
+
+        let shaded_fs_module = make_module("pantheon/src/graphics/shaders/build/shaded.frag.spv");
+
+        (vs_module, fs_module, shaded_vs_module, shaded_fs_module)
     }
 }

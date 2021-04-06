@@ -5,6 +5,7 @@ pub mod context;
 pub mod event;
 pub mod graphics;
 pub mod input;
+mod shader;
 pub mod timer;
 
 pub mod math;

@@ -25,7 +25,15 @@ impl ShaderData {
         };
 
         let src = read_to_string(src_path.clone())?;
-        let spv_path = src_path.with_extension(format!("{}.spv", extension));
+
+        let mut build_path = src_path.parent().unwrap().to_path_buf();
+        build_path.push("build/");
+        if !build_path.exists() {
+            std::fs::create_dir(build_path.clone()).expect("Failed to mkdir");
+        }
+        build_path.push(src_path.file_name().unwrap());
+
+        let spv_path = build_path.with_extension(format!("{}.spv", extension));
 
         Ok(Self {
             src,

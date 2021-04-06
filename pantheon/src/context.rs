@@ -28,7 +28,6 @@ pub struct Context {
     pub adapter: wgpu::Adapter,
     pub event_loop_proxy: std::sync::Mutex<winit::event_loop::EventLoopProxy<EngineEvent>>,
     pub forced_draw_mode: Option<PolygonMode>,
-    pub should_resize: bool,
 }
 
 impl<'a> Context {
@@ -103,7 +102,6 @@ impl<'a> Context {
             sc_desc,
             event_loop_proxy,
             forced_draw_mode: None,
-            should_resize: false,
         };
 
         (ctx, event_loop)
@@ -157,12 +155,16 @@ impl<'a> Context {
     }
 
     pub fn set_camera(&mut self, camera: Arc<impl crate::graphics::CameraProjection + 'static>) {
-        self.gfx_context.projection_transform = camera.projection_matrix();
-        self.gfx_context.view_transform = camera.view_matrix();
+        self.gfx_context.uniforms.projection = camera.projection_matrix();
+        self.gfx_context.uniforms.view = camera.view_matrix();
     }
 
     pub fn set_cursor_icon(&mut self, icon: winit::window::CursorIcon) {
         self.window.set_cursor_icon(icon);
+    }
+
+    pub fn reload_shaders(&mut self) {
+        self.gfx_context.reload_shaders(&self.device, &self.sc_desc);
     }
 
     pub fn start_drawing(&mut self) {

@@ -125,6 +125,10 @@ impl EventHandler for State {
         if keycode == VirtualKeyCode::P {
             self.debug = !self.debug;
         }
+
+        if keycode == VirtualKeyCode::R {
+            ctx.reload_shaders();
+        }
     }
 
     fn key_up_event(&mut self, _ctx: &mut Context, keycode: VirtualKeyCode) {

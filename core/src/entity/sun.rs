@@ -36,7 +36,7 @@ impl Sun {
 
 impl Entity for Sun {
     fn init(&mut self, ctx: &mut pantheon::context::Context) {
-        ctx.gfx_context.light_color = self.light_color;
+        ctx.gfx_context.uniforms.light_color = self.light_color;
     }
 
     fn update(&mut self, ctx: &mut pantheon::context::Context) {
@@ -65,7 +65,7 @@ impl Entity for Sun {
         self.cube.position =
             (Mat4::rotation(rotate, (1, 0, 1).into()) * self.cube.position.vec4()).vec3();
 
-        ctx.gfx_context.light_position = self.cube.position;
+        ctx.gfx_context.uniforms.light_position = self.cube.position;
     }
 }
 

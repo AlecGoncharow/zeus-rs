@@ -22,15 +22,19 @@ layout(location=0) flat out vec4 v_color;
 
 void main() {
     vec4 world_pos = data.model * vec4(a_position, 1.0);
-    vec3 normalized_light_direction = normalize(world_pos.xyz - data.light_pos);
+    vec3 pos_to_light_dir =normalize(data.light_pos - world_pos.xyz);
 
     // flip the direction of the light_direction_vector and dot it with the surface normal
-    float brightness_diffuse = clamp(dot(-normalized_light_direction, a_normal), 0.2, 1.0);
+    float brightness_diffuse = clamp(dot(pos_to_light_dir, a_normal), 0.2, 1.0);
 
     v_color.rgb = max((brightness_diffuse + ambient) * data.light_color.rgb * a_color.rgb, 0.0);
     v_color.a = 1.0;
 
+    //v_color = a_color;
+    //v_color = vec4(0);
 
+
+    //v_color = vec4(1);
     // column major
     gl_Position = data.projection * data.view * world_pos;
     gl_PointSize = 5.0;
