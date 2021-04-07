@@ -41,7 +41,7 @@ impl Entity for Sun {
 
     fn update(&mut self, ctx: &mut pantheon::context::Context) {
         let delta_time = ctx.timer_context.delta_time();
-        let rotate = delta_time * 0.2 * std::f32::consts::PI;
+        let rotate = delta_time * 0.02 * std::f32::consts::PI;
         self.radians += rotate;
         self.radians %= std::f32::consts::PI * 2.;
 
@@ -66,6 +66,9 @@ impl Entity for Sun {
             (Mat4::rotation(rotate, (1, 0, 1).into()) * self.cube.position.vec4()).vec3();
 
         ctx.gfx_context.uniforms.light_position = self.cube.position;
+        let look_at = Mat4::look_at(self.cube.position, (25, 0, 25).into(), (0, 1, 0).into());
+        let projection = Mat4::projection(90., 1.0, 1.0, 1000.0);
+        ctx.gfx_context.uniforms.light_view_project = projection * look_at;
     }
 }
 

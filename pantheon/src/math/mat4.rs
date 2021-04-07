@@ -287,6 +287,23 @@ impl Mat4 {
         Some(1.0 / determinate * cofactors.transpose())
     }
 
+    pub fn look_at(look_from: Vec3, look_at: Vec3, world_up: Vec3) -> Self {
+        let w = (look_from - look_at).make_unit_vector();
+        let u = (w.cross(&world_up)).make_unit_vector();
+        let v = u.cross(&w).make_unit_vector();
+        let mut pos = Mat4::identity();
+        pos.w.x = -look_from.x;
+        pos.w.y = -look_from.y;
+        pos.w.z = -look_from.z;
+
+        Mat4::new(
+            Vec4::new(u.x, v.x, w.x, 0.0),
+            Vec4::new(u.y, v.y, w.y, 0.0),
+            Vec4::new(u.z, v.z, w.z, 0.0),
+            (0, 0, 0, 1).into(),
+        ) * pos
+    }
+
     pub fn projection(fov: f32, aspect_ratio: f32, near_plane: f32, far_plane: f32) -> Self {
         let mut projection_matrix = Mat4::identity();
 

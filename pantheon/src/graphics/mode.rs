@@ -7,6 +7,7 @@ pub const MODE_COUNT: usize = 2 * 5 * 3;
 pub enum DrawMode {
     Normal(Topology),
     Shaded(Topology),
+    _ShadowPass(Topology),
 }
 
 impl DrawMode {
@@ -14,6 +15,7 @@ impl DrawMode {
         match self {
             DrawMode::Normal(inner) => inner,
             DrawMode::Shaded(inner) => inner,
+            DrawMode::_ShadowPass(inner) => inner,
         }
     }
 
@@ -21,6 +23,7 @@ impl DrawMode {
         match self {
             DrawMode::Normal(ref mut inner) => inner,
             DrawMode::Shaded(ref mut inner) => inner,
+            DrawMode::_ShadowPass(ref mut inner) => inner,
         }
     }
 
@@ -35,6 +38,13 @@ impl DrawMode {
         Topology::iterator()
             .copied()
             .map(|inner| DrawMode::Shaded(inner))
+            .collect()
+    }
+
+    pub fn shadow_modes() -> Vec<DrawMode> {
+        Topology::iterator()
+            .copied()
+            .map(|inner| DrawMode::_ShadowPass(inner))
             .collect()
     }
 }
@@ -145,6 +155,7 @@ impl From<DrawMode> for usize {
         let shifted: usize = match mode {
             DrawMode::Normal(_) => 0b0,
             DrawMode::Shaded(_) => 0b1111,
+            DrawMode::_ShadowPass(_) => 0b1_1110,
         };
         shifted + usize::from(mode.inner())
     }

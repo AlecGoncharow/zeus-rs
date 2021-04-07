@@ -26,12 +26,12 @@ impl ServerState {
 }
 
 fn generate_cubes(state: &mut ServerState) {
-    let cube = Cuboid::cube(1.0, (0, 0, 0).into(), None);
+    let cube = Cuboid::cube(5.0, (0, 0, 0).into(), None);
     state.entity_manager.push_entity(EntityKind::from(cube));
 
     let sun = Sun::new(
-        (100, 0, 0).into(),
-        10.0,
+        (1000, 0, 0).into(),
+        50.0,
         Color::new(255, 250, 209),
         Color::new(255, 250, 209),
     );

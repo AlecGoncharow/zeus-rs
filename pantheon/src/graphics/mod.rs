@@ -1,4 +1,5 @@
 pub mod color;
+pub mod mesh;
 pub mod mode;
 pub mod renderer;
 pub mod texture;

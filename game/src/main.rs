@@ -268,7 +268,7 @@ async fn main() {
     );
 
     let terrain_gen = TerrainGenerator::new(perlin, color_gen);
-    let terrain_size = 250;
+    let terrain_size = if cfg!(debug_assertions) { 10 } else { 250 };
     let terrain = terrain_gen.generate(terrain_size);
 
     let my_game = State {

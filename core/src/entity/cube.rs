@@ -359,10 +359,6 @@ impl Drawable for Cuboid {
     fn rotate(&mut self, theta: f32, axis: Vec3) {
         let rot = Mat4::rotation(theta, axis);
         self.rotation = rot * self.rotation;
-
-        for vert in self.vertices.iter_mut() {
-            vert.normal = (rot * Vec4::from_vec3(vert.normal)).truncate(Dim::W);
-        }
     }
 
     fn translate(&mut self, tuple: (f32, f32, f32)) {

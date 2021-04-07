@@ -201,18 +201,7 @@ impl<'a> Context {
             };
         }
 
-        loop {
-            self.gfx_context.start(
-                &self.device,
-                &self.frame.as_ref().unwrap().output.view,
-                &self.queue,
-            );
-            if self.gfx_context.command_encoder.is_some() {
-                break;
-            } else {
-                println!("resizing");
-            }
-        }
+        self.gfx_context.start();
     }
 
     pub fn draw<F>(&mut self, mut mode: DrawMode, verts: &[F])
@@ -223,12 +212,7 @@ impl<'a> Context {
             mode.inner_mut().set_inner(polygon_mode);
         }
 
-        self.gfx_context.draw::<F>(
-            &self.frame.as_ref().unwrap().output.view,
-            &self.device,
-            mode,
-            verts,
-        );
+        self.gfx_context.draw::<F>(&self.device, mode, verts);
     }
 
     pub fn draw_indexed<F>(&mut self, mut mode: DrawMode, verts: &[F], indices: &[u32])
@@ -239,17 +223,16 @@ impl<'a> Context {
             mode.inner_mut().set_inner(polygon_mode);
         }
 
-        self.gfx_context.draw_indexed::<F>(
-            &self.frame.as_ref().unwrap().output.view,
-            &self.device,
-            mode,
-            verts,
-            indices,
-        );
+        self.gfx_context
+            .draw_indexed::<F>(&self.device, mode, verts, indices);
     }
 
     pub fn render(&mut self) {
-        self.gfx_context.render(&self.queue);
+        self.gfx_context.render(
+            &self.device,
+            &self.frame.as_ref().unwrap().output.view,
+            &self.queue,
+        );
         self.frame = None;
     }
 }

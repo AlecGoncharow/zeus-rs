@@ -91,9 +91,9 @@ impl Camera {
 
     pub fn view_matrix(&self) -> Mat4 {
         let rotation = Mat4::new(
-            Vec4::new(self.u.x, self.v.x, self.w.x, 0.0),
-            Vec4::new(self.u.y, self.v.y, self.w.y, 0.0),
-            Vec4::new(self.u.z, self.v.z, self.w.z, 0.0),
+            Vec4::new(self.u.x, self.v.x, self.w.x, 0.),
+            Vec4::new(self.u.y, self.v.y, self.w.y, 0.),
+            Vec4::new(self.u.z, self.v.z, self.w.z, 0.),
             (0, 0, 0, 1).into(),
         );
 
@@ -104,12 +104,13 @@ impl Camera {
     }
 
     pub fn projection_matrix(&self) -> Mat4 {
-        let projection_matrix = Mat4::projection(self.vfov, self.aspect, self.near_plane, self.far_plane);
+        let projection_matrix =
+            Mat4::projection(self.vfov, self.aspect, self.near_plane, self.far_plane);
 
         println!("new projection: {:#?}", projection_matrix);
 
         /*
-        let to_vk_ndc: Mat4 = 
+        let to_vk_ndc: Mat4 =
             (1.0, 0.0, 0.0, 0.0),
             (0.0, -1.0, 0.0, 0.0),
             (0.0, 0.0, 0.5, 0.5),
