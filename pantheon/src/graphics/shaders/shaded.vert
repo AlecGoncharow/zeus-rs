@@ -10,9 +10,9 @@ const vec3 light = vec3(20, -20, 0);
 const float ambient = 0.2;
 
 layout(set=0, binding=0) uniform Data {
-    mat4 projection;
-    mat4 view;
     mat4 model;
+    mat4 view;
+    mat4 projection;
     vec3 light_pos;
     vec4 light_color;
 } data;
