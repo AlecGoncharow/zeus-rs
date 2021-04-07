@@ -52,7 +52,7 @@ impl EntityManager {
         let ndc_y = 1.0 - (2.0 * mouse_pos.y) / ctx.gfx_context.window_dims.height;
 
         let clip = Vec4::new(ndc_x, ndc_y, 0.0, 1.0);
-        let mut eye = if let Some(inv_proj) = ctx.gfx_context.projection_transform.invert() {
+        let mut eye = if let Some(inv_proj) = ctx.gfx_context.uniforms.projection.invert() {
             inv_proj * clip
         } else {
             return None;
@@ -61,7 +61,7 @@ impl EntityManager {
         eye.z = -1.0;
         eye.w = 0.0;
 
-        let world = if let Some(inv_view) = ctx.gfx_context.view_transform.invert() {
+        let world = if let Some(inv_view) = ctx.gfx_context.uniforms.view.invert() {
             inv_view * eye
         } else {
             return None;

@@ -46,7 +46,7 @@ impl EventHandler for State {
         ctx.start_drawing();
         self.frame += 1;
 
-        ctx.gfx_context.model_transform = Mat4::identity();
+        ctx.gfx_context.uniforms.model = Mat4::identity();
 
         self.entity_manager.draw(ctx);
 
@@ -98,7 +98,7 @@ impl EventHandler for State {
                 .process_mouse_move((delta.x, delta.y).into(), delta_time);
         }
 
-        ctx.gfx_context.view_transform = self.entity_manager.camera.view_matrix();
+        ctx.gfx_context.uniforms.view = self.entity_manager.camera.view_matrix();
         self.entity_manager.update(ctx);
 
         self.fps = 1.0 / ctx.timer_context.average_tick;
@@ -168,7 +168,7 @@ impl EventHandler for State {
         _repeat: bool,
     ) {
         self.camera.process_keypress(keycode);
-        ctx.gfx_context.view_transform = self.camera.view_matrix();
+        ctx.gfx_context.uniforms.view = self.camera.view_matrix();
     }
     */
 
@@ -183,8 +183,8 @@ impl EventHandler for State {
             "view_matrix: {:#?}",
             self.entity_manager.camera.view_matrix()
         );
-        ctx.gfx_context.view_transform = self.entity_manager.camera.view_matrix();
-        ctx.gfx_context.projection_transform = self.entity_manager.camera.projection_matrix();
+        ctx.gfx_context.uniforms.view = self.entity_manager.camera.view_matrix();
+        ctx.gfx_context.uniforms.projection = self.entity_manager.camera.projection_matrix();
     }
 
     fn key_mods_changed(&mut self, _ctx: &mut Context, _modifiers_state: ModifiersState) {}
@@ -295,8 +295,8 @@ async fn main() {
         debug: false,
     };
 
-    ctx.gfx_context.view_transform = my_game.entity_manager.camera.view_matrix();
-    ctx.gfx_context.projection_transform = my_game.entity_manager.camera.projection_matrix();
+    ctx.gfx_context.uniforms.view = my_game.entity_manager.camera.view_matrix();
+    ctx.gfx_context.uniforms.projection = my_game.entity_manager.camera.projection_matrix();
 
     pantheon::event::run(event_loop, ctx, my_game);
 }
