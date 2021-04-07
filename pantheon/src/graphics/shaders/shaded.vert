@@ -22,26 +22,36 @@ layout(set=0, binding=1)
     uniform texture2DArray shadow_texture;
 
 layout(set=0, binding=2)
-    uniform samplerShadow shadow_sampler;
+    uniform sampler2D shadow_sampler;
 
 
 layout(location=0)  out vec4 v_color;
 
-float fetch_shadow(vec4 coords) {
+float fetch_shadow(vec4 coords, float bias) {
     if (coords.w <= 0.0) {
         return 1.0;
     }
 
+    vec3 proj_coords = coords.xyz / coords.w;
+    //proj_coords = (proj_coords * -0.5)  + 0.5;
+    
+    float closest_depth = texture(shadow_sampler, proj_coords.xy).r;
+
+    float current_depth = proj_coords.z;
+
+    return (current_depth - bias) > closest_depth ? 1.0 : 0.0;
+
+
     // compensate for the Y-flip difference between the NDC and texture coordinates
-    const vec2 flip_correction = vec2(0.5, -0.5);
+    //const vec2 flip_correction = vec2(0.5, -0.5);
     // compute texture coordinates for shadow lookup
-    vec4 light_local = vec4(
-        coords.xy * flip_correction/coords.w + 0.5,
-        0,
-        coords.z / coords.w
-    );
+    //vec4 light_local = vec4(
+    //    coords.xy * flip_correction/coords.w + 0.5,
+    //    0,
+    //    coords.z / coords.w
+    //);
     // do the lookup, using HW PCF and comparison
-    return texture(sampler2DArrayShadow(shadow_texture, shadow_sampler), light_local);
+    //return texture(sampler2DArrayShadow(shadow_texture, shadow_sampler), light_local);
 }
 
 void main() {
@@ -49,17 +59,21 @@ void main() {
     //
     // compute Lambertian diffuse term
     vec3 pos_to_light_dir =normalize(data.light_pos - world_pos.xyz);
+    vec3 light_dir = normalize(world_pos.xyz - data.light_pos);
     vec3 world_normal = normalize(mat3(data.model) * a_position);
     // flip the direction of the light_direction_vector and dot it with the surface normal
     float brightness_diffuse = clamp(dot(pos_to_light_dir, a_normal), 0.2, 1.0);
     // project into the light space
-    float shadow = fetch_shadow(data.light_view_proj * world_pos);
+    float bias = max(0.05 * (1.0 - dot(world_normal, light_dir)), 0.005);
+    float shadow = fetch_shadow(data.light_view_proj * world_pos, bias);
     
-    vec4 color = shadow * brightness_diffuse * data.light_color;
+    //vec4 color = (1.0 - shadow) * brightness_diffuse * data.light_color;
+    vec4 color = (ambient + (shadow)) * brightness_diffuse * data.light_color;
+    //vec4 color = (ambient + brightness_diffuse) * data.light_color;
 
-    color.a = 1.0;
 
-    v_color = color * a_color;
+    v_color.rgb = color.rgb * a_color.rgb;
+    v_color.a = 1.0;
 
     //v_color = a_color;
     //v_color = vec4(0);
@@ -70,6 +84,6 @@ void main() {
     gl_Position = data.projection * data.view * world_pos;
     //gl_Position = data.light_view_proj * world_pos;
     gl_PointSize = 5.0;
-	// gl_Position = vec4(a_position, 1.0);
+    //gl_Position = vec4(a_position, 1.0);
 }
 

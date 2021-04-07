@@ -80,18 +80,23 @@ pub fn start_hotloader(dirty_flag: Arc<AtomicBool>) {
                     DebouncedEvent::Create(path) | DebouncedEvent::Write(path) => {
                         println!("[Pantheon][SHADER HOTLOAD] recompiling {:?}", path);
                         let shader = ShaderData::load(path).unwrap();
-                        let compiled = compiler
-                            .compile_into_spirv(
-                                &shader.src,
-                                shader.kind,
-                                &shader.src_path.to_str().unwrap(),
-                                "main",
-                                None,
-                            )
-                            .unwrap();
+                        let compiled = compiler.compile_into_spirv(
+                            &shader.src,
+                            shader.kind,
+                            &shader.src_path.to_str().unwrap(),
+                            "main",
+                            None,
+                        );
 
-                        std::fs::write(shader.spv_path, compiled.as_binary_u8()).unwrap();
-                        dirty_flag.store(true, Ordering::Release);
+                        match compiled {
+                            Ok(compiled) => {
+                                std::fs::write(shader.spv_path, compiled.as_binary_u8()).unwrap();
+                                dirty_flag.store(true, Ordering::Release);
+                            }
+                            Err(e) => {
+                                eprintln!("[Pantheon][SHADER HOTLOAD][ERROR] {:#?}", e);
+                            }
+                        }
                     }
                     // nvim triggers this on write
                     DebouncedEvent::NoticeRemove(_) => (),

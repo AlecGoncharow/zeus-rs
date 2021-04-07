@@ -13,11 +13,15 @@ use core::camera::Camera;
 use core::entity::component::DrawComponent;
 use core::entity::component::MouseComponent;
 use core::entity::component::MousePick;
+use core::entity::cube;
+use core::entity::sun::Sun;
 use core::entity::{Entity, EntityKind};
+use core::Color;
 
 #[allow(dead_code)]
 pub struct EntityManager {
     pub camera: Camera,
+    pub sun: Sun,
     terrain: Terrain,
     new_entities: Vec<EntityKind>,
     entities: Vec<EntityKind>,
@@ -40,6 +44,12 @@ impl EntityManager {
         Self {
             camera,
             terrain,
+            sun: Sun::new(
+                (100, 0, 100).into(),
+                20.,
+                Color::new(255, 250, 209),
+                Color::new(255, 250, 209),
+            ),
             new_entities: vec![],
             entities: vec![],
             commands: vec![],
@@ -76,29 +86,34 @@ impl EntityManager {
             self.entities.push(entity);
         }
 
+        self.sun.update(ctx);
+
         let mouse_ray = Self::get_mouse_ray(ctx);
 
         let camera_origin = self.camera.origin;
         let before = std::time::Instant::now();
         let mut closest: Option<MousePick> = None;
-        self.entities.iter_mut().for_each(|entity| {
-            entity.update(ctx);
-            if let Some(mouse_ray) = mouse_ray {
-                if let Some(hit) = entity.check_collision(ctx, camera_origin, mouse_ray) {
-                    if let Some(other) = &closest {
-                        if (hit.point - camera_origin).magnitude()
-                            < (other.point - camera_origin).magnitude()
-                        {
-                            // hit is closer
+        if let Some(mouse_ray) = mouse_ray {
+            closest = self.sun.check_collision(ctx, camera_origin, mouse_ray);
+            self.entities.iter_mut().for_each(|entity| {
+                entity.update(ctx);
+                {
+                    if let Some(hit) = entity.check_collision(ctx, camera_origin, mouse_ray) {
+                        if let Some(other) = &closest {
+                            if (hit.point - camera_origin).magnitude()
+                                < (other.point - camera_origin).magnitude()
+                            {
+                                // hit is closer
+                                closest = Some(hit);
+                            }
+                        } else {
+                            // no other hit yet
                             closest = Some(hit);
                         }
-                    } else {
-                        // no other hit yet
-                        closest = Some(hit);
                     }
                 }
-            }
-        });
+            });
+        }
         let after = std::time::Instant::now();
         if ctx.timer_context.frame_count % (pantheon::timer::MAX_SAMPLES * 10) == 0 {
             println!(
@@ -118,13 +133,15 @@ impl EntityManager {
 
     pub fn draw(&mut self, ctx: &mut Context) {
         self.terrain.draw(ctx);
+        self.sun.draw(ctx);
         self.entities.iter_mut().for_each(|entity| {
             entity.draw(ctx);
         });
     }
 
     pub fn debug_draw(&mut self, ctx: &mut Context) {
-        self.terrain.draw(ctx);
+        self.terrain.debug_draw(ctx);
+        self.sun.debug_draw(ctx);
         self.entities.iter_mut().for_each(|entity| {
             entity.debug_draw(ctx);
         });
@@ -132,5 +149,13 @@ impl EntityManager {
 
     pub fn push_entity(&mut self, entity: EntityKind) {
         self.new_entities.push(entity);
+    }
+
+    pub fn get_sun_mesh(&self) -> Sun {
+        self.sun
+    }
+
+    pub fn set_sun_mesh(&mut self, mesh: cube::Cuboid) {
+        self.sun.cube = mesh;
     }
 }

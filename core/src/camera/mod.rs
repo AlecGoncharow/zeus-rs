@@ -105,7 +105,7 @@ impl Camera {
 
     pub fn projection_matrix(&self) -> Mat4 {
         let projection_matrix =
-            Mat4::projection(self.vfov, self.aspect, self.near_plane, self.far_plane);
+            Mat4::perspective(self.vfov, self.aspect, self.near_plane, self.far_plane);
 
         println!("new projection: {:#?}", projection_matrix);
 

@@ -288,23 +288,26 @@ impl Mat4 {
     }
 
     pub fn look_at(look_from: Vec3, look_at: Vec3, world_up: Vec3) -> Self {
-        let w = (look_from - look_at).make_unit_vector();
-        let u = (w.cross(&world_up)).make_unit_vector();
-        let v = u.cross(&w).make_unit_vector();
-        let mut pos = Mat4::identity();
-        pos.w.x = -look_from.x;
-        pos.w.y = -look_from.y;
-        pos.w.z = -look_from.z;
-
-        Mat4::new(
-            Vec4::new(u.x, v.x, w.x, 0.0),
-            Vec4::new(u.y, v.y, w.y, 0.0),
-            Vec4::new(u.z, v.z, w.z, 0.0),
-            (0, 0, 0, 1).into(),
-        ) * pos
+        Self::look_to(look_from, look_from - look_at, world_up)
     }
 
-    pub fn projection(fov: f32, aspect_ratio: f32, near_plane: f32, far_plane: f32) -> Self {
+    pub fn look_to(look_from: Vec3, dir: Vec3, world_up: Vec3) -> Self {
+        let w = (dir.make_unit_vector()).make_unit_vector();
+        let u = (w.cross(&world_up)).make_unit_vector();
+        let v = u.cross(&w).make_unit_vector();
+        let rotation = Mat4::new(
+            Vec4::new(u.x, v.x, w.x, 0.),
+            Vec4::new(u.y, v.y, w.y, 0.),
+            Vec4::new(u.z, v.z, w.z, 0.),
+            (0, 0, 0, 1).into(),
+        );
+        let negative_from = -1.0 * look_from;
+        let translation = Mat4::translation::<f32>(negative_from.into());
+
+        rotation * translation
+    }
+
+    pub fn perspective(fov: f32, aspect_ratio: f32, near_plane: f32, far_plane: f32) -> Self {
         let mut projection_matrix = Mat4::identity();
 
         let y_scale = (fov / 2.0).to_radians().atan();
@@ -318,6 +321,29 @@ impl Mat4 {
 
         projection_matrix.z.z = 0.5 * (near_plane + far_plane) * range_inv;
         projection_matrix.z.w = near_plane * far_plane * range_inv;
+
+        projection_matrix.w.z = -1.0;
+        projection_matrix.w.w = 0.0;
+
+        projection_matrix
+    }
+
+    pub fn pyramidal(fov: f32, aspect_ratio: f32, near_plane: f32, far_plane: f32) -> Self {
+        let mut projection_matrix = Mat4::identity();
+
+        let y_scale = (fov).to_radians().atan();
+        let x_scale = y_scale / aspect_ratio;
+        let frustrum_length = near_plane - far_plane;
+        let range_inv = 1.0 / frustrum_length;
+
+        projection_matrix.x.x = x_scale / 2.0;
+
+        projection_matrix.y.y = y_scale / (2.0 * aspect_ratio);
+
+        projection_matrix.z.x = 0.5;
+        projection_matrix.z.y = 0.5;
+        projection_matrix.z.z = far_plane * range_inv;
+        projection_matrix.z.w = -near_plane * far_plane * range_inv;
 
         projection_matrix.w.z = -1.0;
         projection_matrix.w.w = 0.0;

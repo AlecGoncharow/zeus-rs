@@ -216,12 +216,12 @@ impl DrawComponent for Cuboid {
         let color = Color::new(0, 0, 0);
         let end_color = Color::new(255, 0, 255);
 
-        for vert in self.vertices.iter().copied() {
+        for vert in self.vertices.iter() {
             lines.push((vert.position, color).into());
             lines.push((vert.position + (3. * vert.normal), end_color).into());
         }
 
-        ctx.gfx_context.uniforms.model = Mat4::translation::<f32>(self.position.into());
+        ctx.gfx_context.uniforms.model = self.model_matrix();
 
         ctx.draw(
             DrawMode::Normal(Topology::LineList(PolygonMode::Fill)),

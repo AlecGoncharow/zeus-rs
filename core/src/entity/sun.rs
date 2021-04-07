@@ -12,10 +12,11 @@ const MIDNIGHT: Color = Color::floats(0.1254, 0.1098, 0.1804);
 
 #[derive(Debug, Copy, Clone)]
 pub struct Sun {
-    cube: Cuboid,
+    pub cube: Cuboid,
     pub radians: f32,
     pub color: Color,
     pub light_color: Color,
+    pub size: f32,
 }
 
 impl Sun {
@@ -28,9 +29,17 @@ impl Sun {
         Self {
             cube,
             color,
-            radians: 0.,
+            radians: 90.0f32.to_radians(),
+            size,
             light_color,
         }
+    }
+    pub fn view_matrix(&self) -> Mat4 {
+        Mat4::look_at(self.cube.position, (0, 0, 0).into(), (0, 1, 0).into())
+    }
+
+    pub fn projection_matrix(&self) -> Mat4 {
+        Mat4::pyramidal(60., 1.0, 1.0, 500.0)
     }
 }
 
@@ -40,10 +49,10 @@ impl Entity for Sun {
     }
 
     fn update(&mut self, ctx: &mut pantheon::context::Context) {
-        let delta_time = ctx.timer_context.delta_time();
-        let rotate = delta_time * 0.02 * std::f32::consts::PI;
-        self.radians += rotate;
-        self.radians %= std::f32::consts::PI * 2.;
+        //let delta_time = ctx.timer_context.delta_time();
+        //let rotate = delta_time * 0.2 * std::f32::consts::PI;
+        //self.radians += rotate;
+        //self.radians %= (std::f32::consts::PI * 2.;
 
         let cos = self.radians.cos();
         let sin = self.radians.sin();
@@ -62,13 +71,13 @@ impl Entity for Sun {
         }
         .into();
 
+        /*
         self.cube.position =
-            (Mat4::rotation(rotate, (1, 0, 1).into()) * self.cube.position.vec4()).vec3();
+            (Mat4::rotation(rotate, (0, 0, 1).into()) * self.cube.position.vec4()).vec3();
 
+        */
         ctx.gfx_context.uniforms.light_position = self.cube.position;
-        let look_at = Mat4::look_at(self.cube.position, (25, 0, 25).into(), (0, 1, 0).into());
-        let projection = Mat4::projection(90., 1.0, 1.0, 1000.0);
-        ctx.gfx_context.uniforms.light_view_project = projection * look_at;
+        ctx.gfx_context.uniforms.light_view_project = self.projection_matrix() * self.view_matrix();
     }
 }
 

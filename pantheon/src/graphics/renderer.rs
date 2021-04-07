@@ -502,6 +502,10 @@ impl GraphicsContext {
         );
 
         for entity in &self.entities {
+            if let DrawMode::Normal(_) = entity.mode {
+                continue;
+            }
+
             render_pass.set_bind_group(0, &entity.shadow, &[]);
             render_pass.set_pipeline(
                 &self.render_pipelines[usize::from(DrawMode::_ShadowPass(entity.mode.inner()))],

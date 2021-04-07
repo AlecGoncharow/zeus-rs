@@ -30,8 +30,8 @@ fn generate_cubes(state: &mut ServerState) {
     state.entity_manager.push_entity(EntityKind::from(cube));
 
     let sun = Sun::new(
-        (1000, 0, 0).into(),
-        50.0,
+        (0, 10, 0).into(),
+        5.0,
         Color::new(255, 250, 209),
         Color::new(255, 250, 209),
     );

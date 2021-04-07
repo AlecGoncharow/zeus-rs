@@ -19,6 +19,7 @@ use core::camera::Camera;
 mod entity_manager;
 use entity_manager::EntityManager;
 
+use core::entity::Entity;
 use core::entity::EntityKind;
 use core::message::GameMessage;
 use core::proc_gen;
@@ -39,6 +40,7 @@ struct State {
     network_queue: Vec<(std::net::SocketAddr, Message<GameMessage>)>,
     fps: f32,
     debug: bool,
+    sun_mesh: Option<core::entity::sun::Sun>,
 }
 
 impl EventHandler for State {
@@ -77,7 +79,13 @@ impl EventHandler for State {
                     while !message.body.is_empty() {
                         let entity: EntityKind = message.pull();
                         //println!("[Networking] Got entity: {:#?}", entity);
-                        self.entity_manager.push_entity(entity);
+                        match entity {
+                            EntityKind::Sun(s) => {
+                                self.entity_manager.sun = s;
+                                self.entity_manager.sun.init(ctx);
+                            }
+                            _ => self.entity_manager.push_entity(entity),
+                        }
                     }
                 }
                 _ => {}
@@ -98,7 +106,13 @@ impl EventHandler for State {
                 .process_mouse_move((delta.x, delta.y).into(), delta_time);
         }
 
-        ctx.gfx_context.uniforms.view = self.entity_manager.camera.view_matrix();
+        ctx.gfx_context.uniforms.view = if let Some(_) = self.sun_mesh {
+            let mesh = self.entity_manager.get_sun_mesh();
+            mesh.view_matrix()
+        } else {
+            self.entity_manager.camera.view_matrix()
+        };
+        self.entity_manager.camera.view_matrix();
         self.entity_manager.update(ctx);
 
         self.fps = 1.0 / ctx.timer_context.average_tick;
@@ -128,6 +142,18 @@ impl EventHandler for State {
 
         if keycode == VirtualKeyCode::R {
             ctx.reload_shaders();
+        }
+
+        if keycode == VirtualKeyCode::N {
+            if let Some(sun) = self.sun_mesh {
+                self.entity_manager.set_sun_mesh(sun.cube);
+                self.sun_mesh = None;
+            } else {
+                let mesh = self.entity_manager.get_sun_mesh();
+                self.sun_mesh = Some(mesh);
+                let n_mesh = core::entity::cube::Cuboid::cube(0.1, mesh.cube.position, None);
+                self.entity_manager.set_sun_mesh(n_mesh);
+            }
         }
     }
 
@@ -269,7 +295,9 @@ async fn main() {
 
     let terrain_gen = TerrainGenerator::new(perlin, color_gen);
     let terrain_size = if cfg!(debug_assertions) { 10 } else { 250 };
-    let terrain = terrain_gen.generate(terrain_size);
+    let mut terrain = terrain_gen.generate(terrain_size);
+    terrain.center = (terrain_size as f32 / 2., 0., terrain_size as f32 / 2.).into();
+    terrain.init(&mut ctx);
 
     let my_game = State {
         frame: 0,
@@ -293,6 +321,7 @@ async fn main() {
         network_client,
         network_queue: vec![],
         debug: false,
+        sun_mesh: None,
     };
 
     ctx.gfx_context.uniforms.view = my_game.entity_manager.camera.view_matrix();
