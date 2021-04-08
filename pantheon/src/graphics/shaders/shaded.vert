@@ -19,14 +19,14 @@ layout(set=0, binding=0) uniform Data {
 } data;
 
 layout(set=0, binding=1)
-    uniform texture2DArray shadow_texture;
+    uniform texture2D shadow_texture;
 
 layout(set=0, binding=2)
     uniform sampler2D shadow_sampler;
 
-
 layout(location=0)  out vec4 v_color;
 
+/*
 float fetch_shadow(vec4 coords, float bias) {
     if (coords.w <= 0.0) {
         return 1.0;
@@ -53,6 +53,8 @@ float fetch_shadow(vec4 coords, float bias) {
     // do the lookup, using HW PCF and comparison
     //return texture(sampler2DArrayShadow(shadow_texture, shadow_sampler), light_local);
 }
+/
+*/
 
 void main() {
     vec4 world_pos = data.model * vec4(a_position, 1.0);
@@ -65,11 +67,11 @@ void main() {
     float brightness_diffuse = clamp(dot(pos_to_light_dir, a_normal), 0.2, 1.0);
     // project into the light space
     float bias = max(0.05 * (1.0 - dot(world_normal, light_dir)), 0.005);
-    float shadow = fetch_shadow(data.light_view_proj * world_pos, bias);
+    //float shadow = fetch_shadow(data.light_view_proj * world_pos, bias);
     
     //vec4 color = (1.0 - shadow) * brightness_diffuse * data.light_color;
-    vec4 color = (ambient + (shadow)) * brightness_diffuse * data.light_color;
-    //vec4 color = (ambient + brightness_diffuse) * data.light_color;
+    //vec4 color = (ambient + (shadow)) * brightness_diffuse * data.light_color;
+    vec4 color = (ambient + brightness_diffuse) * data.light_color;
 
 
     v_color.rgb = color.rgb * a_color.rgb;
