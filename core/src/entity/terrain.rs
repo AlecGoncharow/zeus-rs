@@ -51,13 +51,12 @@ impl Terrain {
     pub fn update(&mut self, _ctx: &mut Context) {}
 
     pub fn draw(&mut self, ctx: &mut Context) {
-        ctx.gfx_context.uniforms.model = self.model_matrix();
+        ctx.set_model(self.model_matrix());
         ctx.draw_indexed(self.draw_mode(), &self.verts, &self.indices);
     }
 
     pub fn debug_draw(&mut self, ctx: &mut Context) {
-        ctx.gfx_context.uniforms.model = self.model_matrix();
-
+        ctx.set_model(self.model_matrix());
         ctx.draw(
             DrawMode::Normal(Topology::LineList(PolygonMode::Fill)),
             &self.norm_debug,

@@ -48,8 +48,6 @@ impl EventHandler for State {
         ctx.start_drawing();
         self.frame += 1;
 
-        ctx.gfx_context.uniforms.model = Mat4::identity();
-
         self.entity_manager.draw(ctx);
 
         if self.debug {
@@ -106,13 +104,14 @@ impl EventHandler for State {
                 .process_mouse_move((delta.x, delta.y).into(), delta_time);
         }
 
-        ctx.gfx_context.uniforms.view = if let Some(_) = self.sun_mesh {
+        if self.sun_mesh.is_some() {
             let mesh = self.entity_manager.get_sun_mesh();
-            mesh.view_matrix()
+            ctx.set_view(mesh.view_matrix());
+            ctx.set_projection(mesh.projection_matrix());
         } else {
-            self.entity_manager.camera.view_matrix()
-        };
-        self.entity_manager.camera.view_matrix();
+            ctx.set_view(self.entity_manager.camera.view);
+            ctx.set_projection(self.entity_manager.camera.projection);
+        }
         self.entity_manager.update(ctx);
 
         self.fps = 1.0 / ctx.timer_context.average_tick;
@@ -205,12 +204,11 @@ impl EventHandler for State {
         println!("resize_event: width: {}, height: {}", width, height);
         self.entity_manager.camera.set_aspect((width, height));
         println!("new camera: {:#?}", self.entity_manager.camera);
-        println!(
-            "view_matrix: {:#?}",
-            self.entity_manager.camera.view_matrix()
-        );
-        ctx.gfx_context.uniforms.view = self.entity_manager.camera.view_matrix();
-        ctx.gfx_context.uniforms.projection = self.entity_manager.camera.projection_matrix();
+
+        ctx.set_view(self.entity_manager.camera.update_view_matrix());
+        ctx.set_projection(self.entity_manager.camera.update_projection_matrix());
+
+        println!("view_matrix: {:#?}", self.entity_manager.camera.view);
     }
 
     fn key_mods_changed(&mut self, _ctx: &mut Context, _modifiers_state: ModifiersState) {}
@@ -324,8 +322,8 @@ async fn main() {
         sun_mesh: None,
     };
 
-    ctx.gfx_context.uniforms.view = my_game.entity_manager.camera.view_matrix();
-    ctx.gfx_context.uniforms.projection = my_game.entity_manager.camera.projection_matrix();
+    ctx.set_view(my_game.entity_manager.camera.view);
+    ctx.set_projection(my_game.entity_manager.camera.projection);
 
     pantheon::event::run(event_loop, ctx, my_game);
 }

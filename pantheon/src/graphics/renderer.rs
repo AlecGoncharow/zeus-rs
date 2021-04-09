@@ -24,29 +24,41 @@ type Shaders = (
 );
 
 #[repr(C)]
-pub struct UniformItems {
+pub struct EntityUniforms {
     pub model: Mat4,
     pub view: Mat4,
     pub projection: Mat4,
+}
+
+impl EntityUniforms {
+    pub fn new(model: Mat4, view: Mat4, projection: Mat4) -> Self {
+        Self {
+            model,
+            view,
+            projection,
+        }
+    }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        unsafe {
+            let data_ptr: *const Self = self;
+            let byte_ptr: *const u8 = data_ptr as *const _;
+            std::slice::from_raw_parts(byte_ptr, std::mem::size_of::<Self>())
+        }
+    }
+}
+
+#[repr(C)]
+pub struct LightUniforms {
     pub light_view_project: Mat4,
     pub light_position: Vec3,
     _padding: u32,
     pub light_color: Color,
 }
 
-impl UniformItems {
-    pub fn new(
-        model: Mat4,
-        view: Mat4,
-        projection: Mat4,
-        light_view_project: Mat4,
-        light_position: Vec3,
-        light_color: Color,
-    ) -> Self {
+impl LightUniforms {
+    pub fn new(light_view_project: Mat4, light_position: Vec3, light_color: Color) -> Self {
         Self {
-            model,
-            view,
-            projection,
             light_view_project,
 
             light_position,
@@ -71,17 +83,19 @@ pub struct GraphicsContext {
 
     entities: Vec<Mesh>,
 
+    entity_bind_group_layout: wgpu::BindGroupLayout,
     shadow_bind_group_layout: wgpu::BindGroupLayout,
-    //shadow_bind_group: wgpu::BindGroup,
     forward_bind_group_layout: wgpu::BindGroupLayout,
-    //forward_bind_group: wgpu::BindGroup,
+    textured_quad_bind_group_layout: wgpu::BindGroupLayout,
+
     depth_texture: crate::graphics::texture::Texture,
     shadow_view: wgpu::TextureView,
     shadow_sampler: wgpu::Sampler,
 
     pub window_dims: winit::dpi::PhysicalSize<f32>,
 
-    pub uniforms: UniformItems,
+    pub entity_uniforms: EntityUniforms,
+    pub light_uniforms: LightUniforms,
 }
 
 impl GraphicsContext {
@@ -150,6 +164,47 @@ impl GraphicsContext {
                 label: Some("uniform_bind_group_layout"),
             });
 
+        let entity_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStage::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+
+                    count: None,
+                }],
+                label: Some("uniform_bind_group_layout"),
+            });
+
+        let textured_quad_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStage::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            multisampled: false,
+                            sample_type: wgpu::TextureSampleType::Depth,
+                            view_dimension: wgpu::TextureViewDimension::D2Array,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStage::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler {
+                            comparison: true,
+                            filtering: false,
+                        },
+                        count: None,
+                    },
+                ],
+                label: Some("uniform_bind_group_layout"),
+            });
         /*
         let shadow_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &shadow_bind_group_layout,
@@ -167,17 +222,6 @@ impl GraphicsContext {
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
                         visibility: wgpu::ShaderStage::VERTEX,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
-                        },
-
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStage::VERTEX,
                         ty: wgpu::BindingType::Texture {
                             multisampled: false,
                             sample_type: wgpu::TextureSampleType::Depth,
@@ -186,7 +230,7 @@ impl GraphicsContext {
                         count: None,
                     },
                     wgpu::BindGroupLayoutEntry {
-                        binding: 2,
+                        binding: 1,
                         visibility: wgpu::ShaderStage::VERTEX,
                         ty: wgpu::BindingType::Sampler {
                             comparison: true,
@@ -229,7 +273,7 @@ impl GraphicsContext {
         Self::populate_pipelines(
             &mut render_pipelines,
             device,
-            &forward_bind_group_layout,
+            &[&entity_bind_group_layout, &forward_bind_group_layout],
             &vs_module,
             &fs_module,
             sc_desc,
@@ -240,7 +284,11 @@ impl GraphicsContext {
         Self::populate_pipelines(
             &mut render_pipelines,
             device,
-            &forward_bind_group_layout,
+            &[
+                &entity_bind_group_layout,
+                &forward_bind_group_layout,
+                &shadow_bind_group_layout,
+            ],
             &shaded_vs_module,
             &shaded_fs_module,
             sc_desc,
@@ -251,7 +299,7 @@ impl GraphicsContext {
         Self::push_shadow_pipelines(
             &mut render_pipelines,
             device,
-            &shadow_bind_group_layout,
+            &[&entity_bind_group_layout, &shadow_bind_group_layout],
             &shadow_bake,
             ShadedVertex::desc,
             DrawMode::shadow_modes(),
@@ -266,9 +314,10 @@ impl GraphicsContext {
 
             entities: Vec::with_capacity(1024),
 
+            entity_bind_group_layout,
             forward_bind_group_layout,
-
             shadow_bind_group_layout,
+            textured_quad_bind_group_layout,
 
             depth_texture,
             shadow_view,
@@ -276,10 +325,13 @@ impl GraphicsContext {
 
             window_dims,
 
-            uniforms: UniformItems {
+            entity_uniforms: EntityUniforms {
                 model: Mat4::identity(),
                 view: Mat4::identity(),
                 projection: Mat4::identity(),
+            },
+
+            light_uniforms: LightUniforms {
                 light_view_project: Mat4::identity(),
                 light_position: Vec3::new(20, -20, 0),
                 _padding: 0,
@@ -297,7 +349,10 @@ impl GraphicsContext {
         Self::populate_pipelines(
             &mut self.render_pipelines,
             device,
-            &self.forward_bind_group_layout,
+            &[
+                &self.entity_bind_group_layout,
+                &self.forward_bind_group_layout,
+            ],
             &vs_module,
             &fs_module,
             sc_desc,
@@ -308,7 +363,10 @@ impl GraphicsContext {
         Self::populate_pipelines(
             &mut self.render_pipelines,
             device,
-            &self.forward_bind_group_layout,
+            &[
+                &self.entity_bind_group_layout,
+                &self.forward_bind_group_layout,
+            ],
             &shaded_vs_module,
             &shaded_fs_module,
             sc_desc,
@@ -319,7 +377,10 @@ impl GraphicsContext {
         Self::push_shadow_pipelines(
             &mut self.render_pipelines,
             device,
-            &self.shadow_bind_group_layout,
+            &[
+                &self.entity_bind_group_layout,
+                &self.shadow_bind_group_layout,
+            ],
             &shadow_bake,
             ShadedVertex::desc,
             DrawMode::shadow_modes(),
@@ -359,46 +420,20 @@ impl GraphicsContext {
                 usage: wgpu::BufferUsage::VERTEX,
             }),
 
-            shadow: device.create_bind_group(&wgpu::BindGroupDescriptor {
-                layout: &self.shadow_bind_group_layout,
+            bind_group: device.create_bind_group(&wgpu::BindGroupDescriptor {
+                layout: &self.entity_bind_group_layout,
                 entries: &[wgpu::BindGroupEntry {
                     binding: 0,
                     resource: device
                         .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                             label: Some("Uniform Buffer"),
-                            contents: self.uniforms.as_bytes(),
+                            contents: self.entity_uniforms.as_bytes(),
                             usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
                         })
                         .as_entire_binding(),
                 }],
                 label: None,
             }),
-
-            forward: device.create_bind_group(&wgpu::BindGroupDescriptor {
-                layout: &self.forward_bind_group_layout,
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: device
-                            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                                label: Some("Uniform Buffer"),
-                                contents: self.uniforms.as_bytes(),
-                                usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-                            })
-                            .as_entire_binding(),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::TextureView(&self.shadow_view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 2,
-                        resource: wgpu::BindingResource::Sampler(&self.shadow_sampler),
-                    },
-                ],
-                label: None,
-            }),
-
             index: None,
             count: verts.len() as u32,
         })
@@ -422,43 +457,18 @@ impl GraphicsContext {
                 usage: wgpu::BufferUsage::VERTEX,
             }),
 
-            shadow: device.create_bind_group(&wgpu::BindGroupDescriptor {
-                layout: &self.shadow_bind_group_layout,
+            bind_group: device.create_bind_group(&wgpu::BindGroupDescriptor {
+                layout: &self.entity_bind_group_layout,
                 entries: &[wgpu::BindGroupEntry {
                     binding: 0,
                     resource: device
                         .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                             label: Some("Uniform Buffer"),
-                            contents: self.uniforms.as_bytes(),
+                            contents: self.entity_uniforms.as_bytes(),
                             usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
                         })
                         .as_entire_binding(),
                 }],
-                label: None,
-            }),
-
-            forward: device.create_bind_group(&wgpu::BindGroupDescriptor {
-                layout: &self.forward_bind_group_layout,
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: device
-                            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                                label: Some("Uniform Buffer"),
-                                contents: self.uniforms.as_bytes(),
-                                usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-                            })
-                            .as_entire_binding(),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::TextureView(&self.shadow_view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 2,
-                        resource: wgpu::BindingResource::Sampler(&self.shadow_sampler),
-                    },
-                ],
                 label: None,
             }),
 
@@ -476,6 +486,36 @@ impl GraphicsContext {
     pub fn render(&mut self, device: &wgpu::Device, view: &wgpu::TextureView, queue: &wgpu::Queue) {
         let mut encoder =
             device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+
+        let shadow_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &self.shadow_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: device
+                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        label: Some("Uniform Buffer"),
+                        contents: self.light_uniforms.as_bytes(),
+                        usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+                    })
+                    .as_entire_binding(),
+            }],
+            label: None,
+        });
+
+        let forward_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &self.forward_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&self.shadow_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&self.shadow_sampler),
+                },
+            ],
+            label: None,
+        });
 
         encoder.push_debug_group("shadow pass");
         // shadow pass
@@ -501,12 +541,14 @@ impl GraphicsContext {
                 .unwrap(),
         );
 
+        render_pass.set_bind_group(1, &shadow_bind_group, &[]);
+
         for entity in &self.entities {
             if let DrawMode::Normal(_) = entity.mode {
                 continue;
             }
 
-            render_pass.set_bind_group(0, &entity.shadow, &[]);
+            render_pass.set_bind_group(0, &entity.bind_group, &[]);
             render_pass.set_pipeline(
                 &self.render_pipelines[usize::from(DrawMode::_ShadowPass(entity.mode.inner()))],
             );
@@ -544,10 +586,12 @@ impl GraphicsContext {
             }),
         });
 
+        render_pass.set_bind_group(1, &forward_bind_group, &[]);
+        render_pass.set_bind_group(2, &shadow_bind_group, &[]);
         for entity in &self.entities {
             //@TODO FIXME need optimization pass, should utilize offsets into singular buffers
             //somehow
-            render_pass.set_bind_group(0, &entity.forward, &[]);
+            render_pass.set_bind_group(0, &entity.bind_group, &[]);
             render_pass.set_pipeline(&self.render_pipelines[usize::from(entity.mode)]);
             if let Some(index) = entity.index.as_ref() {
                 render_pass.set_vertex_buffer(0, entity.vertex.slice(..));
@@ -568,7 +612,7 @@ impl GraphicsContext {
     fn populate_pipelines<'a>(
         pipelines: &mut Vec<wgpu::RenderPipeline>,
         device: &wgpu::Device,
-        uniform_bind_group_layout: &wgpu::BindGroupLayout,
+        uniform_bind_group_layouts: &[&wgpu::BindGroupLayout],
         vs_module: &wgpu::ShaderModule,
         fs_module: &wgpu::ShaderModule,
         sc_desc: &wgpu::SwapChainDescriptor,
@@ -578,7 +622,7 @@ impl GraphicsContext {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Pipeline Layout Descriptor"),
-                bind_group_layouts: &[uniform_bind_group_layout],
+                bind_group_layouts: uniform_bind_group_layouts,
                 push_constant_ranges: &[],
             });
         for mode in modes {
@@ -638,7 +682,7 @@ impl GraphicsContext {
     fn push_shadow_pipelines<'a>(
         pipelines: &mut Vec<wgpu::RenderPipeline>,
         device: &wgpu::Device,
-        uniform_bind_group_layout: &wgpu::BindGroupLayout,
+        uniform_bind_group_layouts: &[&wgpu::BindGroupLayout],
         vs_module: &wgpu::ShaderModule,
         vert_desc: fn() -> wgpu::VertexBufferLayout<'a>,
         modes: Vec<DrawMode>,
@@ -646,7 +690,7 @@ impl GraphicsContext {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Pipeline Layout Descriptor"),
-                bind_group_layouts: &[uniform_bind_group_layout],
+                bind_group_layouts: uniform_bind_group_layouts,
                 push_constant_ranges: &[],
             });
         for mode in modes {

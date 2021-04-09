@@ -205,7 +205,7 @@ impl DrawComponent for Cuboid {
         }
         */
 
-        ctx.gfx_context.uniforms.model = self.model_matrix();
+        ctx.set_model(self.model_matrix());
         //ctx.draw(Topology::TriangleList(PolygonMode::Line), &face_lines);
 
         ctx.draw_indexed(self.draw_mode(), &self.vertices, &self.indices);
@@ -221,7 +221,7 @@ impl DrawComponent for Cuboid {
             lines.push((vert.position + (3. * vert.normal), end_color).into());
         }
 
-        ctx.gfx_context.uniforms.model = self.model_matrix();
+        ctx.set_model(self.model_matrix());
 
         ctx.draw(
             DrawMode::Normal(Topology::LineList(PolygonMode::Fill)),

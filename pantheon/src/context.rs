@@ -3,6 +3,7 @@ use crate::graphics::mode::{DrawMode, PolygonMode};
 use crate::input::{keyboard, mouse};
 use crate::math::Vec2;
 use crate::timer;
+use crate::Mat4;
 use futures::executor::block_on;
 use std::sync::Arc;
 use winit::{event::*, event_loop::EventLoop, window::WindowBuilder};
@@ -155,8 +156,20 @@ impl<'a> Context {
     }
 
     pub fn set_camera(&mut self, camera: Arc<impl crate::graphics::CameraProjection + 'static>) {
-        self.gfx_context.uniforms.projection = camera.projection_matrix();
-        self.gfx_context.uniforms.view = camera.view_matrix();
+        self.gfx_context.entity_uniforms.projection = camera.projection_matrix();
+        self.gfx_context.entity_uniforms.view = camera.view_matrix();
+    }
+
+    pub fn set_projection(&mut self, mat: Mat4) {
+        self.gfx_context.entity_uniforms.projection = mat;
+    }
+
+    pub fn set_view(&mut self, mat: Mat4) {
+        self.gfx_context.entity_uniforms.view = mat;
+    }
+
+    pub fn set_model(&mut self, mat: Mat4) {
+        self.gfx_context.entity_uniforms.model = mat;
     }
 
     pub fn set_cursor_icon(&mut self, icon: winit::window::CursorIcon) {

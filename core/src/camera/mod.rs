@@ -31,6 +31,9 @@ pub struct Camera {
     pub vfov: f32,
     pub near_plane: f32,
     pub far_plane: f32,
+
+    pub projection: Mat4,
+    pub view: Mat4,
 }
 
 impl Camera {
@@ -63,6 +66,18 @@ impl Camera {
         };
         let pitch = pitch.to_degrees();
         println!("pitch: {:#?}, yaw: {:#?}", pitch, yaw);
+        let projection = Mat4::perspective(vfov, aspect, near_plane, far_plane);
+
+        let rotation = Mat4::new(
+            Vec4::new(u.x, v.x, w.x, 0.),
+            Vec4::new(u.y, v.y, w.y, 0.),
+            Vec4::new(u.z, v.z, w.z, 0.),
+            (0, 0, 0, 1).into(),
+        );
+
+        let negative_from = -1.0 * origin;
+        let translation = Mat4::translation::<f32>(negative_from.into());
+        let view = rotation * translation;
 
         Self {
             origin,
@@ -82,6 +97,9 @@ impl Camera {
             vfov,
             near_plane,
             far_plane,
+
+            projection,
+            view,
         }
     }
 
@@ -89,7 +107,7 @@ impl Camera {
         self.aspect = width / height;
     }
 
-    pub fn view_matrix(&self) -> Mat4 {
+    pub fn update_view_matrix(&mut self) -> Mat4 {
         let rotation = Mat4::new(
             Vec4::new(self.u.x, self.v.x, self.w.x, 0.),
             Vec4::new(self.u.y, self.v.y, self.w.y, 0.),
@@ -100,14 +118,14 @@ impl Camera {
         let negative_from = -1.0 * self.origin;
         let translation = Mat4::translation::<f32>(negative_from.into());
 
-        rotation * translation
+        self.view = rotation * translation;
+
+        self.view
     }
 
-    pub fn projection_matrix(&self) -> Mat4 {
+    pub fn update_projection_matrix(&mut self) -> Mat4 {
         let projection_matrix =
             Mat4::perspective(self.vfov, self.aspect, self.near_plane, self.far_plane);
-
-        println!("new projection: {:#?}", projection_matrix);
 
         /*
         let to_vk_ndc: Mat4 =
@@ -120,6 +138,7 @@ impl Camera {
 
         let gl = to_vk_ndc * projection_matrix;
         */
+        self.projection = projection_matrix;
         projection_matrix
     }
 

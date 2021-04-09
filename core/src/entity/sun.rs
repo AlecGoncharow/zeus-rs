@@ -39,13 +39,13 @@ impl Sun {
     }
 
     pub fn projection_matrix(&self) -> Mat4 {
-        Mat4::pyramidal(60., 1.0, 1.0, 500.0)
+        Mat4::perspective(90., 1.0, 1.0, 500.0)
     }
 }
 
 impl Entity for Sun {
     fn init(&mut self, ctx: &mut pantheon::context::Context) {
-        ctx.gfx_context.uniforms.light_color = self.light_color;
+        ctx.gfx_context.light_uniforms.light_color = self.light_color;
     }
 
     fn update(&mut self, ctx: &mut pantheon::context::Context) {
@@ -76,8 +76,9 @@ impl Entity for Sun {
             (Mat4::rotation(rotate, (0, 0, 1).into()) * self.cube.position.vec4()).vec3();
 
         */
-        ctx.gfx_context.uniforms.light_position = self.cube.position;
-        ctx.gfx_context.uniforms.light_view_project = self.projection_matrix() * self.view_matrix();
+        ctx.gfx_context.light_uniforms.light_position = self.cube.position;
+        ctx.gfx_context.light_uniforms.light_view_project =
+            self.projection_matrix() * self.view_matrix();
     }
 }
 
