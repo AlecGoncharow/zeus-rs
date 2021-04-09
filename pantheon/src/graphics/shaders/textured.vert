@@ -7,7 +7,8 @@ layout (location=0) out vec3 v_color;
 layout (location=1) out vec2 TexCoord;
 
 void main() {
-    gl_Position = vec4(a_pos, 1.0);
+
+    gl_Position = vec4(a_pos.xy, 1.0, 1.0);
     v_color = a_color;
     TexCoord = a_tex_coord;
 }

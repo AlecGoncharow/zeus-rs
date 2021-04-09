@@ -1,6 +1,12 @@
 use anyhow::*;
 use image::GenericImageView;
 
+pub enum TextureKind {
+    Depth,
+    Shadow,
+    Custom(Texture),
+}
+
 pub struct Texture {
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,

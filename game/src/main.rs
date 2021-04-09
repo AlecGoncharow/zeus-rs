@@ -32,7 +32,6 @@ use hermes::message::Message;
 
 use hermes::tokio;
 
-
 mod entity_manager;
 mod ui;
 
@@ -49,7 +48,7 @@ struct State {
 
 impl EventHandler for State {
     fn draw(&mut self, ctx: &mut Context) -> Result<()> {
-        use pantheon::{Topology, DrawMode, PolygonMode};
+        use pantheon::{graphics::texture::TextureKind, DrawMode, Topology};
         ctx.start_drawing();
         self.frame += 1;
 
@@ -61,7 +60,13 @@ impl EventHandler for State {
 
         let shadow_quad = ui::TexturableQuad::new((0.0, 0.0).into(), (1.0, 1.0).into());
 
-        //ctx.draw_textured(DrawMode::Textured(Topology::TriangleList(PolygonMode::Fill)), &shadow_quad.verts, &ctx.gfx_context.shadow_texture);
+        //println!("{:#?}", shadow_quad);
+
+        ctx.draw_textured(
+            DrawMode::Textured(Topology::TriangleList(PolygonMode::Fill)),
+            &shadow_quad.verts,
+            TextureKind::Shadow,
+        );
         ctx.render();
         Ok(())
     }

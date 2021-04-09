@@ -3,7 +3,7 @@ use super::DrawComponent;
 use super::Entity;
 use super::MouseComponent;
 use pantheon::Vec3;
-use pantheon::{Color, Mat4};
+use pantheon::{Color, DrawMode, Mat4, PolygonMode, Topology};
 
 const SUNRISE: Color = Color::floats(1., 0.7922, 0.4863);
 const NOON: Color = Color::floats(0.529, 0.81, 0.922);
@@ -21,7 +21,11 @@ pub struct Sun {
 
 impl Sun {
     pub fn new(pos: Vec3, size: f32, color: Color, light_color: Color) -> Self {
-        let mut cube = Cuboid::cube(size, pos, None);
+        let mut cube = Cuboid::cube(
+            size,
+            pos,
+            Some(DrawMode::Normal(Topology::TriangleList(PolygonMode::Fill))),
+        );
 
         cube.set_color(color);
         cube.invert_surface_norms();

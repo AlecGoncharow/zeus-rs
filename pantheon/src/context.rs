@@ -1,6 +1,6 @@
 use crate::graphics;
 use crate::graphics::mode::{DrawMode, PolygonMode};
-use crate::graphics::texture::Texture;
+use crate::graphics::texture::TextureKind;
 use crate::input::{keyboard, mouse};
 use crate::math::Vec2;
 use crate::timer;
@@ -241,11 +241,12 @@ impl<'a> Context {
             .draw_indexed::<F>(&self.device, mode, verts, indices);
     }
 
-    pub fn draw_textured<F>(&mut self, mut mode: DrawMode, verts: &[F], texture: &Texture)
+    pub fn draw_textured<F>(&mut self, mode: DrawMode, verts: &[F], texture: TextureKind)
     where
         F: bytemuck::Pod,
     {
-        self.gfx_context.draw_textured::<F>(&self.device, mode, verts, texture);
+        self.gfx_context
+            .draw_textured::<F>(&self.device, mode, verts, texture);
     }
 
     pub fn render(&mut self) {

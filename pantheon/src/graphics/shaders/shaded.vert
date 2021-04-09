@@ -19,7 +19,7 @@ layout(set=1, binding=1)
     uniform texture2D shadow_texture;
 
 layout(set=1, binding=2)
-    uniform sampler2D shadow_sampler;
+    uniform sampler shadow_sampler;
 
 layout(set=2, binding=0) uniform Light {
     mat4 light_view_proj;
@@ -37,9 +37,11 @@ float fetch_shadow(vec4 coords, float bias) {
     }
 
     vec3 proj_coords = coords.xyz / coords.w;
-    proj_coords = (proj_coords * -0.5)  + 0.5;
+    vec2 flip_correction = vec2(0.5, -0.5);
+    proj_coords.xy = proj_coords.xy * flip_correction;
+    proj_coords.xy  = proj_coords.xy + vec2(0.5);
     
-    float closest_depth = texture(shadow_sampler, proj_coords.xy).r;
+    float closest_depth = texture(sampler2D(shadow_texture, shadow_sampler), proj_coords.xy).r;
 
     float current_depth = proj_coords.z;
 

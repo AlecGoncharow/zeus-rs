@@ -103,14 +103,14 @@ pub struct Cuboid {
     vertices: [ShadedVertex; 8],
     faces: [(Triangle, Triangle); 6],
     indices: [u32; 36],
-    pub draw_mode: PolygonMode,
+    pub draw_mode: DrawMode,
     pub position: Vec3,
     pub rotation: Mat4,
     pub moused_over: bool,
 }
 
 impl Cuboid {
-    pub fn cube(size: f32, position: Vec3, draw_mode: Option<PolygonMode>) -> Cuboid {
+    pub fn cube(size: f32, position: Vec3, draw_mode: Option<DrawMode>) -> Cuboid {
         // TODO normals
         let pos = get_cube_verts(size);
         //let colors = cuboid_default_colors();
@@ -158,7 +158,8 @@ impl Cuboid {
             vertices,
             faces,
             indices: cube_indices(),
-            draw_mode: draw_mode.unwrap_or(PolygonMode::Fill),
+            draw_mode: draw_mode
+                .unwrap_or(DrawMode::Shaded(Topology::TriangleList(PolygonMode::Fill))),
             position,
             rotation: Mat4::identity(),
             moused_over: false,
@@ -353,7 +354,7 @@ impl Drawable for Cuboid {
     }
 
     fn draw_mode(&self) -> DrawMode {
-        DrawMode::Shaded(Topology::TriangleList(self.draw_mode))
+        self.draw_mode
     }
 
     fn rotate(&mut self, theta: f32, axis: Vec3) {
