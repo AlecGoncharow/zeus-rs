@@ -10,12 +10,16 @@ use crate::graphics::mode::MODE_COUNT;
 use crate::graphics::Color;
 use crate::graphics::Topology;
 use crate::math::{Mat4, Vec3};
+use crate::graphics::texture::Texture;
 
 use super::mesh::Mesh;
 use super::vertex::ShadedVertex;
+use super::vertex::TexturedVertex;
 use super::vertex::Vertex;
 
 type Shaders = (
+    wgpu::ShaderModule,
+    wgpu::ShaderModule,
     wgpu::ShaderModule,
     wgpu::ShaderModule,
     wgpu::ShaderModule,
@@ -88,9 +92,8 @@ pub struct GraphicsContext {
     forward_bind_group_layout: wgpu::BindGroupLayout,
     textured_quad_bind_group_layout: wgpu::BindGroupLayout,
 
-    depth_texture: crate::graphics::texture::Texture,
-    shadow_view: wgpu::TextureView,
-    shadow_sampler: wgpu::Sampler,
+    depth_texture: Texture,
+    pub shadow_texture: Texture,
 
     pub window_dims: winit::dpi::PhysicalSize<f32>,
 
@@ -122,7 +125,7 @@ impl GraphicsContext {
             a: clear_color.w.into(),
         };
 
-        let (vs_module, fs_module, shaded_vs_module, shaded_fs_module, shadow_bake) =
+        let (vs_module, fs_module, shaded_vs_module, shaded_fs_module, shadow_bake, textured_vs_module, textured_fs_module, ) =
             Self::get_shader_modules(device);
 
         let shadow_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
@@ -147,6 +150,12 @@ impl GraphicsContext {
             label: None,
         });
         let shadow_view = shadow_texture.create_view(&wgpu::TextureViewDescriptor::default());
+
+        let shadow_texture = Texture {
+            texture: shadow_texture,
+            view: shadow_view,
+            sampler: shadow_sampler,
+        };
 
         let shadow_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -205,16 +214,6 @@ impl GraphicsContext {
                 ],
                 label: Some("uniform_bind_group_layout"),
             });
-        /*
-        let shadow_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &shadow_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: uniform_buffer.as_entire_binding(),
-            }],
-            label: Some("uniform_bind_group"),
-        });
-        */
 
         let forward_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -241,27 +240,6 @@ impl GraphicsContext {
                 ],
                 label: Some("uniform_bind_group_layout"),
             });
-
-        /*
-        let forward_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &forward_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: uniform_buffer.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&shadow_view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: wgpu::BindingResource::Sampler(&shadow_sampler),
-                },
-            ],
-            label: Some("uniform_bind_group_layout"),
-        });
-        */
 
         let depth_texture = crate::graphics::texture::Texture::create_depth_texture(
             &device,
@@ -296,13 +274,26 @@ impl GraphicsContext {
             DrawMode::shaded_modes(),
         );
 
-        Self::push_shadow_pipelines(
+        Self::populate_shadow_pipelines(
             &mut render_pipelines,
             device,
             &[&entity_bind_group_layout, &shadow_bind_group_layout],
             &shadow_bake,
             ShadedVertex::desc,
             DrawMode::shadow_modes(),
+        );
+
+        Self::populate_textured_pipelines(
+            &mut render_pipelines,
+            device,
+            &[
+                &textured_quad_bind_group_layout,
+            ],
+            &textured_vs_module,
+            &textured_fs_module,
+            sc_desc,
+            TexturedVertex::desc,
+            DrawMode::textured_modes(),
         );
 
         let window_dims = window.inner_size().cast::<f32>();
@@ -320,8 +311,8 @@ impl GraphicsContext {
             textured_quad_bind_group_layout,
 
             depth_texture,
-            shadow_view,
-            shadow_sampler,
+
+            shadow_texture,
 
             window_dims,
 
@@ -341,7 +332,7 @@ impl GraphicsContext {
     }
 
     pub fn reload_shaders(&mut self, device: &wgpu::Device, sc_desc: &wgpu::SwapChainDescriptor) {
-        let (vs_module, fs_module, shaded_vs_module, shaded_fs_module, shadow_bake) =
+        let (vs_module, fs_module, shaded_vs_module, shaded_fs_module, shadow_bake, textured_vs_module, textured_fs_module,) =
             Self::get_shader_modules(device);
 
         self.render_pipelines.clear();
@@ -374,7 +365,7 @@ impl GraphicsContext {
             DrawMode::shaded_modes(),
         );
 
-        Self::push_shadow_pipelines(
+        Self::populate_shadow_pipelines(
             &mut self.render_pipelines,
             device,
             &[
@@ -384,6 +375,19 @@ impl GraphicsContext {
             &shadow_bake,
             ShadedVertex::desc,
             DrawMode::shadow_modes(),
+        );
+
+        Self::populate_textured_pipelines(
+            &mut self.render_pipelines,
+            device,
+            &[
+                &self.textured_quad_bind_group_layout,
+            ],
+            &textured_vs_module,
+            &textured_fs_module,
+            sc_desc,
+            TexturedVertex::desc,
+            DrawMode::textured_modes(),
         );
     }
 
@@ -436,6 +440,7 @@ impl GraphicsContext {
             }),
             index: None,
             count: verts.len() as u32,
+            texture: None,
         })
     }
 
@@ -480,7 +485,52 @@ impl GraphicsContext {
                 }),
             ),
             count: indices.len() as u32,
+            texture: None,
         });
+    }
+
+    pub fn draw_textured<T>(&mut self, device: &wgpu::Device, mode: DrawMode, verts: &[T], texture: &Texture)
+    where
+        T: bytemuck::Pod,
+    {
+        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("shadow"),
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            compare: Some(wgpu::CompareFunction::LessEqual),
+            ..Default::default()
+        });
+        self.entities.push(Mesh {
+            mode,
+
+            vertex: device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Vertex Buffer"),
+                contents: bytemuck::cast_slice(&verts),
+                usage: wgpu::BufferUsage::VERTEX,
+            }),
+
+            bind_group: device.create_bind_group(&wgpu::BindGroupDescriptor {
+                layout: &self.textured_quad_bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(&texture.view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::Sampler(&sampler),
+                    },
+                ],
+                label: None,
+            }),
+            index: None,
+            count: verts.len() as u32,
+            texture: None,
+        })
     }
 
     pub fn render(&mut self, device: &wgpu::Device, view: &wgpu::TextureView, queue: &wgpu::Queue) {
@@ -507,11 +557,11 @@ impl GraphicsContext {
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&self.shadow_view),
+                    resource: wgpu::BindingResource::TextureView(&self.shadow_texture.view),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&self.shadow_sampler),
+                    resource: wgpu::BindingResource::Sampler(&self.shadow_texture.sampler),
                 },
             ],
             label: None,
@@ -679,7 +729,7 @@ impl GraphicsContext {
         }
     }
 
-    fn push_shadow_pipelines<'a>(
+    fn populate_shadow_pipelines<'a>(
         pipelines: &mut Vec<wgpu::RenderPipeline>,
         device: &wgpu::Device,
         uniform_bind_group_layouts: &[&wgpu::BindGroupLayout],
@@ -736,6 +786,67 @@ impl GraphicsContext {
         }
     }
 
+    fn populate_textured_pipelines<'a>(
+        pipelines: &mut Vec<wgpu::RenderPipeline>,
+        device: &wgpu::Device,
+        uniform_bind_group_layouts: &[&wgpu::BindGroupLayout],
+        vs_module: &wgpu::ShaderModule,
+        fs_module: &wgpu::ShaderModule,
+        sc_desc: &wgpu::SwapChainDescriptor,
+        vert_desc: fn() -> wgpu::VertexBufferLayout<'a>,
+        modes: Vec<DrawMode>,
+    ) {
+        let render_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Pipeline Layout Descriptor"),
+                bind_group_layouts: uniform_bind_group_layouts,
+                push_constant_ranges: &[],
+            });
+        for mode in modes {
+            let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("Texture Render Pipeline"),
+                layout: Some(&render_pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &vs_module,
+                    entry_point: "main",
+                    buffers: &[vert_desc()],
+                },
+                fragment: Some(wgpu::FragmentState {
+                    // 2.
+                    module: &fs_module,
+                    entry_point: "main",
+                    targets: &[wgpu::ColorTargetState {
+                        format: sc_desc.format,
+                        alpha_blend: wgpu::BlendState::REPLACE,
+                        color_blend: wgpu::BlendState::REPLACE,
+                        write_mask: wgpu::ColorWrite::ALL,
+                    }],
+                }),
+                primitive: wgpu::PrimitiveState {
+                    topology: mode.inner().into(),
+                    strip_index_format: None,
+                    front_face: wgpu::FrontFace::Ccw,
+                    cull_mode: wgpu::CullMode::Back,
+                    polygon_mode: mode.inner().inner().into(),
+                },
+
+                depth_stencil: None,
+
+                multisample: wgpu::MultisampleState {
+                    count: 1,
+                    mask: !0,
+                    alpha_to_coverage_enabled: false,
+                },
+            });
+
+            if usize::from(mode) != pipelines.len() {
+                panic!("Render pipeline construction broke");
+            }
+
+            pipelines.push(render_pipeline);
+        }
+    }
+
     fn get_shader_modules(device: &wgpu::Device) -> Shaders {
         let make_module = |path: &str| {
             let spirv_source = std::fs::read(path).unwrap();
@@ -748,14 +859,15 @@ impl GraphicsContext {
         };
 
         let vs_module = make_module("pantheon/src/graphics/shaders/build/shader.vert.spv");
-
         let fs_module = make_module("pantheon/src/graphics/shaders/build/shader.frag.spv");
 
         let shaded_vs_module = make_module("pantheon/src/graphics/shaders/build/shaded.vert.spv");
-
         let shaded_fs_module = make_module("pantheon/src/graphics/shaders/build/shaded.frag.spv");
 
         let shadow_bake = make_module("pantheon/src/graphics/shaders/build/bake_shadow.vert.spv");
+
+        let textured_vs_module= make_module("pantheon/src/graphics/shaders/build/textured.vert.spv");
+        let textured_fs_module= make_module("pantheon/src/graphics/shaders/build/textured.frag.spv");
 
         (
             vs_module,
@@ -763,6 +875,8 @@ impl GraphicsContext {
             shaded_vs_module,
             shaded_fs_module,
             shadow_bake,
+            textured_vs_module,
+            textured_fs_module,
         )
     }
 }

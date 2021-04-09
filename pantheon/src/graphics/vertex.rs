@@ -1,4 +1,5 @@
 use crate::math::Vec3;
+use crate::math::Vec2;
 use crate::Color;
 
 pub enum VertexKind {
@@ -101,6 +102,53 @@ impl From<(Vec3, Color)> for Vertex {
         Self {
             position: vecs.0,
             color: vecs.1,
+        }
+    }
+}
+
+unsafe impl bytemuck::Pod for TexturedVertex {}
+unsafe impl bytemuck::Zeroable for TexturedVertex {}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct TexturedVertex {
+    pub position: Vec3,
+    pub color: Color,
+    pub uv_coords: Vec2,
+}
+
+impl TexturedVertex {
+    pub fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
+        wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
+            step_mode: wgpu::InputStepMode::Vertex,
+            attributes: &[
+                wgpu::VertexAttribute {
+                    offset: 0,
+                    shader_location: 0,
+                    format: wgpu::VertexFormat::Float3,
+                },
+                wgpu::VertexAttribute {
+                    offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
+                    shader_location: 1,
+                    format: wgpu::VertexFormat::Float4,
+                },
+                wgpu::VertexAttribute {
+                    offset: std::mem::size_of::<[f32; 7]>() as wgpu::BufferAddress,
+                    shader_location: 2,
+                    format: wgpu::VertexFormat::Float2,
+                },
+            ],
+        }
+    }
+}
+
+impl From<(Vec3, Color, Vec2)> for TexturedVertex {
+    fn from(vecs: (Vec3, Color, Vec2)) -> Self {
+        Self {
+            position: vecs.0,
+            color: vecs.1,
+            uv_coords: vecs.2,
         }
     }
 }

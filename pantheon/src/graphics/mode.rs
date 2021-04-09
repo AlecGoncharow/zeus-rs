@@ -8,6 +8,7 @@ pub enum DrawMode {
     Normal(Topology),
     Shaded(Topology),
     _ShadowPass(Topology),
+    Textured(Topology),
 }
 
 impl DrawMode {
@@ -16,6 +17,7 @@ impl DrawMode {
             DrawMode::Normal(inner) => inner,
             DrawMode::Shaded(inner) => inner,
             DrawMode::_ShadowPass(inner) => inner,
+            DrawMode::Textured(inner) => inner,
         }
     }
 
@@ -24,6 +26,7 @@ impl DrawMode {
             DrawMode::Normal(ref mut inner) => inner,
             DrawMode::Shaded(ref mut inner) => inner,
             DrawMode::_ShadowPass(ref mut inner) => inner,
+            DrawMode::Textured(ref mut inner) => inner,
         }
     }
 
@@ -45,6 +48,13 @@ impl DrawMode {
         Topology::iterator()
             .copied()
             .map(|inner| DrawMode::_ShadowPass(inner))
+            .collect()
+    }
+
+    pub fn textured_modes() -> Vec<DrawMode> {
+        Topology::iterator()
+            .copied()
+            .map(|inner| DrawMode::Textured(inner))
             .collect()
     }
 }
@@ -156,6 +166,7 @@ impl From<DrawMode> for usize {
             DrawMode::Normal(_) => 0b0,
             DrawMode::Shaded(_) => 0b1111,
             DrawMode::_ShadowPass(_) => 0b1_1110,
+            DrawMode::Textured(_) => 0b10_1101,
         };
         shifted + usize::from(mode.inner())
     }

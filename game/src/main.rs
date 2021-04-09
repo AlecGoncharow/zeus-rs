@@ -16,7 +16,7 @@ use pantheon::math::*;
 use pantheon::graphics::color::Color;
 
 use core::camera::Camera;
-mod entity_manager;
+
 use entity_manager::EntityManager;
 
 use core::entity::Entity;
@@ -32,6 +32,10 @@ use hermes::message::Message;
 
 use hermes::tokio;
 
+
+mod entity_manager;
+mod ui;
+
 struct State {
     frame: u32,
     entity_manager: EntityManager,
@@ -45,6 +49,7 @@ struct State {
 
 impl EventHandler for State {
     fn draw(&mut self, ctx: &mut Context) -> Result<()> {
+        use pantheon::{Topology, DrawMode, PolygonMode};
         ctx.start_drawing();
         self.frame += 1;
 
@@ -54,6 +59,9 @@ impl EventHandler for State {
             self.entity_manager.debug_draw(ctx);
         }
 
+        let shadow_quad = ui::TexturableQuad::new((0.0, 0.0).into(), (1.0, 1.0).into());
+
+        //ctx.draw_textured(DrawMode::Textured(Topology::TriangleList(PolygonMode::Fill)), &shadow_quad.verts, &ctx.gfx_context.shadow_texture);
         ctx.render();
         Ok(())
     }
@@ -109,7 +117,7 @@ impl EventHandler for State {
             ctx.set_view(mesh.view_matrix());
             ctx.set_projection(mesh.projection_matrix());
         } else {
-            ctx.set_view(self.entity_manager.camera.view);
+            ctx.set_view(self.entity_manager.camera.update_view_matrix());
             ctx.set_projection(self.entity_manager.camera.projection);
         }
         self.entity_manager.update(ctx);

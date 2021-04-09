@@ -1,4 +1,5 @@
 use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
+use crate::Vec3;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Vec2 {
@@ -28,6 +29,14 @@ impl Vec2 {
 
     pub fn magnitude(&self) -> f32 {
         self.squared_mag().sqrt()
+    }
+
+    pub fn vec3(&self) -> Vec3 {
+        Vec3 {
+            x: self.x,
+            y: self.y,
+            z: 0.0
+        }
     }
 }
 
