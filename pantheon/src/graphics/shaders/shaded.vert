@@ -15,10 +15,10 @@ layout(set=0, binding=0) uniform Entity {
     mat4 projection;
 } entity;
 
-layout(set=1, binding=1)
+layout(set=1, binding=0)
     uniform texture2D shadow_texture;
 
-layout(set=1, binding=2)
+layout(set=1, binding=1)
     uniform sampler shadow_sampler;
 
 layout(set=2, binding=0) uniform Light {
@@ -37,10 +37,10 @@ float fetch_shadow(vec4 coords, float bias) {
     }
 
     vec3 proj_coords = coords.xyz / coords.w;
-    //proj_coords = proj_coords * 0.5 + 0.5;
-    proj_coords.y = (proj_coords.y * 0.5) + 0.5;
-    proj_coords.x = (proj_coords.x * 0.5) + 0.5;
-    proj_coords.z = (proj_coords.z * 0.5) + 0.5;
+    proj_coords = proj_coords * -0.5 + 0.5;
+    //proj_coords.y = (proj_coords.y * 0.5) + 0.5;
+    //proj_coords.x = (proj_coords.x * 0.5) + 0.5;
+    //proj_coords.z = (proj_coords.z * 0.5) + 0.5;
     //vec2 flip_correction = vec2(0.5, -0.5);
     //proj_coords.xy = proj_coords.xy * flip_correction;
     //proj_coords.xy  = proj_coords.xy + vec2(0.5, 0.5);
@@ -50,8 +50,7 @@ float fetch_shadow(vec4 coords, float bias) {
     float current_depth = proj_coords.z;
 
     //return (current_depth - bias) > closest_depth ? 1.0 : 0.0;
-    return (current_depth) > closest_depth ? 1.0 : 0.0;
-
+    return (current_depth) < closest_depth ? 1.0 : 0.0;
 
     // compensate for the Y-flip difference between the NDC and texture coordinates
     //const vec2 flip_correction = vec2(0.5, -0.5);
