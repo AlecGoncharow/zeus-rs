@@ -44,6 +44,7 @@ struct State {
     fps: f32,
     debug: bool,
     sun_mesh: Option<core::entity::sun::Sun>,
+    //texture: Texture,
 }
 
 impl EventHandler for State {
@@ -58,14 +59,16 @@ impl EventHandler for State {
             self.entity_manager.debug_draw(ctx);
         }
 
-        let shadow_quad = ui::TexturableQuad::new((0.0, 0.0).into(), (1.0, 1.0).into());
+        let shadow_quad = ui::TexturableQuad::new((0.5, 0.5).into(), (1.0, 1.0).into());
 
         //println!("{:#?}", shadow_quad);
 
         ctx.draw_textured(
             DrawMode::Textured(Topology::TriangleList(PolygonMode::Fill)),
             &shadow_quad.verts,
+            //TextureKind::Custom(&self.texture),
             TextureKind::Shadow,
+            //TextureKind::Depth,
         );
         ctx.render();
         Ok(())
@@ -163,7 +166,7 @@ impl EventHandler for State {
             } else {
                 let mesh = self.entity_manager.get_sun_mesh();
                 self.sun_mesh = Some(mesh);
-                let n_mesh = core::entity::cube::Cuboid::cube(0.1, mesh.cube.position, None);
+                let n_mesh = core::entity::cube::Cuboid::cube(0.1, mesh.cube.position, None, None);
                 self.entity_manager.set_sun_mesh(n_mesh);
             }
         }
@@ -310,13 +313,24 @@ async fn main() {
     terrain.center = (terrain_size as f32 / 2., 0., terrain_size as f32 / 2.).into();
     terrain.init(&mut ctx);
 
+    /*
+    let test_bytes = include_bytes!("../../dog.png");
+    let texture = pantheon::graphics::texture::Texture::from_bytes(
+        &ctx.device,
+        &ctx.queue,
+        test_bytes,
+        "dog",
+    )
+    .unwrap();
+    */
+
     let my_game = State {
         frame: 0,
         entity_manager: EntityManager::new(
             Camera::new(
                 (20, 20, 20).into(),
                 Vec3::new_from_one(0),
-                (0, -1, 0).into(),
+                (0, 1, 0).into(),
                 90.0,
                 (
                     ctx.gfx_context.window_dims.width,

@@ -45,7 +45,7 @@ impl EntityManager {
             camera,
             terrain,
             sun: Sun::new(
-                (100, 0, 100).into(),
+                (25, 25, 0).into(),
                 20.,
                 Color::new(255, 250, 209),
                 Color::new(255, 250, 209),

@@ -1,10 +1,10 @@
 use anyhow::*;
 use image::GenericImageView;
 
-pub enum TextureKind {
+pub enum TextureKind<'a> {
     Depth,
     Shadow,
-    Custom(Texture),
+    Custom(&'a Texture),
 }
 
 pub struct Texture {
@@ -77,7 +77,7 @@ impl Texture {
         img: &image::DynamicImage,
         label: Option<&str>,
     ) -> Result<Self> {
-        let rgba = img.as_rgba8().unwrap();
+        let rgba = img.clone().into_rgba8();
         let dimensions = img.dimensions();
 
         let size = wgpu::Extent3d {
@@ -101,7 +101,7 @@ impl Texture {
                 mip_level: 0,
                 origin: wgpu::Origin3d::ZERO,
             },
-            rgba,
+            &rgba,
             wgpu::TextureDataLayout {
                 offset: 0,
                 bytes_per_row: 4 * dimensions.0,

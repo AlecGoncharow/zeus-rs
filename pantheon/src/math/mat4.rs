@@ -317,7 +317,7 @@ impl Mat4 {
 
         projection_matrix.x.x = x_scale;
 
-        projection_matrix.y.y = -y_scale;
+        projection_matrix.y.y = y_scale;
 
         projection_matrix.z.z = 0.5 * (near_plane + far_plane) * range_inv;
         projection_matrix.z.w = near_plane * far_plane * range_inv;
@@ -338,7 +338,7 @@ impl Mat4 {
 
         projection_matrix.x.x = x_scale / 2.0;
 
-        projection_matrix.y.y = -y_scale / (2.0 * aspect_ratio);
+        projection_matrix.y.y = y_scale / (2.0 * aspect_ratio);
 
         projection_matrix.z.x = 0.5;
         projection_matrix.z.y = 0.5;

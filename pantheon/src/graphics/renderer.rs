@@ -205,8 +205,8 @@ impl GraphicsContext {
                         visibility: wgpu::ShaderStage::FRAGMENT,
                         ty: wgpu::BindingType::Texture {
                             multisampled: false,
-                            sample_type: wgpu::TextureSampleType::Depth,
-                            view_dimension: wgpu::TextureViewDimension::D2Array,
+                            sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                            view_dimension: wgpu::TextureViewDimension::D2,
                         },
                         count: None,
                     },
@@ -214,8 +214,8 @@ impl GraphicsContext {
                         binding: 1,
                         visibility: wgpu::ShaderStage::FRAGMENT,
                         ty: wgpu::BindingType::Sampler {
-                            comparison: true,
-                            filtering: false,
+                            comparison: false,
+                            filtering: true,
                         },
                         count: None,
                     },
@@ -259,7 +259,7 @@ impl GraphicsContext {
         Self::populate_pipelines(
             &mut render_pipelines,
             device,
-            &[&entity_bind_group_layout, &forward_bind_group_layout],
+            &[&entity_bind_group_layout],
             &vs_module,
             &fs_module,
             sc_desc,
@@ -502,31 +502,29 @@ impl GraphicsContext {
         });
     }
 
-    pub fn draw_textured<T>(
+    pub fn draw_textured<'a, T>(
         &mut self,
         device: &wgpu::Device,
         mode: DrawMode,
         verts: &[T],
-        texture_kind: TextureKind,
+        texture_kind: TextureKind<'a>,
     ) where
         T: bytemuck::Pod,
     {
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            label: Some("shadow"),
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             address_mode_w: wgpu::AddressMode::ClampToEdge,
             mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Nearest,
             mipmap_filter: wgpu::FilterMode::Nearest,
-            compare: Some(wgpu::CompareFunction::LessEqual),
             ..Default::default()
         });
 
         let texture = match texture_kind {
             TextureKind::Depth => &self.depth_texture,
             TextureKind::Shadow => &self.shadow_texture,
-            TextureKind::Custom(_) => unimplemented!(),
+            TextureKind::Custom(texture) => &texture,
         };
         self.entities.push(Mesh {
             mode,
@@ -597,7 +595,7 @@ impl GraphicsContext {
             label: Some("Start Shadow Render Pass"),
             color_attachments: &[],
             depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                attachment: &self.depth_texture.view,
+                attachment: &self.shadow_texture.view,
                 depth_ops: Some(wgpu::Operations {
                     load: wgpu::LoadOp::Clear(1.0),
                     store: true,
@@ -821,7 +819,7 @@ impl GraphicsContext {
                     topology: mode.inner().into(),
                     strip_index_format: None,
                     front_face: wgpu::FrontFace::Ccw,
-                    cull_mode: wgpu::CullMode::Back,
+                    cull_mode: wgpu::CullMode::None,
                     polygon_mode: mode.inner().inner().into(),
                 },
 

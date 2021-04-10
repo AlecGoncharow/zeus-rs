@@ -33,7 +33,7 @@ pub struct ShadedVertex {
 impl ShadedVertex {
     pub fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
         wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<ShadedVertex>() as wgpu::BufferAddress,
+            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
             step_mode: wgpu::InputStepMode::Vertex,
             attributes: &[
                 wgpu::VertexAttribute {
@@ -79,7 +79,7 @@ pub struct Vertex {
 impl Vertex {
     pub fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
         wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
+            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
             step_mode: wgpu::InputStepMode::Vertex,
             attributes: &[
                 wgpu::VertexAttribute {
@@ -113,9 +113,7 @@ unsafe impl bytemuck::Zeroable for TexturedVertex {}
 #[derive(Copy, Clone, Debug)]
 pub struct TexturedVertex {
     pub position: Vec3,
-    _padding1: u32,
     pub color: Color,
-    _padding2: u32,
     pub uv_coords: Vec2,
 }
 
@@ -123,16 +121,14 @@ impl TexturedVertex {
     pub fn new(position: Vec3, color: Color, uv_coords: Vec2) -> Self {
         Self {
             position,
-            _padding1: 0,
             color,
-            _padding2: 0,
             uv_coords,
         }
     }
 
     pub fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
         wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
+            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
             step_mode: wgpu::InputStepMode::Vertex,
             attributes: &[
                 wgpu::VertexAttribute {
@@ -159,9 +155,7 @@ impl From<(Vec3, Color, Vec2)> for TexturedVertex {
     fn from(vecs: (Vec3, Color, Vec2)) -> Self {
         Self {
             position: vecs.0,
-            _padding1: 0,
             color: vecs.1,
-            _padding2: 0,
             uv_coords: vecs.2,
         }
     }

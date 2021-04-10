@@ -188,7 +188,7 @@ impl Camera {
     }
 
     pub fn process_mouse_move(&mut self, delta: Vec2, delta_time: f32) {
-        let x_offset = delta.x * self.mouse_speed * delta_time;
+        let x_offset = -delta.x * self.mouse_speed * delta_time;
         let y_offset = delta.y * self.mouse_speed * delta_time;
 
         self.yaw += x_offset;

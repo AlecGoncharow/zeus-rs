@@ -9,12 +9,15 @@ layout(set=0, binding=0) uniform Data {
     mat4 model;
     mat4 view;
     mat4 projection;
+
+} data;
+
+layout(set=1, binding=0) uniform Light {
     mat4 light_view_proj;
     vec3 light_pos;
     vec4 light_color;
-} data;
-
+} light;
 
 void main() {
-    gl_Position = data.light_view_proj * data.model * vec4(a_position, 1.0);
+    gl_Position = light.light_view_proj * data.model * vec4(a_position, 1.0);
 }

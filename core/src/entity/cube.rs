@@ -99,8 +99,66 @@ pub fn cuboid_default_colors() -> [Color; 8] {
 }
 
 #[derive(Debug, Copy, Clone)]
+enum CubioidVertMode {
+    ShadedVertex([ShadedVertex; 8]),
+    Vertex([Vertex; 8]),
+}
+
+#[allow(dead_code)]
+impl CubioidVertMode {
+    pub fn is_vertex(&self) -> bool {
+        match self {
+            &CubioidVertMode::Vertex(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn as_vertex(&self) -> &[Vertex; 8] {
+        match self {
+            &CubioidVertMode::Vertex(ref verts) => verts,
+            _ => panic!("bad usage"),
+        }
+    }
+
+    pub fn try_as_vertex(&self) -> Option<&[Vertex; 8]> {
+        match self {
+            &CubioidVertMode::Vertex(ref verts) => Some(verts),
+            _ => None,
+        }
+    }
+
+    pub fn is_shaded(&self) -> bool {
+        match self {
+            &CubioidVertMode::ShadedVertex(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn as_shaded(&self) -> &[ShadedVertex; 8] {
+        match self {
+            &CubioidVertMode::ShadedVertex(ref verts) => verts,
+            _ => panic!("bad usage"),
+        }
+    }
+
+    pub fn try_as_shaded(&self) -> Option<&[ShadedVertex; 8]> {
+        match self {
+            &CubioidVertMode::ShadedVertex(ref verts) => Some(verts),
+            _ => None,
+        }
+    }
+
+    pub fn try_as_shaded_mut(&mut self) -> Option<&mut [ShadedVertex; 8]> {
+        match self {
+            &mut CubioidVertMode::ShadedVertex(ref mut verts) => Some(verts),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
 pub struct Cuboid {
-    vertices: [ShadedVertex; 8],
+    vertices: CubioidVertMode,
     faces: [(Triangle, Triangle); 6],
     indices: [u32; 36],
     pub draw_mode: DrawMode,
@@ -110,23 +168,40 @@ pub struct Cuboid {
 }
 
 impl Cuboid {
-    pub fn cube(size: f32, position: Vec3, draw_mode: Option<DrawMode>) -> Cuboid {
+    pub fn cube(
+        size: f32,
+        position: Vec3,
+        color: Option<Color>,
+        draw_mode: Option<DrawMode>,
+    ) -> Cuboid {
         // TODO normals
         let pos = get_cube_verts(size);
         //let colors = cuboid_default_colors();
-        let colors = [Color::new(60, 60, 60); 8];
+        let color = color.unwrap_or(Color::new(60, 60, 60));
+        let colors = [color; 8];
         let normals = cube_normals();
 
-        let mut vertices = [(
-            Vec3::new_from_one(1),
-            Color::new(0, 0, 0),
-            Vec3::new_from_one(1),
-        )
-            .into(); 8];
+        let vertices = if let Some(DrawMode::Normal(_)) = draw_mode {
+            let mut vertices = [(Vec3::new_from_one(1), Color::new(0, 0, 0)).into(); 8];
 
-        for i in 0..8 {
-            vertices[i] = (pos[i], colors[i], normals[i]).into();
-        }
+            for i in 0..8 {
+                vertices[i] = (pos[i], colors[i]).into();
+            }
+            CubioidVertMode::Vertex(vertices)
+        } else {
+            let mut vertices = [(
+                Vec3::new_from_one(1),
+                Color::new(0, 0, 0),
+                Vec3::new_from_one(1),
+            )
+                .into(); 8];
+
+            for i in 0..8 {
+                vertices[i] = (pos[i], colors[i], normals[i]).into();
+            }
+
+            CubioidVertMode::ShadedVertex(vertices)
+        };
 
         let faces = [
             (
@@ -167,14 +242,25 @@ impl Cuboid {
     }
 
     pub fn set_color(&mut self, new_color: Color) {
-        for vert in self.vertices.iter_mut() {
-            vert.color = new_color;
+        match self.vertices {
+            CubioidVertMode::Vertex(ref mut verts) => {
+                for vert in verts.iter_mut() {
+                    vert.color = new_color;
+                }
+            }
+            CubioidVertMode::ShadedVertex(ref mut verts) => {
+                for vert in verts.iter_mut() {
+                    vert.color = new_color;
+                }
+            }
         }
     }
 
     pub fn invert_surface_norms(&mut self) {
-        for vert in self.vertices.iter_mut() {
-            vert.normal *= -1.;
+        if let Some(verts) = self.vertices.try_as_shaded_mut() {
+            for vert in verts.iter_mut() {
+                vert.normal *= -1.;
+            }
         }
     }
 }
@@ -209,25 +295,34 @@ impl DrawComponent for Cuboid {
         ctx.set_model(self.model_matrix());
         //ctx.draw(Topology::TriangleList(PolygonMode::Line), &face_lines);
 
-        ctx.draw_indexed(self.draw_mode(), &self.vertices, &self.indices);
+        match self.vertices {
+            CubioidVertMode::Vertex(verts) => {
+                ctx.draw_indexed(self.draw_mode(), &verts, &self.indices);
+            }
+            CubioidVertMode::ShadedVertex(verts) => {
+                ctx.draw_indexed(self.draw_mode(), &verts, &self.indices);
+            }
+        }
     }
 
     fn debug_draw(&mut self, ctx: &mut Context) {
-        let mut lines: Vec<Vertex> = vec![];
-        let color = Color::new(0, 0, 0);
-        let end_color = Color::new(255, 0, 255);
+        if let Some(verts) = self.vertices.try_as_shaded() {
+            let mut lines: Vec<Vertex> = vec![];
+            let color = Color::new(0, 0, 0);
+            let end_color = Color::new(255, 0, 255);
 
-        for vert in self.vertices.iter() {
-            lines.push((vert.position, color).into());
-            lines.push((vert.position + (3. * vert.normal), end_color).into());
+            for vert in verts.iter() {
+                lines.push((vert.position, color).into());
+                lines.push((vert.position + (3. * vert.normal), end_color).into());
+            }
+
+            ctx.set_model(self.model_matrix());
+
+            ctx.draw(
+                DrawMode::Normal(Topology::LineList(PolygonMode::Fill)),
+                &lines,
+            );
         }
-
-        ctx.set_model(self.model_matrix());
-
-        ctx.draw(
-            DrawMode::Normal(Topology::LineList(PolygonMode::Fill)),
-            &lines,
-        );
     }
 }
 
@@ -247,7 +342,7 @@ impl MouseComponent for Cuboid {
             println!("delta: {:#?}", delta);
 
             let ndc_x = delta.x / ctx.gfx_context.window_dims.width;
-            let ndc_y = delta.y / ctx.gfx_context.window_dims.height;
+            let ndc_y = -delta.y / ctx.gfx_context.window_dims.height;
 
             let delta_x = 2.0 * (pos - camera.origin).magnitude() * ndc_x * camera.u;
             let delta_y = 2.0 * (pos - camera.origin).magnitude() * ndc_y * camera.v;

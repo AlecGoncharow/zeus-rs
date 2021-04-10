@@ -24,6 +24,7 @@ impl Sun {
         let mut cube = Cuboid::cube(
             size,
             pos,
+            None,
             Some(DrawMode::Normal(Topology::TriangleList(PolygonMode::Fill))),
         );
 

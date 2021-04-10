@@ -1,4 +1,5 @@
 pub use anyhow;
+pub use image;
 pub use winit;
 
 pub mod context;

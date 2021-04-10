@@ -22,12 +22,12 @@ impl TexturableQuad {
 
         Self {
             verts: [
-                TexturedVertex::new(top_left.vec3(), Color::new(1, 1, 1), (0.0, 1.0).into()),
-                TexturedVertex::new(bot_left.vec3(), Color::new(1, 1, 1), (0.0, 0.0).into()),
-                TexturedVertex::new(top_right.vec3(), Color::new(1, 1, 1), (1.0, 1.0).into()),
-                TexturedVertex::new(top_right.vec3(), Color::new(1, 1, 1), (1.0, 1.0).into()),
-                TexturedVertex::new(bot_left.vec3(), Color::new(1, 1, 1), (0.0, 0.0).into()),
-                TexturedVertex::new(bot_right.vec3(), Color::new(1, 1, 1), (1.0, 0.0).into()),
+                TexturedVertex::new(top_left.vec3(), Color::new(1, 1, 1), (0.0, 0.0).into()),
+                TexturedVertex::new(bot_left.vec3(), Color::new(1, 1, 1), (0.0, 1.0).into()),
+                TexturedVertex::new(top_right.vec3(), Color::new(1, 1, 1), (1.0, 0.0).into()),
+                TexturedVertex::new(top_right.vec3(), Color::new(1, 1, 1), (1.0, 0.0).into()),
+                TexturedVertex::new(bot_left.vec3(), Color::new(1, 1, 1), (0.0, 1.0).into()),
+                TexturedVertex::new(bot_right.vec3(), Color::new(1, 1, 1), (1.0, 1.0).into()),
             ],
         }
     }

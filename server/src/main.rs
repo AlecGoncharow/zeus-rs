@@ -26,7 +26,7 @@ impl ServerState {
 }
 
 fn generate_cubes(state: &mut ServerState) {
-    let cube = Cuboid::cube(5.0, (0, 0, 0).into(), None);
+    let cube = Cuboid::cube(5.0, (0, 0, 0).into(), None, None);
     state.entity_manager.push_entity(EntityKind::from(cube));
 
     let sun = Sun::new(
