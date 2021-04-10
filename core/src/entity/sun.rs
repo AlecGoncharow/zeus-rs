@@ -17,6 +17,7 @@ pub struct Sun {
     pub color: Color,
     pub light_color: Color,
     pub size: f32,
+    pub rotating: bool,
 }
 
 impl Sun {
@@ -37,6 +38,7 @@ impl Sun {
             radians: 90.0f32.to_radians(),
             size,
             light_color,
+            rotating: false,
         }
     }
     pub fn view_matrix(&self) -> Mat4 {
@@ -54,33 +56,33 @@ impl Entity for Sun {
     }
 
     fn update(&mut self, ctx: &mut pantheon::context::Context) {
-        //let delta_time = ctx.timer_context.delta_time();
-        //let rotate = delta_time * 0.2 * std::f32::consts::PI;
-        //self.radians += rotate;
-        //self.radians %= (std::f32::consts::PI * 2.;
+        if self.rotating {
+            let delta_time = ctx.timer_context.delta_time();
+            let rotate = delta_time * 0.05 * std::f32::consts::PI;
+            self.radians += rotate;
+            //self.radians %= (std::f32::consts::PI * 2.;
 
-        let cos = self.radians.cos();
-        let sin = self.radians.sin();
-        ctx.gfx_context.clear_color = if sin > 0. {
-            if cos > 0. {
-                Color::interpolate(SUNRISE, NOON, sin)
+            let cos = self.radians.cos();
+            let sin = self.radians.sin();
+            ctx.gfx_context.clear_color = if sin > 0. {
+                if cos > 0. {
+                    Color::interpolate(SUNRISE, NOON, sin)
+                } else {
+                    Color::interpolate(SUNSET, NOON, sin)
+                }
             } else {
-                Color::interpolate(SUNSET, NOON, sin)
+                if cos < 0. {
+                    Color::interpolate(SUNSET, MIDNIGHT, -sin)
+                } else {
+                    Color::interpolate(SUNRISE, MIDNIGHT, -sin)
+                }
             }
-        } else {
-            if cos < 0. {
-                Color::interpolate(SUNSET, MIDNIGHT, -sin)
-            } else {
-                Color::interpolate(SUNRISE, MIDNIGHT, -sin)
-            }
+            .into();
+
+            self.cube.position =
+                (Mat4::rotation(rotate, (0, 0, 1).into()) * self.cube.position.vec4()).vec3();
         }
-        .into();
 
-        /*
-        self.cube.position =
-            (Mat4::rotation(rotate, (0, 0, 1).into()) * self.cube.position.vec4()).vec3();
-
-        */
         ctx.gfx_context.light_uniforms.light_position = self.cube.position;
         ctx.gfx_context.light_uniforms.light_view_project =
             self.projection_matrix() * self.view_matrix();

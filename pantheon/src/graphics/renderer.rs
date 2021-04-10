@@ -106,8 +106,8 @@ impl GraphicsContext {
     const MAX_LIGHTS: usize = 1;
     const SHADOW_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
     const SHADOW_SIZE: wgpu::Extent3d = wgpu::Extent3d {
-        width: 2048,
-        height: 2048,
+        width: 4096,
+        height: 4096,
         depth: Self::MAX_LIGHTS as u32,
     };
 

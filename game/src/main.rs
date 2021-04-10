@@ -324,7 +324,7 @@ async fn main() {
     .unwrap();
     */
 
-    let my_game = State {
+    let mut my_game = State {
         frame: 0,
         entity_manager: EntityManager::new(
             Camera::new(
@@ -351,6 +351,8 @@ async fn main() {
 
     ctx.set_view(my_game.entity_manager.camera.view);
     ctx.set_projection(my_game.entity_manager.camera.projection);
+    let cube = core::entity::cube::Cuboid::cube(5.0, (0, 0, 0).into(), None, None);
+    my_game.entity_manager.push_entity(EntityKind::from(cube));
 
     pantheon::event::run(event_loop, ctx, my_game);
 }
