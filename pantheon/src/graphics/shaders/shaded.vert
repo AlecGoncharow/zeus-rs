@@ -58,7 +58,9 @@ float fetch_shadow(vec4 coords, float bias) {
     //return current_depth;
 
     //return (current_depth - bias) > closest_depth ? 1.0 : 0.0;
+    //return 1.0;
     return diff < 0 ? 1.0 : 0.2;
+    
 
     // compensate for the Y-flip difference between the NDC and texture coordinates
     //const vec2 flip_correction = vec2(0.5, -0.5);
@@ -81,16 +83,18 @@ void main() {
     //
     vec3 pos_to_light_dir = normalize(light.light_pos - world_pos.xyz);
     vec3 light_dir = normalize(world_pos.xyz - light.light_pos);
-    vec3 world_normal = normalize(mat3(entity.model) * a_position);
+    vec3 world_normal = normalize(mat3(entity.model) * a_normal);
     // flip the direction of the light_direction_vector and dot it with the surface normal
-    float brightness_diffuse = clamp(dot(pos_to_light_dir, a_normal), 0.2, 1.0);
+    float brightness_diffuse = clamp(dot(pos_to_light_dir, world_normal), 0.2, 1.0);
     // project into the light space
-    float bias = min(0.05 * (1.0 - dot(world_normal, pos_to_light_dir)), 0.001);
+    float bias = max(0.00000005 * (1.0 - dot(world_normal, light_dir)), 0.0001);
     //float bias = 0.05;
     float shadow = fetch_shadow(light.light_view_proj * world_pos, bias);
 
     //vec4 color = (1.0 - shadow) * brightness_diffuse * data.light_color;
-    vec4 color = (ambient + (shadow)) * brightness_diffuse * light.light_color;
+    vec4 color = shadow * brightness_diffuse * light.light_color;
+    color += ambient * light.light_color;
+
     //vec4 color = (ambient + brightness_diffuse) * data.light_color;
 
     v_color.rgb = color.rgb * a_color.rgb;
