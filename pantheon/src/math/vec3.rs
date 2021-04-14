@@ -50,12 +50,11 @@ impl Vec3 {
     #[inline]
     pub fn refract(&self, n: &Self, ni_over_nt: impl Into<f32> + Copy) -> Option<Self> {
         let ni_over_nt = ni_over_nt.into();
-        let uv = self.make_unit_vector();
+        let uv = self.unit_vector();
         let dt = uv.dot(n);
         let discriminant = 1.0 - ((ni_over_nt * ni_over_nt) * (1.0 - (dt * dt)));
         if discriminant > 0.0 {
             // source https://raytracing.github.io/books/RayTracingInOneWeekend.html#dielectrics
-            // @TODO understand what this is actually calculating
             Some((ni_over_nt * (uv - (dt * *n))) - (discriminant.sqrt() * *n))
         } else {
             None
@@ -105,6 +104,20 @@ impl Vec3 {
         self.squared_mag().sqrt()
     }
 
+    /// checked normalization, only performs scalar multiply of vector if not already mag ~= 1.0
+    #[inline]
+    pub fn unit_vector(&self) -> Self {
+        let mag = self.magnitude();
+
+        if (mag - 1.0).abs() > f32::EPSILON {
+            let scalar = 1.0 / mag;
+            scalar * *self
+        } else {
+            *self
+        }
+    }
+
+    #[inline]
     pub fn make_unit_vector(&self) -> Self {
         let scalar = 1.0 / self.magnitude();
         scalar * *self
@@ -112,7 +125,7 @@ impl Vec3 {
 
     #[inline]
     pub fn normalize(&mut self) {
-        *self = self.make_unit_vector();
+        *self = self.unit_vector();
     }
 
     #[inline]
@@ -123,28 +136,15 @@ impl Vec3 {
     #[inline]
     pub fn clamp(&self, min: f32, max: f32) -> Self {
         Self {
-            x: if self.x < min {
-                min
-            } else if self.x > max {
-                max
-            } else {
-                self.x
-            },
-            y: if self.y < min {
-                min
-            } else if self.y > max {
-                max
-            } else {
-                self.y
-            },
-            z: if self.z < min {
-                min
-            } else if self.z > max {
-                max
-            } else {
-                self.z
-            },
+            x: self.x.clamp(min, max),
+            y: self.y.clamp(min, max),
+            z: self.z.clamp(min, max),
         }
+    }
+
+    #[inline]
+    pub fn approx_eq(&self, other: &Self) -> bool {
+        (*self - *other).magnitude() <= f32::EPSILON
     }
 }
 
@@ -313,5 +313,50 @@ mod tests {
         };
         println!("{:#?}, {:#?}", vec, vec.make_unit_vector());
         assert_eq!(expected, vec.make_unit_vector());
+    }
+
+    #[test]
+    fn test_approx_eq() {
+        let unit = Vec3 {
+            x: 0.0,
+            y: 1.0,
+            z: 0.0,
+        };
+
+        let approx_unit = Vec3 {
+            x: 0.0,
+            y: 0.99999994,
+            z: 0.0,
+        };
+
+        assert!(approx_unit.approx_eq(&unit));
+
+        let unit = Vec3 {
+            x: 0.60042024,
+            y: 0.0,
+            z: -0.79968464,
+        };
+
+        let approx_unit = Vec3 {
+            x: 0.6004203,
+            y: 0.0,
+            z: -0.79968464,
+        };
+
+        assert!(approx_unit.approx_eq(&unit));
+
+        let unit = Vec3 {
+            x: -0.79968464,
+            y: 0.0,
+            z: 0.60042024,
+        };
+
+        let approx_unit = Vec3 {
+            x: 0.6004203,
+            y: -0.79968464,
+            z: 0.0,
+        };
+
+        assert!(!approx_unit.approx_eq(&unit));
     }
 }

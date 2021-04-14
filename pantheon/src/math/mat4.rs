@@ -41,40 +41,12 @@ impl Mat4 {
 
     /// https://sites.google.com/site/glennmurray/Home/rotation-matrices-and-formulas/rotation-about-an-arbitrary-axis-in-3-dimensions
     pub fn rotation(theta: f32, axis: Vec3) -> Self {
-        let axis = axis.make_unit_vector();
+        let axis = axis.unit_vector();
         let u = axis.x;
         let v = axis.y;
         let w = axis.z;
         let sin_theta = theta.sin();
         let cos_theta = theta.cos();
-
-        /* ROW MAJOR
-        Self {
-            x: Vec4::new(
-                u * u + (1.0 - u * u) * cos_theta,
-                u * v * (1.0 - cos_theta) - w * sin_theta,
-                u * w * (1.0 - cos_theta) + v * sin_theta,
-                0.0,
-            )
-            .zero_out_insignificant(0.00005),
-            y: Vec4::new(
-                v * u * (1.0 - cos_theta) + w * sin_theta,
-                v * v + (1.0 - v * v) * cos_theta,
-                v * w * (1.0 - cos_theta) - u * sin_theta,
-                0.0,
-            )
-            .zero_out_insignificant(0.00005),
-            z: Vec4::new(
-                w * u * (1.0 - cos_theta) - v * sin_theta,
-                w * v * (1.0 - cos_theta) + u * sin_theta,
-                w * w + (1.0 - w * w) * cos_theta,
-                0.0,
-            )
-            .zero_out_insignificant(0.00005),
-            w: Vec4::new(0, 0, 0, 1),
-        }
-        */
-
         // column major
         Self {
             x: Vec4::new(
@@ -292,9 +264,9 @@ impl Mat4 {
     }
 
     pub fn look_to(look_from: Vec3, dir: Vec3, world_up: Vec3) -> Self {
-        let w = (dir.make_unit_vector()).make_unit_vector();
-        let u = (w.cross(&world_up)).make_unit_vector();
-        let v = u.cross(&w).make_unit_vector();
+        let w = (dir.unit_vector()).unit_vector();
+        let u = (w.cross(&world_up)).unit_vector();
+        let v = u.cross(&w).unit_vector();
         let rotation = Mat4::new(
             Vec4::new(u.x, v.x, w.x, 0.),
             Vec4::new(u.y, v.y, w.y, 0.),

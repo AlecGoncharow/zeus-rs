@@ -99,6 +99,19 @@ impl Vec4 {
         self.squared_mag().sqrt()
     }
 
+    /// checked normalization, only performs scalar multiplication if required
+    #[inline]
+    pub fn unit_vector(&self) -> Self {
+        let mag = self.magnitude();
+
+        if (mag - 1.0).abs() > f32::EPSILON {
+            let scalar = 1.0 / mag;
+            scalar * *self
+        } else {
+            *self
+        }
+    }
+
     pub fn make_unit_vector(&self) -> Self {
         let scalar = 1.0 / self.magnitude();
         scalar * *self
@@ -106,7 +119,7 @@ impl Vec4 {
 
     #[inline]
     pub fn normalize(&mut self) {
-        *self = self.make_unit_vector();
+        *self = self.unit_vector();
     }
 
     #[inline]
@@ -124,34 +137,10 @@ impl Vec4 {
         let min = min.into();
         let max = max.into();
         Self {
-            x: if self.x < min {
-                min
-            } else if self.x > max {
-                max
-            } else {
-                self.x
-            },
-            y: if self.y < min {
-                min
-            } else if self.y > max {
-                max
-            } else {
-                self.y
-            },
-            z: if self.z < min {
-                min
-            } else if self.z > max {
-                max
-            } else {
-                self.z
-            },
-            w: if self.w < min {
-                min
-            } else if self.w > max {
-                max
-            } else {
-                self.w
-            },
+            x: self.x.clamp(min, max),
+            y: self.y.clamp(min, max),
+            z: self.z.clamp(min, max),
+            w: self.w.clamp(min, max),
         }
     }
 
@@ -166,6 +155,11 @@ impl Vec4 {
 
     pub fn vec3(&self) -> Vec3 {
         (self.x, self.y, self.z).into()
+    }
+
+    #[inline]
+    pub fn approx_eq(&self, other: &Self) -> bool {
+        (*self - *other).magnitude() <= f32::EPSILON
     }
 }
 

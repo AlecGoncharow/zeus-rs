@@ -49,9 +49,9 @@ impl Camera {
 
         let origin = look_from;
         // todo thinkabout camera change on resize
-        let w = (look_from - look_at).make_unit_vector();
-        let u = (w.cross(&world_up)).make_unit_vector();
-        let v = u.cross(&w).make_unit_vector();
+        let w = (look_from - look_at).unit_vector();
+        let u = (w.cross(&world_up)).unit_vector();
+        let v = u.cross(&w).unit_vector();
 
         println!("u: {:#?}, v: {:#?}, w: {:#?}", u, v, w);
         let pitch = w.y.asin();
@@ -148,10 +148,10 @@ impl Camera {
         self.w.x = self.yaw.to_radians().cos() * self.pitch.to_radians().cos();
         self.w.y = self.pitch.to_radians().sin();
         self.w.z = self.yaw.to_radians().sin() * self.pitch.to_radians().cos();
-        self.w = self.w.make_unit_vector();
+        self.w = self.w.unit_vector();
 
-        self.u = self.w.cross(&self.world_up).make_unit_vector();
-        self.v = self.u.cross(&self.w).make_unit_vector();
+        self.u = self.w.cross(&self.world_up).unit_vector();
+        self.v = self.u.cross(&self.w).unit_vector();
     }
 
     pub fn process_keypress(&mut self, key: VirtualKeyCode, delta_time: f32) {

@@ -1,5 +1,5 @@
-use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
 use crate::Vec3;
+use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Vec2 {
@@ -8,6 +8,7 @@ pub struct Vec2 {
 }
 
 impl Vec2 {
+    #[inline]
     pub fn new(x: impl Into<f32>, y: impl Into<f32>) -> Self {
         Self {
             x: x.into(),
@@ -15,18 +16,22 @@ impl Vec2 {
         }
     }
 
+    #[inline]
     pub fn origin() -> Self {
         Self { x: 0.0, y: 0.0 }
     }
 
+    #[inline]
     pub fn dot(&self, other: &Self) -> f32 {
         self.x * other.x + self.y * other.y
     }
 
+    #[inline]
     pub fn squared_mag(&self) -> f32 {
         self.dot(self)
     }
 
+    #[inline]
     pub fn magnitude(&self) -> f32 {
         self.squared_mag().sqrt()
     }
@@ -35,8 +40,13 @@ impl Vec2 {
         Vec3 {
             x: self.x,
             y: self.y,
-            z: 0.0
+            z: 0.0,
         }
+    }
+
+    #[inline]
+    pub fn approx_eq(&self, other: &Self) -> bool {
+        (*self - *other).magnitude() < f32::EPSILON
     }
 }
 
