@@ -1,6 +1,6 @@
 use super::Vec3;
 
-use std::ops::{Add, Mul};
+use std::ops::{Add, Mul, Sub};
 
 #[derive(Debug, Copy, Clone)]
 pub struct Quaternion {
@@ -50,6 +50,10 @@ impl Quaternion {
         self.squared_mag().sqrt()
     }
 
+   pub fn approx_eq(&self, other: &Self) -> bool {
+        (*self - *other).magnitude() <= f32::EPSILON
+    }
+
     #[inline]
     pub fn inverse(&self) -> Self {
         let inv_sq_mag = 1.0 / self.squared_mag();
@@ -69,7 +73,7 @@ impl Quaternion {
 
     #[inline]
     pub fn lerp(&self, to: &Self, t: f32) -> Self {
-        t * self + (1.0 - t) * to
+        t * to + (1.0 - t) * self
     }
 
     #[inline]
@@ -134,6 +138,16 @@ impl Add for Quaternion {
         Self {
             vector: self.vector + rhs.vector,
             scalar: self.scalar + rhs.scalar,
+        }
+    }
+}
+
+impl Sub for Quaternion {
+    type Output = Self;
+    fn sub(self, rhs: Self) -> Self {
+        Self {
+            vector: self.vector - rhs.vector,
+            scalar: self.scalar - rhs.scalar,
         }
     }
 }
@@ -221,6 +235,31 @@ mod tests {
 
     #[test]
     fn test_lerp() {
-        // @TODO
+        let from = Quaternion::rotation_from_degrees(0.0, (0, 1, 0).into());
+        let to = Quaternion::rotation_from_degrees(180.0, (0, 0, 1).into());
+        println!("from {:#?} \n to: {:#?}", from, to);
+
+        let lerp = from.lerp(&to, 0.5);
+        let expected_lerp = Quaternion {
+            vector: Vec3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.5,
+            },
+            scalar: 0.5,
+        };
+
+        assert!(lerp.approx_eq(&expected_lerp));
+        let nlerp = from.nlerp(&to, 0.5);
+        let expected_nlerp =  Quaternion {
+            vector: Vec3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.7071067,
+            },
+            scalar: 0.7071067,
+        };
+        println!("nlerp {:#?}", nlerp);
+        assert!(nlerp.approx_eq(&expected_nlerp));
     }
 }
