@@ -30,13 +30,26 @@ impl TerrainGenerator {
             })
             .collect();
 
+        let amp = self.perlin_noise.amplitude;
+        let amp_2 = amp * 2.0;
+        //let partitions = self.color_gen.colors.len();
+        let clamped_heights: Vec<f32> = heights
+            .iter()
+            .map(|height| {
+                let ratio = (height + amp) / amp_2;
+                //let ratio = height / amp;
+                (ratio * amp as f32).floor()
+            })
+            .collect();
+
         println!("[terrain proc gen] generating colors");
         let colors = self
             .color_gen
             .generate(&heights, self.perlin_noise.amplitude);
 
         println!("[terrain proc gen] generating mesh");
-        let mesh = Self::create_mesh(&heights, &colors, size + 1);
+        //let mesh = Self::create_mesh(&heights, &colors, size + 1);
+        let mesh = Self::create_mesh(&clamped_heights, &colors, size + 1);
 
         println!("[terrain proc gen] generating indices");
         let indices = index_gen::generate_index_buffer(size + 1);
