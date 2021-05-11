@@ -31,6 +31,7 @@ layout(location=0) flat out vec4 v_color;
 layout(location=1) flat out vec4 v_light_color;
 layout(location=2) out vec4 v_tex_coords;
 
+/*
 float fetch_shadow(vec4 coords, float bias) {
     if (coords.w <= 0.0) {
         return 1.0;
@@ -73,6 +74,7 @@ float fetch_shadow(vec4 coords, float bias) {
     // do the lookup, using HW PCF and comparison
     //return texture(sampler2DArrayShadow(shadow_texture, shadow_sampler), light_local);
 }
+*/
 
 
 

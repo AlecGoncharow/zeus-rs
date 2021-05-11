@@ -15,11 +15,9 @@ layout(location=2) in vec4 v_tex_coords;
 layout(location=0) out vec4 f_color;
 
 float fetch_shadow(vec4 coords, float bias) {
-    if (coords.w <= 0.0) {
-        return 1.0;
-    }
+    float w = coords.w <= 0.0 ? 1.0 : coords.w;
 
-    vec3 proj_coords = coords.xyz / coords.w;
+    vec3 proj_coords = coords.xyz / w;
     //proj_coords = proj_coords * -0.5 + 0.5;
     //proj_coords.y = (proj_coords.y * -0.5) + 0.5;
     //proj_coords.x = (proj_coords.x * 0.5) + 0.5;

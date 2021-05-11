@@ -108,7 +108,7 @@ impl GraphicsContext {
     const SHADOW_SIZE: wgpu::Extent3d = wgpu::Extent3d {
         width: 4096,
         height: 4096,
-        depth: Self::MAX_LIGHTS as u32,
+        depth_or_array_layers: Self::MAX_LIGHTS as u32,
     };
 
     pub async fn new(
@@ -231,17 +231,17 @@ impl GraphicsContext {
                         visibility: wgpu::ShaderStage::FRAGMENT,
                         ty: wgpu::BindingType::Texture {
                             multisampled: false,
-                            sample_type: wgpu::TextureSampleType::Depth,
-                            view_dimension: wgpu::TextureViewDimension::D2Array,
+                            sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                            view_dimension: wgpu::TextureViewDimension::D2,
                         },
                         count: None,
                     },
                     wgpu::BindGroupLayoutEntry {
                         binding: 1,
-                        visibility: wgpu::ShaderStage::FRAGMENT,
+                        visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
                         ty: wgpu::BindingType::Sampler {
                             comparison: true,
-                            filtering: false,
+                            filtering: true,
                         },
                         count: None,
                     },
@@ -265,6 +265,7 @@ impl GraphicsContext {
             sc_desc,
             Vertex::desc,
             DrawMode::normal_modes(),
+            Some("normal forward pipelines"),
         );
 
         Self::populate_pipelines(
@@ -280,6 +281,7 @@ impl GraphicsContext {
             sc_desc,
             ShadedVertex::desc,
             DrawMode::shaded_modes(),
+            Some("shaded forward pipelines"),
         );
 
         Self::populate_shadow_pipelines(
@@ -363,6 +365,7 @@ impl GraphicsContext {
             sc_desc,
             Vertex::desc,
             DrawMode::normal_modes(),
+            Some("normal forward pipelines"),
         );
 
         Self::populate_pipelines(
@@ -378,6 +381,7 @@ impl GraphicsContext {
             sc_desc,
             ShadedVertex::desc,
             DrawMode::shaded_modes(),
+            Some("shaded forward pipelines"),
         );
 
         Self::populate_shadow_pipelines(
@@ -594,8 +598,8 @@ impl GraphicsContext {
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Start Shadow Render Pass"),
             color_attachments: &[],
-            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                attachment: &self.shadow_texture.view,
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                view: &self.shadow_texture.view,
                 depth_ops: Some(wgpu::Operations {
                     load: wgpu::LoadOp::Clear(1.0),
                     store: true,
@@ -640,16 +644,16 @@ impl GraphicsContext {
         encoder.push_debug_group("forward pass");
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Start Render Pass"),
-            color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                attachment: view,
+            color_attachments: &[wgpu::RenderPassColorAttachment {
+                view,
                 resolve_target: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(self.clear_color),
                     store: true,
                 },
             }],
-            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                attachment: &self.depth_texture.view,
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                view: &self.depth_texture.view,
                 depth_ops: Some(wgpu::Operations {
                     load: wgpu::LoadOp::Clear(1.0),
                     store: true,
@@ -685,8 +689,8 @@ impl GraphicsContext {
         encoder.push_debug_group("texture pass");
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Start Texture Render Pass"),
-            color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                attachment: view,
+            color_attachments: &[wgpu::RenderPassColorAttachment {
+                view,
                 resolve_target: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Load,
@@ -730,6 +734,7 @@ impl GraphicsContext {
         sc_desc: &wgpu::SwapChainDescriptor,
         vert_desc: fn() -> wgpu::VertexBufferLayout<'a>,
         modes: Vec<DrawMode>,
+        label: Option<&str>
     ) {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -739,7 +744,7 @@ impl GraphicsContext {
             });
         for mode in modes {
             let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                label: Some("Render Pipeline"),
+                label,
                 layout: Some(&render_pipeline_layout),
                 vertex: wgpu::VertexState {
                     module: &vs_module,
@@ -752,8 +757,7 @@ impl GraphicsContext {
                     entry_point: "main",
                     targets: &[wgpu::ColorTargetState {
                         format: sc_desc.format,
-                        alpha_blend: wgpu::BlendState::REPLACE,
-                        color_blend: wgpu::BlendState::REPLACE,
+                        blend: Some(wgpu::BlendState::REPLACE),
                         write_mask: wgpu::ColorWrite::ALL,
                     }],
                 }),
@@ -762,8 +766,10 @@ impl GraphicsContext {
                     topology: mode.inner().into(),
                     strip_index_format: None,
                     front_face: wgpu::FrontFace::Ccw,
-                    cull_mode: wgpu::CullMode::None,
+                    cull_mode: None,
                     polygon_mode: mode.inner().inner().into(),
+                    clamp_depth: false,
+                    conservative: false,
                 },
 
                 depth_stencil: Some(wgpu::DepthStencilState {
@@ -772,8 +778,6 @@ impl GraphicsContext {
                     depth_compare: wgpu::CompareFunction::Less,
                     stencil: wgpu::StencilState::default(),
                     bias: wgpu::DepthBiasState::default(),
-                    // Setting this to true requires Features::DEPTH_CLAMPING
-                    clamp_depth: false,
                 }),
 
                 multisample: wgpu::MultisampleState {
@@ -819,8 +823,10 @@ impl GraphicsContext {
                     topology: mode.inner().into(),
                     strip_index_format: None,
                     front_face: wgpu::FrontFace::Ccw,
-                    cull_mode: wgpu::CullMode::None,
+                    cull_mode: None,
                     polygon_mode: mode.inner().inner().into(),
+                    clamp_depth: false,
+                    conservative: false,
                 },
 
                 depth_stencil: Some(wgpu::DepthStencilState {
@@ -829,8 +835,6 @@ impl GraphicsContext {
                     depth_compare: wgpu::CompareFunction::Less,
                     stencil: wgpu::StencilState::default(),
                     bias: wgpu::DepthBiasState::default(),
-                    // Setting this to true requires Features::DEPTH_CLAMPING
-                    clamp_depth: false,
                 }),
 
                 multisample: wgpu::MultisampleState {
@@ -879,8 +883,7 @@ impl GraphicsContext {
                     entry_point: "main",
                     targets: &[wgpu::ColorTargetState {
                         format: sc_desc.format,
-                        alpha_blend: wgpu::BlendState::REPLACE,
-                        color_blend: wgpu::BlendState::REPLACE,
+                        blend: Some(wgpu::BlendState::REPLACE),
                         write_mask: wgpu::ColorWrite::ALL,
                     }],
                 }),
@@ -888,8 +891,10 @@ impl GraphicsContext {
                     topology: mode.inner().into(),
                     strip_index_format: None,
                     front_face: wgpu::FrontFace::Ccw,
-                    cull_mode: wgpu::CullMode::Back,
+                    cull_mode: Some(wgpu::Face::Back),
                     polygon_mode: mode.inner().inner().into(),
+                    clamp_depth: false,
+                    conservative: false,
                 },
 
                 depth_stencil: None,
