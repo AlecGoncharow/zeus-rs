@@ -15,11 +15,13 @@ layout(set=0, binding=0) uniform Entity {
     mat4 projection;
 } entity;
 
+/*
 layout(set=1, binding=0)
     uniform texture2D shadow_texture;
 
 layout(set=1, binding=1)
     uniform sampler shadow_sampler;
+*/
 
 layout(set=2, binding=0) uniform Light {
     mat4 light_view_proj;

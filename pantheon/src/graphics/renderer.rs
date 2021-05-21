@@ -240,7 +240,7 @@ impl GraphicsContext {
                         binding: 1,
                         visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
                         ty: wgpu::BindingType::Sampler {
-                            comparison: true,
+                            comparison: false,
                             filtering: true,
                         },
                         count: None,
@@ -921,6 +921,7 @@ impl GraphicsContext {
             device.create_shader_module(&wgpu::ShaderModuleDescriptor {
                 label: Some(path),
                 source: wgpu::util::make_spirv(&spirv_source),
+                //flags: wgpu::ShaderFlags::empty(),
                 flags: wgpu::ShaderFlags::VALIDATION,
             })
         };
