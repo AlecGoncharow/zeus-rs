@@ -144,7 +144,7 @@ impl GraphicsContext {
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,
             mipmap_filter: wgpu::FilterMode::Nearest,
-            compare: Some(wgpu::CompareFunction::LessEqual),
+            compare: None,
             ..Default::default()
         });
 
@@ -921,7 +921,6 @@ impl GraphicsContext {
             device.create_shader_module(&wgpu::ShaderModuleDescriptor {
                 label: Some(path),
                 source: wgpu::util::make_spirv(&spirv_source),
-                //flags: wgpu::ShaderFlags::empty(),
                 flags: wgpu::ShaderFlags::VALIDATION,
             })
         };
