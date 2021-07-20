@@ -86,12 +86,12 @@ impl EventHandler for State {
             println!("[Networking] Got msg {}", message);
             match message.header.id {
                 GameMessage::GetId => {
-                    let id: usize = message.pull();
+                    let id: usize = message.pull().unwrap();
                     println!("[Networking] Got id {}", id);
                 }
                 GameMessage::SyncWorld => {
                     while !message.body.is_empty() {
-                        let entity: EntityKind = message.pull();
+                        let entity: EntityKind = message.pull().unwrap();
                         //println!("[Networking] Got entity: {:#?}", entity);
                         match entity {
                             EntityKind::Sun(s) => {

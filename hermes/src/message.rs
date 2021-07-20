@@ -1,3 +1,11 @@
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum MessageError {
+    #[error("Pulled type requires {type_size}, but the Message body only has {remaining} bytes.")]
+    NotEnoughBytes { type_size: usize, remaining: usize },
+}
+
 pub trait Pod: 'static + Copy + Sized + Send + Sync + std::fmt::Debug {}
 
 impl<T: 'static + Copy + Sized + Send + Sync + std::fmt::Debug> Pod for T {}
@@ -46,8 +54,17 @@ impl<T: Messageable> Message<T> {
         unsafe {
             let data_ptr: *const V = &data;
             let byte_ptr: *const u8 = data_ptr as *const _;
+            // SAFETY:
+            // We are just reinterpetting the type as a slice of bytes and since the type is
+            // constrained by the Pod trait we know everything on the type is actually on the type
             let byte_slice: &[u8] = std::slice::from_raw_parts(byte_ptr, std::mem::size_of::<V>());
 
+            // SAFETY:
+            // Since we resized the Vec to fit the existing data along with the number of bytes in
+            // the incoming type, we can be sure that there is enough space to copy the actual
+            // data
+            // The source is known to be aligned since it is just a reinterpetation of an existing
+            // valid Pod type
             std::ptr::copy(
                 &byte_slice[0],
                 self.body.as_mut_ptr().add(i),
@@ -58,22 +75,43 @@ impl<T: Messageable> Message<T> {
         self.header.size = self.size();
     }
 
-    pub fn pull<V: Pod>(&mut self) -> V {
+    /// This will reinterpet the end of the message body's bytes as the type yo urequest,
+    /// there is no built in validation at the moment.
+    pub fn pull<V: Pod>(&mut self) -> Result<V, MessageError> {
         let bytes = std::mem::size_of::<V>();
-        let i = self.body.len() - bytes;
+        if bytes > self.body.len() {
+            return Err(MessageError::NotEnoughBytes {
+                type_size: bytes,
+                remaining: self.body.len(),
+            });
+        }
 
-        let out = unsafe {
-            let data_ptr = self.body.as_ptr().add(i);
+        let new_len = self.body.len() - bytes;
+
+        let out: V = unsafe {
+            // SAFETY:
+            // We know the message has enough bytes to pull an instance of V out based on the
+            // checks done above
+            let data_ptr = self.body.as_ptr().add(new_len);
             let byte_slice: &[u8] = std::slice::from_raw_parts(data_ptr, bytes);
 
+            // SAFETY:
+            // We know that the slice of bytes has the proper number of bytes to transmute into an
+            // instance of `V` due to the above code deriving the values based on the `size_of` calls
+            // on `V`
+            //
+            // Caveat:
+            // This call will reinterpet the bytes as an instance of `V`, there is currently not
+            // parity check on the result of this reinterpetation, the burden of doing some
+            // validation is currently on the caller
             std::mem::transmute_copy(&byte_slice[0])
         };
 
-        self.body.resize(i, 0);
+        self.body.resize(new_len, 0);
 
         self.header.size = self.size();
 
-        out
+        Ok(out)
     }
 }
 
@@ -144,6 +182,7 @@ impl<T: Messageable> From<&[u8]> for MessageHeader<T> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use anyhow::Result;
     #[derive(Clone, Copy, Debug)]
     pub enum CustomMsg {
         Interact(usize),
@@ -177,7 +216,7 @@ mod test {
     }
 
     #[test]
-    fn messages() {
+    fn messages() -> Result<()> {
         let id = CustomMsg::Interact(23);
         let mut message = Message::new(id);
 
@@ -208,12 +247,12 @@ mod test {
         message.push(d);
         println!("{:?}", message);
 
-        let out_d: [F2; 2] = message.pull();
-        let out_c: f32 = message.pull();
+        let out_d: [F2; 2] = message.pull()?;
+        let out_c: f32 = message.pull()?;
         println!("{:?}", message);
-        let out_b: bool = message.pull();
+        let out_b: bool = message.pull()?;
         println!("{:?}", message);
-        let out_a: u32 = message.pull();
+        let out_a: u32 = message.pull()?;
         //let (out_d, out_c, out_b, out_a): ([F2; 2], f32, bool, u32) = message.pull(25);
         //let (out_a, out_b, out_c, out_d): (u32, bool, f32, [F2; 2]) = message.pull(25);
         println!("{:?}", message);
@@ -230,11 +269,12 @@ mod test {
         println!("complex: {:#?}", complex);
         message.push(complex);
         println!("{:?}", message);
-        let out_complex = message.pull::<Complex>();
+        let out_complex = message.pull::<Complex>()?;
         println!("{:?}", message);
         println!("out_complex: {:#?}", out_complex);
         assert_eq!(complex.a, out_complex.a);
         assert_eq!(complex.b, out_complex.b);
         assert_eq!(complex.c, out_complex.c);
+        Ok(())
     }
 }

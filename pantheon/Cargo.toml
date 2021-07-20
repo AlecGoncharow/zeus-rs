@@ -22,7 +22,7 @@ notify = "4.0"
 tokio = { version = "1", features = ["full"] }
 
 [dependencies.wgpu]
-version = "0.8"
+version = "0.9"
 
 [build-dependencies]
 anyhow = "1.0"

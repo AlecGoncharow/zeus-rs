@@ -115,7 +115,7 @@ async fn main() {
                 GameMessage::Ping => {}
                 GameMessage::Interact => {}
                 GameMessage::MovePlayer => {
-                    let parse: Complex = msg.pull();
+                    let parse: Complex = msg.pull().unwrap();
                     println!("parsed bytes for MovePlayer: {:#?}", parse);
                 }
             }
