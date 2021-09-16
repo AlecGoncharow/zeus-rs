@@ -6,6 +6,7 @@ pub const MAX_SAMPLES: usize = 128;
 /// taken from (ggez)[https://github.com/ggez/ggez/blob/master/src/timer.rs]
 #[derive(Debug)]
 pub struct TimeContext {
+    #[allow(dead_code)]
     init_instant: time::Instant,
     last_instant: time::Instant,
     residual_update_dt: time::Duration,

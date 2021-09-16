@@ -22,7 +22,7 @@ use core::Color;
 pub struct EntityManager {
     pub camera: Camera,
     pub sun: Sun,
-    terrain: Terrain,
+    pub terrain: Terrain,
     new_entities: Vec<EntityKind>,
     entities: Vec<EntityKind>,
     commands: Vec<CommandKind>,

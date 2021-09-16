@@ -45,6 +45,7 @@ struct State {
     debug: bool,
     sun_mesh: Option<core::entity::sun::Sun>,
     //texture: Texture,
+    top_right_ui: ui::TexturableQuad,
 }
 
 impl EventHandler for State {
@@ -59,13 +60,11 @@ impl EventHandler for State {
             self.entity_manager.debug_draw(ctx);
         }
 
-        let shadow_quad = ui::TexturableQuad::new((0.5, 0.5).into(), (1.0, 1.0).into());
-
         //println!("{:#?}", shadow_quad);
 
         ctx.draw_textured(
             DrawMode::Textured(Topology::TriangleList(PolygonMode::Fill)),
-            &shadow_quad.verts,
+            &self.top_right_ui.verts,
             //TextureKind::Custom(&self.texture),
             TextureKind::Shadow,
             //TextureKind::Depth,
@@ -157,6 +156,11 @@ impl EventHandler for State {
 
         if keycode == VirtualKeyCode::R {
             ctx.reload_shaders();
+        }
+
+        if keycode == VirtualKeyCode::T {
+            let terrain_size = if cfg!(debug_assertions) { 10 } else { 250 };
+            self.entity_manager.terrain = generate_terrain(terrain_size, None);
         }
 
         if keycode == VirtualKeyCode::N {
@@ -271,6 +275,30 @@ fn populate_grid(grid: &mut Vec<(Vec3, Color, Vec3)>, size: i32, y: f32) {
     }
 }
 
+fn generate_terrain(terrain_size: usize, seed: Option<isize>) -> core::entity::terrain::Terrain {
+    let mut perlin = Perlin::default();
+    if let Some(seed) = seed {
+        perlin.seed = seed;
+    }
+
+    let color_gen = ColorGenerator::new(
+        vec![
+            (201, 178, 99).into(),
+            (135, 184, 82).into(),
+            (80, 171, 93).into(),
+            (120, 120, 120).into(),
+            (200, 200, 210).into(),
+        ],
+        0.45,
+    );
+
+    let terrain_gen = TerrainGenerator::new(perlin, color_gen);
+    let mut terrain = terrain_gen.generate(terrain_size);
+    terrain.center = (terrain_size as f32 / 2., 0., terrain_size as f32 / 2.).into();
+
+    terrain
+}
+
 #[tokio::main]
 async fn main() {
     let mut network_client: ClientInterface<GameMessage> = ClientInterface::new();
@@ -293,23 +321,8 @@ async fn main() {
         )
     );
 
-    let mut perlin = Perlin::default();
-    perlin.seed = 0;
-
-    let color_gen = ColorGenerator::new(
-        vec![
-            (201, 178, 99).into(),
-            (135, 184, 82).into(),
-            (80, 171, 93).into(),
-            (120, 120, 120).into(),
-            (200, 200, 210).into(),
-        ],
-        0.45,
-    );
-
-    let terrain_gen = TerrainGenerator::new(perlin, color_gen);
     let terrain_size = if cfg!(debug_assertions) { 10 } else { 250 };
-    let mut terrain = terrain_gen.generate(terrain_size);
+    let mut terrain = generate_terrain(terrain_size, Some(0));
     terrain.center = (terrain_size as f32 / 2., 0., terrain_size as f32 / 2.).into();
     terrain.init(&mut ctx);
 
@@ -323,6 +336,8 @@ async fn main() {
     )
     .unwrap();
     */
+
+    let top_right_ui = ui::TexturableQuad::new((0.5, 0.5).into(), (1.0, 1.0).into());
 
     let mut my_game = State {
         frame: 0,
@@ -347,6 +362,7 @@ async fn main() {
         network_queue: vec![],
         debug: false,
         sun_mesh: None,
+        top_right_ui,
     };
 
     ctx.set_view(my_game.entity_manager.camera.view);

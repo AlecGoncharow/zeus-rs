@@ -114,7 +114,7 @@ impl GraphicsContext {
     pub async fn new(
         window: &Window,
         device: &wgpu::Device,
-        sc_desc: &wgpu::SwapChainDescriptor,
+        surface_config: &wgpu::SurfaceConfiguration,
         clear_color: crate::math::Vec4,
     ) -> Self {
         let size = window.inner_size();
@@ -154,7 +154,7 @@ impl GraphicsContext {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: Self::SHADOW_FORMAT,
-            usage: wgpu::TextureUsage::RENDER_ATTACHMENT | wgpu::TextureUsage::SAMPLED,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
             label: None,
         });
         let shadow_view = shadow_texture.create_view(&wgpu::TextureViewDescriptor::default());
@@ -169,7 +169,7 @@ impl GraphicsContext {
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 entries: &[wgpu::BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: wgpu::ShaderStage::FRAGMENT | wgpu::ShaderStage::VERTEX,
+                    visibility: wgpu::ShaderStages::FRAGMENT | wgpu::ShaderStages::VERTEX,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
@@ -185,7 +185,7 @@ impl GraphicsContext {
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 entries: &[wgpu::BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: wgpu::ShaderStage::VERTEX,
+                    visibility: wgpu::ShaderStages::VERTEX,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
@@ -202,7 +202,7 @@ impl GraphicsContext {
                 entries: &[
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
-                        visibility: wgpu::ShaderStage::FRAGMENT,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Texture {
                             multisampled: false,
                             sample_type: wgpu::TextureSampleType::Float { filterable: false },
@@ -212,7 +212,7 @@ impl GraphicsContext {
                     },
                     wgpu::BindGroupLayoutEntry {
                         binding: 1,
-                        visibility: wgpu::ShaderStage::FRAGMENT,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Sampler {
                             comparison: false,
                             filtering: true,
@@ -228,7 +228,7 @@ impl GraphicsContext {
                 entries: &[
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
-                        visibility: wgpu::ShaderStage::FRAGMENT,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Texture {
                             multisampled: false,
                             sample_type: wgpu::TextureSampleType::Float { filterable: false },
@@ -238,7 +238,7 @@ impl GraphicsContext {
                     },
                     wgpu::BindGroupLayoutEntry {
                         binding: 1,
-                        visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
+                        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Sampler {
                             comparison: false,
                             filtering: true,
@@ -251,7 +251,7 @@ impl GraphicsContext {
 
         let depth_texture = crate::graphics::texture::Texture::create_depth_texture(
             &device,
-            &sc_desc,
+            &surface_config,
             "depth_texture",
         );
 
@@ -262,7 +262,7 @@ impl GraphicsContext {
             &[&entity_bind_group_layout],
             &vs_module,
             &fs_module,
-            sc_desc,
+            surface_config,
             Vertex::desc,
             DrawMode::normal_modes(),
             Some("normal forward pipelines"),
@@ -278,7 +278,7 @@ impl GraphicsContext {
             ],
             &shaded_vs_module,
             &shaded_fs_module,
-            sc_desc,
+            surface_config,
             ShadedVertex::desc,
             DrawMode::shaded_modes(),
             Some("shaded forward pipelines"),
@@ -299,7 +299,7 @@ impl GraphicsContext {
             &[&textured_quad_bind_group_layout],
             &textured_vs_module,
             &textured_fs_module,
-            sc_desc,
+            surface_config,
             TexturedVertex::desc,
             DrawMode::textured_modes(),
         );
@@ -339,7 +339,11 @@ impl GraphicsContext {
         }
     }
 
-    pub fn reload_shaders(&mut self, device: &wgpu::Device, sc_desc: &wgpu::SwapChainDescriptor) {
+    pub fn reload_shaders(
+        &mut self,
+        device: &wgpu::Device,
+        surface_config: &wgpu::SurfaceConfiguration,
+    ) {
         let (
             vs_module,
             fs_module,
@@ -362,7 +366,7 @@ impl GraphicsContext {
             ],
             &vs_module,
             &fs_module,
-            sc_desc,
+            surface_config,
             Vertex::desc,
             DrawMode::normal_modes(),
             Some("normal forward pipelines"),
@@ -378,7 +382,7 @@ impl GraphicsContext {
             ],
             &shaded_vs_module,
             &shaded_fs_module,
-            sc_desc,
+            surface_config,
             ShadedVertex::desc,
             DrawMode::shaded_modes(),
             Some("shaded forward pipelines"),
@@ -402,7 +406,7 @@ impl GraphicsContext {
             &[&self.textured_quad_bind_group_layout],
             &textured_vs_module,
             &textured_fs_module,
-            sc_desc,
+            surface_config,
             TexturedVertex::desc,
             DrawMode::textured_modes(),
         );
@@ -412,13 +416,13 @@ impl GraphicsContext {
         &mut self,
         new_size: winit::dpi::PhysicalSize<u32>,
         device: &wgpu::Device,
-        sc_desc: &wgpu::SwapChainDescriptor,
+        surface_config: &wgpu::SurfaceConfiguration,
         window: &winit::window::Window,
     ) {
         self.size = new_size;
         self.depth_texture = crate::graphics::texture::Texture::create_depth_texture(
             device,
-            sc_desc,
+            surface_config,
             "depth_texture",
         );
         self.window_dims = window.inner_size().cast::<f32>();
@@ -438,7 +442,7 @@ impl GraphicsContext {
             vertex: device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("Vertex Buffer"),
                 contents: bytemuck::cast_slice(&verts),
-                usage: wgpu::BufferUsage::VERTEX,
+                usage: wgpu::BufferUsages::VERTEX,
             }),
 
             bind_group: device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -449,7 +453,7 @@ impl GraphicsContext {
                         .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                             label: Some("Uniform Buffer"),
                             contents: self.entity_uniforms.as_bytes(),
-                            usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+                            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
                         })
                         .as_entire_binding(),
                 }],
@@ -476,7 +480,7 @@ impl GraphicsContext {
             vertex: device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("Vertex Buffer"),
                 contents: bytemuck::cast_slice(&verts),
-                usage: wgpu::BufferUsage::VERTEX,
+                usage: wgpu::BufferUsages::VERTEX,
             }),
 
             bind_group: device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -487,7 +491,7 @@ impl GraphicsContext {
                         .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                             label: Some("Uniform Buffer"),
                             contents: self.entity_uniforms.as_bytes(),
-                            usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+                            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
                         })
                         .as_entire_binding(),
                 }],
@@ -498,7 +502,7 @@ impl GraphicsContext {
                 device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                     label: Some("Index Buffer"),
                     contents: bytemuck::cast_slice(indices),
-                    usage: wgpu::BufferUsage::INDEX,
+                    usage: wgpu::BufferUsages::INDEX,
                 }),
             ),
             count: indices.len() as u32,
@@ -536,7 +540,7 @@ impl GraphicsContext {
             vertex: device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("Vertex Buffer"),
                 contents: bytemuck::cast_slice(&verts),
-                usage: wgpu::BufferUsage::VERTEX,
+                usage: wgpu::BufferUsages::VERTEX,
             }),
 
             bind_group: device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -571,7 +575,7 @@ impl GraphicsContext {
                     .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                         label: Some("Uniform Buffer"),
                         contents: self.light_uniforms.as_bytes(),
-                        usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+                        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
                     })
                     .as_entire_binding(),
             }],
@@ -731,10 +735,10 @@ impl GraphicsContext {
         uniform_bind_group_layouts: &[&wgpu::BindGroupLayout],
         vs_module: &wgpu::ShaderModule,
         fs_module: &wgpu::ShaderModule,
-        sc_desc: &wgpu::SwapChainDescriptor,
+        surface_config: &wgpu::SurfaceConfiguration,
         vert_desc: fn() -> wgpu::VertexBufferLayout<'a>,
         modes: Vec<DrawMode>,
-        label: Option<&str>
+        label: Option<&str>,
     ) {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -756,9 +760,9 @@ impl GraphicsContext {
                     module: &fs_module,
                     entry_point: "main",
                     targets: &[wgpu::ColorTargetState {
-                        format: sc_desc.format,
+                        format: surface_config.format,
                         blend: Some(wgpu::BlendState::REPLACE),
-                        write_mask: wgpu::ColorWrite::ALL,
+                        write_mask: wgpu::ColorWrites::ALL,
                     }],
                 }),
 
@@ -858,7 +862,7 @@ impl GraphicsContext {
         uniform_bind_group_layouts: &[&wgpu::BindGroupLayout],
         vs_module: &wgpu::ShaderModule,
         fs_module: &wgpu::ShaderModule,
-        sc_desc: &wgpu::SwapChainDescriptor,
+        surface_config: &wgpu::SurfaceConfiguration,
         vert_desc: fn() -> wgpu::VertexBufferLayout<'a>,
         modes: Vec<DrawMode>,
     ) {
@@ -882,9 +886,9 @@ impl GraphicsContext {
                     module: &fs_module,
                     entry_point: "main",
                     targets: &[wgpu::ColorTargetState {
-                        format: sc_desc.format,
+                        format: surface_config.format,
                         blend: Some(wgpu::BlendState::REPLACE),
-                        write_mask: wgpu::ColorWrite::ALL,
+                        write_mask: wgpu::ColorWrites::ALL,
                     }],
                 }),
                 primitive: wgpu::PrimitiveState {
@@ -921,7 +925,6 @@ impl GraphicsContext {
             device.create_shader_module(&wgpu::ShaderModuleDescriptor {
                 label: Some(path),
                 source: wgpu::util::make_spirv(&spirv_source),
-                flags: wgpu::ShaderFlags::VALIDATION,
             })
         };
 

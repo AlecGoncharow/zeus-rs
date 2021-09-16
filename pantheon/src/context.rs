@@ -20,13 +20,12 @@ pub struct Context {
     pub mouse_context: mouse::MouseContext,
     pub gfx_context: graphics::renderer::GraphicsContext,
     pub timer_context: timer::TimeContext,
-    pub frame: Option<wgpu::SwapChainFrame>,
+    pub frame: Option<wgpu::SurfaceFrame>,
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
-    pub swap_chain: wgpu::SwapChain,
-    pub sc_desc: wgpu::SwapChainDescriptor,
     pub window: winit::window::Window,
     pub surface: wgpu::Surface,
+    pub surface_config: wgpu::SurfaceConfiguration,
     pub adapter: wgpu::Adapter,
     pub event_loop_proxy: std::sync::Mutex<winit::event_loop::EventLoopProxy<EngineEvent>>,
     pub forced_draw_mode: Option<PolygonMode>,
@@ -37,7 +36,7 @@ impl<'a> Context {
         let event_loop: EventLoop<EngineEvent> = EventLoop::with_user_event();
 
         let window = WindowBuilder::new().build(&event_loop).unwrap();
-        let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
+        let instance = wgpu::Instance::new(wgpu::Backends::PRIMARY);
         let surface = unsafe { instance.create_surface(&window) };
         let size = window.inner_size();
 
@@ -60,25 +59,24 @@ impl<'a> Context {
         ))
         .unwrap();
 
-        let sc_desc = wgpu::SwapChainDescriptor {
-            usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
-            format: adapter.get_swap_chain_preferred_format(&surface).unwrap(),
+        let surface_config = wgpu::SurfaceConfiguration {
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            format: surface.get_preferred_format(&adapter).unwrap(),
             width: size.width,
             height: size.height,
             present_mode: wgpu::PresentMode::Immediate,
         };
-
-        let swap_chain = device.create_swap_chain(&surface, &sc_desc);
+        surface.configure(&device, &surface_config);
 
         let gfx_context = block_on(graphics::renderer::GraphicsContext::new(
             &window,
             &device,
-            &sc_desc,
+            &surface_config,
             clear_color,
         ));
 
         let frame = loop {
-            match swap_chain.get_current_frame() {
+            match surface.get_current_frame() {
                 Ok(frame) => break frame,
                 Err(e) => {
                     eprintln!("dropped frame: {:?}", e);
@@ -97,11 +95,10 @@ impl<'a> Context {
             frame: Some(frame),
             device,
             queue,
-            swap_chain,
             window,
             surface,
+            surface_config,
             adapter,
-            sc_desc,
             event_loop_proxy,
             forced_draw_mode: None,
         };
@@ -178,33 +175,33 @@ impl<'a> Context {
     }
 
     pub fn reload_shaders(&mut self) {
-        self.gfx_context.reload_shaders(&self.device, &self.sc_desc);
+        self.gfx_context
+            .reload_shaders(&self.device, &self.surface_config);
     }
 
     pub fn start_drawing(&mut self) {
         if self.frame.is_none() {
             self.frame = loop {
-                match self.swap_chain.get_current_frame() {
+                match self.surface.get_current_frame() {
                     Ok(frame) => break Some(frame),
                     Err(e) => {
                         eprintln!("dropped frame: {:?}", e);
-                        if e == wgpu::SwapChainError::Outdated {
+                        if e == wgpu::SurfaceError::Outdated {
                             let size = self.window.inner_size();
-                            self.sc_desc = wgpu::SwapChainDescriptor {
-                                usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
-                                format: self.adapter.get_swap_chain_preferred_format(&self.surface).unwrap(),
+                            self.surface_config = wgpu::SurfaceConfiguration {
+                                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                                format: self.surface.get_preferred_format(&self.adapter).unwrap(),
                                 width: size.width,
                                 height: size.height,
                                 present_mode: wgpu::PresentMode::Immediate,
                             };
 
-                            self.swap_chain =
-                                self.device.create_swap_chain(&self.surface, &self.sc_desc);
+                            self.surface.configure(&self.device, &self.surface_config);
 
                             self.gfx_context.resize(
                                 size,
                                 &self.device,
-                                &self.sc_desc,
+                                &self.surface_config,
                                 &self.window,
                             );
                         }
@@ -252,7 +249,13 @@ impl<'a> Context {
     pub fn render(&mut self) {
         self.gfx_context.render(
             &self.device,
-            &self.frame.as_ref().unwrap().output.view,
+            &self
+                .frame
+                .as_ref()
+                .unwrap()
+                .output
+                .texture
+                .create_view(&wgpu::TextureViewDescriptor::default()),
             &self.queue,
         );
         self.frame = None;

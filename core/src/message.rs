@@ -3,10 +3,19 @@ use hermes::message::Messageable;
 pub enum GameMessage {
     GetId,
     SyncWorld,
+    RegenerateTerrain(TerrainMessage),
     Ping,
     Interact,
     MovePlayer,
     Player,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum TerrainMessage {
+    Generate,
+    Verts,
+    Indices,
+    Center,
 }
 
 impl Messageable for GameMessage {}

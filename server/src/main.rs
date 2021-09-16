@@ -8,6 +8,11 @@ use core::entity::sun::Sun;
 use core::entity::EntityKind;
 use core::Color;
 
+use core::proc_gen;
+use proc_gen::color::ColorGenerator;
+use proc_gen::noise::Perlin;
+use proc_gen::terrain::TerrainGenerator;
+
 mod entity_manager;
 use entity_manager::EntityManager;
 
@@ -67,6 +72,31 @@ fn generate_cubes(state: &mut ServerState) {
     //state.entity_manager.push_entity(EntityKind::from(cube));
 }
 
+fn generate_terrain(seed: Option<isize>) -> core::entity::terrain::Terrain {
+    let mut perlin = Perlin::default();
+    if let Some(seed) = seed {
+        perlin.seed = seed;
+    }
+
+    let color_gen = ColorGenerator::new(
+        vec![
+            (201, 178, 99).into(),
+            (135, 184, 82).into(),
+            (80, 171, 93).into(),
+            (120, 120, 120).into(),
+            (200, 200, 210).into(),
+        ],
+        0.45,
+    );
+
+    let terrain_gen = TerrainGenerator::new(perlin, color_gen);
+    let terrain_size = if cfg!(debug_assertions) { 10 } else { 250 };
+    let mut terrain = terrain_gen.generate(terrain_size);
+    terrain.center = (terrain_size as f32 / 2., 0., terrain_size as f32 / 2.).into();
+
+    terrain
+}
+
 #[tokio::main]
 async fn main() {
     let mut state = ServerState::new();
@@ -110,6 +140,9 @@ async fn main() {
                     println!("[SyncWorld] Final msg header {:#?}", msg.header);
 
                     server.send_to(client_id, msg).await;
+                }
+                GameMessage::RegenerateTerrain(_) => {
+                    println!("[RegenerateTerrain] regenerating terrain");
                 }
                 GameMessage::Player => {}
                 GameMessage::Ping => {}
