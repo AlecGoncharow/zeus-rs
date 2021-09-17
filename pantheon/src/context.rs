@@ -227,6 +227,7 @@ impl<'a> Context {
     }
 
     pub fn resize(&mut self) {
+        self.frame = None;
         let size = self.window.inner_size();
         self.surface_config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
