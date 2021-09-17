@@ -30,29 +30,29 @@ impl DrawMode {
         }
     }
 
-    pub fn normal_modes() -> Vec<DrawMode> {
-        Topology::iterator()
+    pub fn normal_modes(non_fill: bool) -> Vec<DrawMode> {
+        Topology::iterator(non_fill)
             .copied()
             .map(|inner| DrawMode::Normal(inner))
             .collect()
     }
 
-    pub fn shaded_modes() -> Vec<DrawMode> {
-        Topology::iterator()
+    pub fn shaded_modes(non_fill: bool) -> Vec<DrawMode> {
+        Topology::iterator(non_fill)
             .copied()
             .map(|inner| DrawMode::Shaded(inner))
             .collect()
     }
 
-    pub fn shadow_modes() -> Vec<DrawMode> {
-        Topology::iterator()
+    pub fn shadow_modes(non_fill: bool) -> Vec<DrawMode> {
+        Topology::iterator(non_fill)
             .copied()
             .map(|inner| DrawMode::_ShadowPass(inner))
             .collect()
     }
 
-    pub fn textured_modes() -> Vec<DrawMode> {
-        Topology::iterator()
+    pub fn textured_modes(non_fill: bool) -> Vec<DrawMode> {
+        Topology::iterator(non_fill)
             .copied()
             .map(|inner| DrawMode::Textured(inner))
             .collect()
@@ -108,9 +108,9 @@ impl Topology {
         }
     }
 
-    pub fn iterator() -> Iter<'static, Topology> {
+    pub fn iterator(non_fill: bool) -> Iter<'static, Topology> {
         // generate all variants
-        static TOPOLOGIES: [Topology; 15] = [
+        static NON_FILL_TOPOLOGIES: [Topology; 15] = [
             Topology::PointList(PolygonMode::Fill),
             Topology::PointList(PolygonMode::Line),
             Topology::PointList(PolygonMode::Point),
@@ -132,7 +132,33 @@ impl Topology {
             Topology::TriangleStrip(PolygonMode::Point),
         ];
 
-        TOPOLOGIES.iter()
+      static TOPOLOGIES: [Topology; 15] = [
+            Topology::PointList(PolygonMode::Fill),
+            Topology::PointList(PolygonMode::Fill),
+            Topology::PointList(PolygonMode::Fill),
+            //
+            Topology::LineList(PolygonMode::Fill),
+            Topology::LineList(PolygonMode::Fill),
+            Topology::LineList(PolygonMode::Fill),
+            //
+            Topology::LineStrip(PolygonMode::Fill),
+            Topology::LineStrip(PolygonMode::Fill),
+            Topology::LineStrip(PolygonMode::Fill),
+            //
+            Topology::TriangleList(PolygonMode::Fill),
+            Topology::TriangleList(PolygonMode::Fill),
+            Topology::TriangleList(PolygonMode::Fill),
+            //
+            Topology::TriangleStrip(PolygonMode::Fill),
+            Topology::TriangleStrip(PolygonMode::Fill),
+            Topology::TriangleStrip(PolygonMode::Fill),
+        ];
+
+        if non_fill {
+             NON_FILL_TOPOLOGIES.iter()
+        } else {
+            TOPOLOGIES.iter()
+        }
     }
 }
 

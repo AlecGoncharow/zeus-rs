@@ -49,15 +49,26 @@ impl<'a> Context {
         let mut features = wgpu::Features::empty();
         // @TODO need to wrap this so that non Vulkan/DX12 don't offer multiple pipelines
         features.set(wgpu::Features::NON_FILL_POLYGON_MODE, true);
-        let (device, queue) = block_on(adapter.request_device(
+
+        let (device, queue) = match block_on(adapter.request_device(
             &wgpu::DeviceDescriptor {
                 label: Some("Request Device"),
                 features,
                 limits: wgpu::Limits::default(),
             },
             None, // Trace path
-        ))
-        .unwrap();
+        )) {
+            Ok(stuff) => stuff,
+            Err(_) => block_on(adapter.request_device(
+                &wgpu::DeviceDescriptor {
+                    label: Some("Fallback Device"),
+                    features: wgpu::Features::empty(),
+                    limits: wgpu::Limits::default(),
+                },
+                None,
+            ))
+            .unwrap(),
+        };
 
         let surface_config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
@@ -213,6 +224,22 @@ impl<'a> Context {
         }
 
         self.gfx_context.start();
+    }
+
+    pub fn resize(&mut self) {
+        let size = self.window.inner_size();
+        self.surface_config = wgpu::SurfaceConfiguration {
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            format: self.surface.get_preferred_format(&self.adapter).unwrap(),
+            width: size.width,
+            height: size.height,
+            present_mode: wgpu::PresentMode::Immediate,
+        };
+
+        self.surface.configure(&self.device, &self.surface_config);
+
+        self.gfx_context
+            .resize(size, &self.device, &self.surface_config, &self.window);
     }
 
     pub fn draw<F>(&mut self, mut mode: DrawMode, verts: &[F])

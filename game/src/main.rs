@@ -160,7 +160,14 @@ impl EventHandler for State {
 
         if keycode == VirtualKeyCode::T {
             let terrain_size = if cfg!(debug_assertions) { 10 } else { 250 };
-            self.entity_manager.terrain = generate_terrain(terrain_size, None);
+            self.entity_manager.terrain = generate_terrain(terrain_size, None, None);
+            self.entity_manager.terrain.init(ctx);
+        }
+
+            if keycode == VirtualKeyCode::Y {
+            let terrain_size = if cfg!(debug_assertions) { 10 } else { 250 };
+            self.entity_manager.terrain = generate_terrain(terrain_size, Some(false), None);
+            self.entity_manager.terrain.init(ctx);
         }
 
         if keycode == VirtualKeyCode::N {
@@ -275,7 +282,7 @@ fn populate_grid(grid: &mut Vec<(Vec3, Color, Vec3)>, size: i32, y: f32) {
     }
 }
 
-fn generate_terrain(terrain_size: usize, seed: Option<isize>) -> core::entity::terrain::Terrain {
+fn generate_terrain(terrain_size: usize, clamped: Option<bool>, seed: Option<isize>) -> core::entity::terrain::Terrain {
     let mut perlin = Perlin::default();
     if let Some(seed) = seed {
         perlin.seed = seed;
@@ -293,7 +300,7 @@ fn generate_terrain(terrain_size: usize, seed: Option<isize>) -> core::entity::t
     );
 
     let terrain_gen = TerrainGenerator::new(perlin, color_gen);
-    let mut terrain = terrain_gen.generate(terrain_size);
+    let mut terrain = terrain_gen.generate(terrain_size, clamped.unwrap_or(true));
     terrain.center = (terrain_size as f32 / 2., 0., terrain_size as f32 / 2.).into();
 
     terrain
@@ -322,7 +329,7 @@ async fn main() {
     );
 
     let terrain_size = if cfg!(debug_assertions) { 10 } else { 250 };
-    let mut terrain = generate_terrain(terrain_size, Some(0));
+    let mut terrain = generate_terrain(terrain_size, None, Some(0));
     terrain.center = (terrain_size as f32 / 2., 0., terrain_size as f32 / 2.).into();
     terrain.init(&mut ctx);
 
@@ -367,7 +374,7 @@ async fn main() {
 
     ctx.set_view(my_game.entity_manager.camera.view);
     ctx.set_projection(my_game.entity_manager.camera.projection);
-    let cube = core::entity::cube::Cuboid::cube(5.0, (0, 0, 0).into(), None, None);
+    let cube = core::entity::cube::Cuboid::cube(5.0, (0, 10, 0).into(), None, None);
     my_game.entity_manager.push_entity(EntityKind::from(cube));
 
     pantheon::event::run(event_loop, ctx, my_game);

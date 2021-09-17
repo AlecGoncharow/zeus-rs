@@ -100,6 +100,8 @@ pub struct GraphicsContext {
 
     pub entity_uniforms: EntityUniforms,
     pub light_uniforms: LightUniforms,
+
+    pub non_fill_polygon_modes: bool,
 }
 
 impl GraphicsContext {
@@ -255,6 +257,8 @@ impl GraphicsContext {
             "depth_texture",
         );
 
+        let non_fill_polygon_modes =  device.features().contains(wgpu::Features::NON_FILL_POLYGON_MODE);
+
         let mut render_pipelines: Vec<wgpu::RenderPipeline> = Vec::with_capacity(MODE_COUNT);
         Self::populate_pipelines(
             &mut render_pipelines,
@@ -264,7 +268,7 @@ impl GraphicsContext {
             &fs_module,
             surface_config,
             Vertex::desc,
-            DrawMode::normal_modes(),
+            DrawMode::normal_modes(non_fill_polygon_modes),
             Some("normal forward pipelines"),
         );
 
@@ -280,7 +284,7 @@ impl GraphicsContext {
             &shaded_fs_module,
             surface_config,
             ShadedVertex::desc,
-            DrawMode::shaded_modes(),
+            DrawMode::shaded_modes(non_fill_polygon_modes),
             Some("shaded forward pipelines"),
         );
 
@@ -290,7 +294,7 @@ impl GraphicsContext {
             &[&entity_bind_group_layout, &shadow_bind_group_layout],
             &shadow_bake,
             ShadedVertex::desc,
-            DrawMode::shadow_modes(),
+            DrawMode::shadow_modes(non_fill_polygon_modes),
         );
 
         Self::populate_textured_pipelines(
@@ -301,7 +305,7 @@ impl GraphicsContext {
             &textured_fs_module,
             surface_config,
             TexturedVertex::desc,
-            DrawMode::textured_modes(),
+            DrawMode::textured_modes(non_fill_polygon_modes),
         );
 
         let window_dims = window.inner_size().cast::<f32>();
@@ -336,6 +340,8 @@ impl GraphicsContext {
                 _padding: 0,
                 light_color: Color::new(255, 250, 209),
             },
+
+            non_fill_polygon_modes,
         }
     }
 
@@ -368,7 +374,7 @@ impl GraphicsContext {
             &fs_module,
             surface_config,
             Vertex::desc,
-            DrawMode::normal_modes(),
+            DrawMode::normal_modes(self.non_fill_polygon_modes),
             Some("normal forward pipelines"),
         );
 
@@ -384,7 +390,7 @@ impl GraphicsContext {
             &shaded_fs_module,
             surface_config,
             ShadedVertex::desc,
-            DrawMode::shaded_modes(),
+            DrawMode::shaded_modes(self.non_fill_polygon_modes),
             Some("shaded forward pipelines"),
         );
 
@@ -397,7 +403,7 @@ impl GraphicsContext {
             ],
             &shadow_bake,
             ShadedVertex::desc,
-            DrawMode::shadow_modes(),
+            DrawMode::shadow_modes(self.non_fill_polygon_modes),
         );
 
         Self::populate_textured_pipelines(
@@ -408,7 +414,7 @@ impl GraphicsContext {
             &textured_fs_module,
             surface_config,
             TexturedVertex::desc,
-            DrawMode::textured_modes(),
+            DrawMode::textured_modes(self.non_fill_polygon_modes),
         );
     }
 
@@ -791,7 +797,7 @@ impl GraphicsContext {
                 },
             });
 
-            if usize::from(mode) != pipelines.len() {
+            if usize::from(mode) != pipelines.len() && device.features().contains(wgpu::Features::NON_FILL_POLYGON_MODE) {
                 panic!("Render pipeline construction broke");
             }
 
@@ -848,7 +854,7 @@ impl GraphicsContext {
                 },
             });
 
-            if usize::from(mode) != pipelines.len() {
+            if usize::from(mode) != pipelines.len() && device.features().contains(wgpu::Features::NON_FILL_POLYGON_MODE) {
                 panic!("Render pipeline construction broke");
             }
 
@@ -910,7 +916,7 @@ impl GraphicsContext {
                 },
             });
 
-            if usize::from(mode) != pipelines.len() {
+            if usize::from(mode) != pipelines.len() && device.features().contains(wgpu::Features::NON_FILL_POLYGON_MODE) {
                 panic!("Render pipeline construction broke");
             }
 

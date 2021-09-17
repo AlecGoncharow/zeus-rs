@@ -91,7 +91,7 @@ fn generate_terrain(seed: Option<isize>) -> core::entity::terrain::Terrain {
 
     let terrain_gen = TerrainGenerator::new(perlin, color_gen);
     let terrain_size = if cfg!(debug_assertions) { 10 } else { 250 };
-    let mut terrain = terrain_gen.generate(terrain_size);
+    let mut terrain = terrain_gen.generate(terrain_size, false);
     terrain.center = (terrain_size as f32 / 2., 0., terrain_size as f32 / 2.).into();
 
     terrain

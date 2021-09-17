@@ -20,7 +20,7 @@ impl TerrainGenerator {
         }
     }
 
-    pub fn generate(&self, size: usize) -> Terrain {
+    pub fn generate(&self, size: usize, clamped: bool) -> Terrain {
         println!("[terrain proc gen] generating heights");
         let heights: Vec<f32> = (0..(size + 1).pow(2))
             .map(|i| {
@@ -48,8 +48,11 @@ impl TerrainGenerator {
             .generate(&heights, self.perlin_noise.amplitude);
 
         println!("[terrain proc gen] generating mesh");
-        //let mesh = Self::create_mesh(&heights, &colors, size + 1);
-        let mesh = Self::create_mesh(&clamped_heights, &colors, size + 1);
+        let mesh = if clamped {
+            Self::create_mesh(&clamped_heights, &colors, size + 1)
+        } else {
+            Self::create_mesh(&heights, &colors, size + 1)
+        };
 
         println!("[terrain proc gen] generating indices");
         let indices = index_gen::generate_index_buffer(size + 1);

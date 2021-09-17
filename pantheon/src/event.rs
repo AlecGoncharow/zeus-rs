@@ -112,6 +112,8 @@ where
                         logical_size.width as f32,
                         logical_size.height as f32,
                     );
+
+                    ctx.resize();
                 }
                 WindowEvent::CloseRequested => {
                     if state.quit_event(&mut ctx) {
