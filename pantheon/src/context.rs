@@ -20,7 +20,6 @@ pub struct Context {
     pub mouse_context: mouse::MouseContext,
     pub gfx_context: graphics::renderer::GraphicsContext,
     pub timer_context: timer::TimeContext,
-    pub frame: Option<wgpu::SurfaceFrame>,
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub window: winit::window::Window,
@@ -43,12 +42,14 @@ impl<'a> Context {
         let adapter = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
             power_preference: wgpu::PowerPreference::default(),
             compatible_surface: Some(&surface),
+            force_fallback_adapter: false,
         }))
         .unwrap();
 
         let mut features = wgpu::Features::empty();
         // @TODO need to wrap this so that non Vulkan/DX12 don't offer multiple pipelines
-        features.set(wgpu::Features::NON_FILL_POLYGON_MODE, true);
+        features.set(wgpu::Features::POLYGON_MODE_LINE, true);
+        features.set(wgpu::Features::POLYGON_MODE_POINT, true);
 
         let (device, queue) = match block_on(adapter.request_device(
             &wgpu::DeviceDescriptor {
@@ -86,16 +87,6 @@ impl<'a> Context {
             clear_color,
         ));
 
-        let frame = loop {
-            match surface.get_current_frame() {
-                Ok(frame) => break frame,
-                Err(e) => {
-                    eprintln!("dropped frame: {:?}", e);
-                    continue;
-                }
-            }
-        };
-
         let event_loop_proxy = std::sync::Mutex::new(event_loop.create_proxy());
         let ctx = Self {
             continuing: true,
@@ -103,7 +94,6 @@ impl<'a> Context {
             mouse_context: mouse::MouseContext::new(),
             gfx_context,
             timer_context: timer::TimeContext::new(),
-            frame: Some(frame),
             device,
             queue,
             window,
@@ -191,43 +181,10 @@ impl<'a> Context {
     }
 
     pub fn start_drawing(&mut self) {
-        if self.frame.is_none() {
-            self.frame = loop {
-                match self.surface.get_current_frame() {
-                    Ok(frame) => break Some(frame),
-                    Err(e) => {
-                        eprintln!("dropped frame: {:?}", e);
-                        if e == wgpu::SurfaceError::Outdated {
-                            let size = self.window.inner_size();
-                            self.surface_config = wgpu::SurfaceConfiguration {
-                                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-                                format: self.surface.get_preferred_format(&self.adapter).unwrap(),
-                                width: size.width,
-                                height: size.height,
-                                present_mode: wgpu::PresentMode::Immediate,
-                            };
-
-                            self.surface.configure(&self.device, &self.surface_config);
-
-                            self.gfx_context.resize(
-                                size,
-                                &self.device,
-                                &self.surface_config,
-                                &self.window,
-                            );
-                        }
-
-                        continue;
-                    }
-                }
-            };
-        }
-
         self.gfx_context.start();
     }
 
     pub fn resize(&mut self) {
-        self.frame = None;
         let size = self.window.inner_size();
         self.surface_config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
@@ -275,17 +232,16 @@ impl<'a> Context {
     }
 
     pub fn render(&mut self) {
-        self.gfx_context.render(
-            &self.device,
-            &self
-                .frame
-                .as_ref()
-                .unwrap()
-                .output
-                .texture
-                .create_view(&wgpu::TextureViewDescriptor::default()),
-            &self.queue,
-        );
-        self.frame = None;
+        let current_texture = {
+            if let Ok(texture) = self.surface.get_current_texture() {
+                texture
+            } else {
+                // :)
+                return;
+            }
+        };
+
+        self.gfx_context
+            .render(&self.device, current_texture, &self.queue);
     }
 }

@@ -57,7 +57,7 @@ impl EntityUniforms {
 pub struct LightUniforms {
     pub light_view_project: Mat4,
     pub light_position: Vec3,
-    _padding: u32,
+    pub shading_off: f32,
     pub light_color: Color,
 }
 
@@ -67,7 +67,7 @@ impl LightUniforms {
             light_view_project,
 
             light_position,
-            _padding: 0,
+            shading_off: 1.,
             light_color,
         }
     }
@@ -78,6 +78,10 @@ impl LightUniforms {
             let byte_ptr: *const u8 = data_ptr as *const _;
             std::slice::from_raw_parts(byte_ptr, std::mem::size_of::<Self>())
         }
+    }
+
+    pub fn toggle_light(&mut self) {
+        self.shading_off = if self.shading_off == 0. { 1. } else { 0. }
     }
 }
 
@@ -207,7 +211,7 @@ impl GraphicsContext {
                         visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Texture {
                             multisampled: false,
-                            sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
                             view_dimension: wgpu::TextureViewDimension::D2,
                         },
                         count: None,
@@ -215,10 +219,7 @@ impl GraphicsContext {
                     wgpu::BindGroupLayoutEntry {
                         binding: 1,
                         visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler {
-                            comparison: false,
-                            filtering: true,
-                        },
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                         count: None,
                     },
                 ],
@@ -233,7 +234,7 @@ impl GraphicsContext {
                         visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Texture {
                             multisampled: false,
-                            sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
                             view_dimension: wgpu::TextureViewDimension::D2,
                         },
                         count: None,
@@ -241,10 +242,7 @@ impl GraphicsContext {
                     wgpu::BindGroupLayoutEntry {
                         binding: 1,
                         visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler {
-                            comparison: false,
-                            filtering: true,
-                        },
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                         count: None,
                     },
                 ],
@@ -257,7 +255,9 @@ impl GraphicsContext {
             "depth_texture",
         );
 
-        let non_fill_polygon_modes =  device.features().contains(wgpu::Features::NON_FILL_POLYGON_MODE);
+        let non_fill_polygon_modes = device
+            .features()
+            .contains(wgpu::Features::POLYGON_MODE_LINE & wgpu::Features::POLYGON_MODE_POINT);
 
         let mut render_pipelines: Vec<wgpu::RenderPipeline> = Vec::with_capacity(MODE_COUNT);
         Self::populate_pipelines(
@@ -337,7 +337,7 @@ impl GraphicsContext {
             light_uniforms: LightUniforms {
                 light_view_project: Mat4::identity(),
                 light_position: Vec3::new(20, -20, 0),
-                _padding: 0,
+                shading_off: 0.,
                 light_color: Color::new(255, 250, 209),
             },
 
@@ -569,7 +569,15 @@ impl GraphicsContext {
         })
     }
 
-    pub fn render(&mut self, device: &wgpu::Device, view: &wgpu::TextureView, queue: &wgpu::Queue) {
+    pub fn render(
+        &mut self,
+        device: &wgpu::Device,
+        output: wgpu::SurfaceTexture,
+        queue: &wgpu::Queue,
+    ) {
+        let view = &output
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
         let mut encoder =
             device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
@@ -603,53 +611,55 @@ impl GraphicsContext {
             label: None,
         });
 
-        encoder.push_debug_group("shadow pass");
-        // shadow pass
-        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("Start Shadow Render Pass"),
-            color_attachments: &[],
-            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                view: &self.shadow_texture.view,
-                depth_ops: Some(wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(1.0),
-                    store: true,
+        if self.light_uniforms.shading_off == 0.0 {
+            encoder.push_debug_group("shadow pass");
+            // shadow pass
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Start Shadow Render Pass"),
+                color_attachments: &[],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.shadow_texture.view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: true,
+                    }),
+                    stencil_ops: None,
                 }),
-                stencil_ops: None,
-            }),
-        });
+            });
 
-        render_pass.set_pipeline(
-            &self
-                .render_pipelines
-                .get(usize::from(DrawMode::_ShadowPass(Topology::TriangleList(
-                    PolygonMode::Fill,
-                ))))
-                .unwrap(),
-        );
-
-        render_pass.set_bind_group(1, &shadow_bind_group, &[]);
-
-        for entity in &self.entities {
-            match entity.mode {
-                DrawMode::Shaded(_) => (),
-                _ => continue,
-            }
-
-            render_pass.set_bind_group(0, &entity.bind_group, &[]);
             render_pass.set_pipeline(
-                &self.render_pipelines[usize::from(DrawMode::_ShadowPass(entity.mode.inner()))],
+                &self
+                    .render_pipelines
+                    .get(usize::from(DrawMode::_ShadowPass(Topology::TriangleList(
+                        PolygonMode::Fill,
+                    ))))
+                    .unwrap(),
             );
-            if let Some(index) = entity.index.as_ref() {
-                render_pass.set_vertex_buffer(0, entity.vertex.slice(..));
-                render_pass.set_index_buffer(index.slice(..), wgpu::IndexFormat::Uint32);
-                render_pass.draw_indexed(0..entity.count, 0, 0..1);
-            } else {
-                render_pass.set_vertex_buffer(0, entity.vertex.slice(..));
-                render_pass.draw(0..entity.count as u32, 0..1);
+
+            render_pass.set_bind_group(1, &shadow_bind_group, &[]);
+
+            for entity in &self.entities {
+                match entity.mode {
+                    DrawMode::Shaded(_) => (),
+                    _ => continue,
+                }
+
+                render_pass.set_bind_group(0, &entity.bind_group, &[]);
+                render_pass.set_pipeline(
+                    &self.render_pipelines[usize::from(DrawMode::_ShadowPass(entity.mode.inner()))],
+                );
+                if let Some(index) = entity.index.as_ref() {
+                    render_pass.set_vertex_buffer(0, entity.vertex.slice(..));
+                    render_pass.set_index_buffer(index.slice(..), wgpu::IndexFormat::Uint32);
+                    render_pass.draw_indexed(0..entity.count, 0, 0..1);
+                } else {
+                    render_pass.set_vertex_buffer(0, entity.vertex.slice(..));
+                    render_pass.draw(0..entity.count as u32, 0..1);
+                }
             }
+            drop(render_pass);
+            encoder.pop_debug_group();
         }
-        drop(render_pass);
-        encoder.pop_debug_group();
 
         encoder.push_debug_group("forward pass");
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -733,6 +743,7 @@ impl GraphicsContext {
         encoder.pop_debug_group();
 
         queue.submit(std::iter::once(encoder.finish()));
+        output.present();
     }
 
     fn populate_pipelines<'a>(
@@ -778,7 +789,7 @@ impl GraphicsContext {
                     front_face: wgpu::FrontFace::Ccw,
                     cull_mode: None,
                     polygon_mode: mode.inner().inner().into(),
-                    clamp_depth: false,
+                    unclipped_depth: false,
                     conservative: false,
                 },
 
@@ -795,9 +806,15 @@ impl GraphicsContext {
                     mask: !0,
                     alpha_to_coverage_enabled: false,
                 },
+
+                multiview: None,
             });
 
-            if usize::from(mode) != pipelines.len() && device.features().contains(wgpu::Features::NON_FILL_POLYGON_MODE) {
+            if usize::from(mode) != pipelines.len()
+                && device.features().contains(
+                    wgpu::Features::POLYGON_MODE_LINE & wgpu::Features::POLYGON_MODE_POINT,
+                )
+            {
                 panic!("Render pipeline construction broke");
             }
 
@@ -835,7 +852,7 @@ impl GraphicsContext {
                     front_face: wgpu::FrontFace::Ccw,
                     cull_mode: None,
                     polygon_mode: mode.inner().inner().into(),
-                    clamp_depth: false,
+                    unclipped_depth: false,
                     conservative: false,
                 },
 
@@ -852,9 +869,15 @@ impl GraphicsContext {
                     mask: !0,
                     alpha_to_coverage_enabled: false,
                 },
+
+                multiview: None,
             });
 
-            if usize::from(mode) != pipelines.len() && device.features().contains(wgpu::Features::NON_FILL_POLYGON_MODE) {
+            if usize::from(mode) != pipelines.len()
+                && device.features().contains(
+                    wgpu::Features::POLYGON_MODE_LINE & wgpu::Features::POLYGON_MODE_POINT,
+                )
+            {
                 panic!("Render pipeline construction broke");
             }
 
@@ -903,7 +926,7 @@ impl GraphicsContext {
                     front_face: wgpu::FrontFace::Ccw,
                     cull_mode: Some(wgpu::Face::Back),
                     polygon_mode: mode.inner().inner().into(),
-                    clamp_depth: false,
+                    unclipped_depth: false,
                     conservative: false,
                 },
 
@@ -914,9 +937,15 @@ impl GraphicsContext {
                     mask: !0,
                     alpha_to_coverage_enabled: false,
                 },
+
+                multiview: None,
             });
 
-            if usize::from(mode) != pipelines.len() && device.features().contains(wgpu::Features::NON_FILL_POLYGON_MODE) {
+            if usize::from(mode) != pipelines.len()
+                && device.features().contains(
+                    wgpu::Features::POLYGON_MODE_LINE & wgpu::Features::POLYGON_MODE_POINT,
+                )
+            {
                 panic!("Render pipeline construction broke");
             }
 

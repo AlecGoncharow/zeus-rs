@@ -115,6 +115,15 @@ where
 
                     ctx.resize();
                 }
+                WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                    // new_inner_size is &&mut so we have to dereference it twice
+                    state.resize_event(
+                        &mut ctx,
+                        new_inner_size.width as f32,
+                        new_inner_size.height as f32,
+                    );
+                    ctx.resize();
+                }
                 WindowEvent::CloseRequested => {
                     if state.quit_event(&mut ctx) {
                         quit(&mut ctx);

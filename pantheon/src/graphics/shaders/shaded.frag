@@ -7,10 +7,16 @@ layout(set=1, binding=0)
 layout(set=1, binding=1)
     uniform sampler shadow_sampler;
 
+layout(set=2, binding=0) uniform Light {
+    mat4 light_view_proj;
+    vec3 light_pos;
+    float shading_off;
+    vec4 light_color;
+} light;
+
 layout(location=0) flat in vec4 v_color;
 layout(location=1) flat in vec4 v_light_color;
 layout(location=2) in vec4 v_tex_coords;
-
 
 layout(location=0) out vec4 f_color;
 
@@ -57,7 +63,7 @@ float fetch_shadow(vec4 coords, float bias) {
 
 
 void main() {
-    float shadow = fetch_shadow(v_tex_coords, 0.0001);
+    float shadow = max(fetch_shadow(v_tex_coords, 0.0001), light.shading_off);
 
 	f_color = shadow * v_light_color * v_color;
     f_color.a = 1.0;

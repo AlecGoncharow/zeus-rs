@@ -26,6 +26,7 @@ layout(set=1, binding=1)
 layout(set=2, binding=0) uniform Light {
     mat4 light_view_proj;
     vec3 light_pos;
+    int shading_on;
     vec4 light_color;
 } light;
 
@@ -99,13 +100,6 @@ void main() {
     v_light_color = brightness_diffuse * light.light_color;
     v_color = a_color;
     v_tex_coords = light.light_view_proj * world_pos;
-
-
-    //v_color.rgb = color.rgb * a_color.rgb;
-    //v_color.a = 1.0;
-    
-    //v_color = vec4(vec3(shadow), 1.0);
-
 
     // column major
     gl_Position = entity.projection * entity.view * world_pos;
