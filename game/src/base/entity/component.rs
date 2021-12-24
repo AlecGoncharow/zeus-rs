@@ -1,15 +1,22 @@
+use super::Camera;
 use super::Context;
-use crate::camera::Camera;
+use super::EntityPod;
+
 use enum_dispatch::enum_dispatch;
 use pantheon::math::Vec3;
 
 #[enum_dispatch(EntityKind)]
-pub trait DrawComponent {
-    fn draw(&mut self, ctx: &mut Context);
+pub trait DrawComponent<'a> {
+    /// this is called when an entity is registered with a render pass, the entity should acquire
+    /// it's position into its respective buffers and handles to the expected draw commands
+    // @FIXME remove the default impl once existing entitys are updated
+    fn register(&mut self, _ctx: &mut Context<'a>) {}
+
+    fn draw(&mut self, ctx: &mut Context<'a>);
 
     /// this offers an additional draw call to draw stuff like surface norms and what not
     /// to keep the main draw call lean
-    fn debug_draw(&mut self, _ctx: &mut Context) {}
+    fn debug_draw(&mut self, _ctx: &mut Context<'a>) {}
 }
 
 pub struct MousePick<'a> {
@@ -42,4 +49,9 @@ pub trait MouseComponent {
         camera_origin: Vec3,
         mouse_direction: Vec3,
     ) -> Option<MousePick>;
+}
+
+///#[enum_dispatch(EntityKind)]
+pub trait PodComponent {
+    fn into_pod(&self) -> EntityPod;
 }

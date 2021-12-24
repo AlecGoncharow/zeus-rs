@@ -77,6 +77,6 @@ pub fn is_key_repeated(ctx: &Context) -> bool {
 }
 
 /// Returns a reference to the set of currently pressed keys.
-pub fn pressed_keys(ctx: &Context) -> &HashSet<VirtualKeyCode> {
+pub fn pressed_keys<'a>(ctx: &'a Context) -> &'a HashSet<VirtualKeyCode> {
     ctx.keyboard_context.pressed_keys()
 }

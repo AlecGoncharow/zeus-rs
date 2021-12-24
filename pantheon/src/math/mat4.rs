@@ -326,6 +326,14 @@ impl Mat4 {
 
         projection_matrix
     }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        unsafe {
+            let data_ptr: *const Self = self;
+            let byte_ptr: *const u8 = data_ptr as *const _;
+            std::slice::from_raw_parts(byte_ptr, std::mem::size_of::<Self>())
+        }
+    }
 }
 
 impl Add for Mat4 {

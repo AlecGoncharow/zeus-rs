@@ -1,27 +1,26 @@
-use core::message::{Complex, GameMessage};
+use game::base::message::{Complex, GameMessage};
 use hermes::tokio;
 use hermes::Message;
 use hermes::ServerInterface;
 
-use core::entity::cube::Cuboid;
-use core::entity::sun::Sun;
-use core::entity::EntityKind;
-use core::Color;
+use game::base::entity::cube::Cuboid;
+use game::base::entity::sun::Sun;
+use game::base::entity::EntityKind;
+use game::base::Color;
 
-use core::proc_gen;
+use game::base::proc_gen;
 use proc_gen::color::ColorGenerator;
 use proc_gen::noise::Perlin;
 use proc_gen::terrain::TerrainGenerator;
 
-mod entity_manager;
-use entity_manager::EntityManager;
+use game::server::entity_manager::EntityManager;
 
-struct ServerState {
-    entity_manager: EntityManager,
+struct ServerState<'a> {
+    entity_manager: EntityManager<'a>,
     id_counter: usize,
 }
 
-impl ServerState {
+impl<'a> ServerState<'a> {
     pub fn new() -> Self {
         Self {
             id_counter: 1,
@@ -31,7 +30,13 @@ impl ServerState {
 }
 
 fn generate_cubes(state: &mut ServerState) {
-    let cube = Cuboid::cube(5.0, (0, 0, 0).into(), None, None);
+    let cube = Cuboid::cube(
+        5.0,
+        (0, 0, 0).into(),
+        None,
+        game::base::vertex::VertexKind::Shaded,
+        None,
+    );
     state.entity_manager.push_entity(EntityKind::from(cube));
 
     let sun = Sun::new(
@@ -72,7 +77,8 @@ fn generate_cubes(state: &mut ServerState) {
     //state.entity_manager.push_entity(EntityKind::from(cube));
 }
 
-fn generate_terrain(seed: Option<isize>) -> core::entity::terrain::Terrain {
+#[allow(dead_code)]
+fn generate_terrain(seed: Option<isize>) -> game::base::entity::terrain::Terrain<'static> {
     let mut perlin = Perlin::default();
     if let Some(seed) = seed {
         perlin.seed = seed;

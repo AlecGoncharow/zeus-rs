@@ -17,18 +17,18 @@ use std::sync::Arc;
 
 use crate::input::{keyboard, mouse};
 
-pub trait EventHandler {
+pub trait EventHandler<'a> {
     // Called upon each logic update to the game.
     /// This should be where the game's logic takes place.
-    fn update(&mut self, _ctx: &mut Context) -> Result<()>;
+    fn update(&mut self, _ctx: &mut Context<'a>) -> Result<()>;
 
     /// Called to do the drawing of your game.
-    fn draw(&mut self, _ctx: &mut Context) -> Result<()>;
+    fn draw(&mut self, _ctx: &mut Context<'a>) -> Result<()>;
 
     /// A mouse button was pressed
     fn mouse_button_down_event(
         &mut self,
-        _ctx: &mut Context,
+        _ctx: &mut Context<'a>,
         _button: MouseButton,
         _x: f32,
         _y: f32,
@@ -38,7 +38,7 @@ pub trait EventHandler {
     /// A mouse button was released
     fn mouse_button_up_event(
         &mut self,
-        _ctx: &mut Context,
+        _ctx: &mut Context<'a>,
         _button: MouseButton,
         _x: f32,
         _y: f32,
@@ -47,40 +47,41 @@ pub trait EventHandler {
 
     /// The mouse was moved; it provides both absolute x and y coordinates in the window,
     /// and relative x and y coordinates compared to its last position.
-    fn mouse_motion_event(&mut self, _ctx: &mut Context, _x: f32, _y: f32, _dx: f32, _dy: f32) {}
+    fn mouse_motion_event(&mut self, _ctx: &mut Context<'a>, _x: f32, _y: f32, _dx: f32, _dy: f32) {
+    }
 
     /// The mousewheel was scrolled, vertically (y, positive away from and negative toward the user)
     /// or horizontally (x, positive to the right and negative to the left).
-    fn mouse_wheel_event(&mut self, _ctx: &mut Context, _x: f32, _y: f32) {}
+    fn mouse_wheel_event(&mut self, _ctx: &mut Context<'a>, _x: f32, _y: f32) {}
 
     /// A keyboard button was pressed.
-    fn key_down_event(&mut self, ctx: &mut Context, keycode: VirtualKeyCode, _repeat: bool) {
+    fn key_down_event(&mut self, ctx: &mut Context<'a>, keycode: VirtualKeyCode, _repeat: bool) {
         if keycode == VirtualKeyCode::Escape {
             quit(ctx);
         }
     }
 
     /// A keyboard button was released.
-    fn key_up_event(&mut self, _ctx: &mut Context, _keycode: VirtualKeyCode) {}
+    fn key_up_event(&mut self, _ctx: &mut Context<'a>, _keycode: VirtualKeyCode) {}
 
     /// A unicode character was received, usually from keyboard input.
     /// This is the intended way of facilitating text input.
-    fn text_input_event(&mut self, _ctx: &mut Context, _character: char) {}
+    fn text_input_event(&mut self, _ctx: &mut Context<'a>, _character: char) {}
 
     /// Called when the window is shown or hidden.
-    fn focus_event(&mut self, _ctx: &mut Context, _gained: bool) {}
+    fn focus_event(&mut self, _ctx: &mut Context<'a>, _gained: bool) {}
 
     /// Called upon a quit event.  If it returns false,
     /// the game does not exit (the quit event is cancelled).
-    fn quit_event(&mut self, _ctx: &mut Context) -> bool {
+    fn quit_event(&mut self, _ctx: &mut Context<'a>) -> bool {
         println!("quit_event() callback called, quitting...");
         true
     }
 
     /// Called when the user resizes the window
-    fn resize_event(&mut self, _ctx: &mut Context, _width: f32, _height: f32) {}
+    fn resize_event(&mut self, _ctx: &mut Context<'a>, _width: f32, _height: f32) {}
 
-    fn key_mods_changed(&mut self, _ctx: &mut Context, _modifiers_state: ModifiersState) {}
+    fn key_mods_changed(&mut self, _ctx: &mut Context<'a>, _modifiers_state: ModifiersState) {}
 }
 
 pub fn quit(ctx: &mut Context) {
@@ -89,14 +90,17 @@ pub fn quit(ctx: &mut Context) {
 
 pub fn run<S: 'static>(
     events_loop: EventLoop<crate::context::EngineEvent>,
-    mut ctx: Context,
+    mut ctx: Context<'static>,
     mut state: S,
 ) -> !
 where
-    S: EventHandler,
+    S: EventHandler<'static>,
 {
     let shader_reload_handle = Arc::new(AtomicBool::new(false));
-    shader::start_hotloader(Arc::clone(&shader_reload_handle));
+    shader::start_hotloader(
+        shader_reload_handle.clone(),
+        ctx.shader_context.shader_src_path.clone(),
+    );
 
     events_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Poll;
@@ -106,23 +110,21 @@ where
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::Resized(logical_size) => {
                     // let actual_size = logical_size;
-
+                    ctx.resize();
                     state.resize_event(
                         &mut ctx,
                         logical_size.width as f32,
                         logical_size.height as f32,
                     );
-
-                    ctx.resize();
                 }
                 WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
                     // new_inner_size is &&mut so we have to dereference it twice
+                    ctx.resize();
                     state.resize_event(
                         &mut ctx,
                         new_inner_size.width as f32,
                         new_inner_size.height as f32,
                     );
-                    ctx.resize();
                 }
                 WindowEvent::CloseRequested => {
                     if state.quit_event(&mut ctx) {

@@ -1,16 +1,13 @@
 use super::component::*;
 use super::plane::Plane;
 use super::triangle::Triangle;
+use super::Camera;
 use super::Entity;
-use crate::camera::Camera;
+use crate::base::vertex::*;
+use crate::client::rendering;
 use pantheon::context::Context;
-use pantheon::graphics::color::Color;
-use pantheon::graphics::mode::DrawMode;
-use pantheon::graphics::vertex::ShadedVertex;
-use pantheon::graphics::vertex::Vertex;
+use pantheon::graphics::prelude::*;
 use pantheon::graphics::Drawable;
-use pantheon::graphics::PolygonMode;
-use pantheon::graphics::Topology;
 use pantheon::input::mouse;
 use pantheon::math::*;
 use pantheon::winit::event::MouseButton;
@@ -100,80 +97,83 @@ pub fn cuboid_default_colors() -> [Color; 8] {
 
 #[derive(Debug, Copy, Clone)]
 enum CubioidVertMode {
-    ShadedVertex([ShadedVertex; 8]),
-    Vertex([Vertex; 8]),
+    Shaded([ShadedVertex; 8]),
+    Basic([BasicVertex; 8]),
 }
 
 #[allow(dead_code)]
 impl CubioidVertMode {
     pub fn is_vertex(&self) -> bool {
         match self {
-            &CubioidVertMode::Vertex(_) => true,
+            &CubioidVertMode::Basic(_) => true,
             _ => false,
         }
     }
 
-    pub fn as_vertex(&self) -> &[Vertex; 8] {
+    pub fn as_basic(&self) -> &[BasicVertex; 8] {
         match self {
-            &CubioidVertMode::Vertex(ref verts) => verts,
+            &CubioidVertMode::Basic(ref verts) => verts,
             _ => panic!("bad usage"),
         }
     }
 
-    pub fn try_as_vertex(&self) -> Option<&[Vertex; 8]> {
+    pub fn try_as_basic(&self) -> Option<&[BasicVertex; 8]> {
         match self {
-            &CubioidVertMode::Vertex(ref verts) => Some(verts),
+            &CubioidVertMode::Basic(ref verts) => Some(verts),
             _ => None,
         }
     }
 
     pub fn is_shaded(&self) -> bool {
         match self {
-            &CubioidVertMode::ShadedVertex(_) => true,
+            &CubioidVertMode::Shaded(_) => true,
             _ => false,
         }
     }
 
     pub fn as_shaded(&self) -> &[ShadedVertex; 8] {
         match self {
-            &CubioidVertMode::ShadedVertex(ref verts) => verts,
+            &CubioidVertMode::Shaded(ref verts) => verts,
             _ => panic!("bad usage"),
         }
     }
 
     pub fn try_as_shaded(&self) -> Option<&[ShadedVertex; 8]> {
         match self {
-            &CubioidVertMode::ShadedVertex(ref verts) => Some(verts),
+            &CubioidVertMode::Shaded(ref verts) => Some(verts),
             _ => None,
         }
     }
 
     pub fn try_as_shaded_mut(&mut self) -> Option<&mut [ShadedVertex; 8]> {
         match self {
-            &mut CubioidVertMode::ShadedVertex(ref mut verts) => Some(verts),
+            &mut CubioidVertMode::Shaded(ref mut verts) => Some(verts),
             _ => None,
         }
     }
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct Cuboid {
+pub struct Cuboid<'a> {
     vertices: CubioidVertMode,
     faces: [(Triangle, Triangle); 6],
     indices: [u32; 36],
-    pub draw_mode: DrawMode,
+    draw_call_handle: Option<DrawCallHandle<'a>>,
+    push_constant_handle: Option<PushConstantHandle<'a>>,
+    pub topology: Topology,
     pub position: Vec3,
     pub rotation: Mat4,
     pub moused_over: bool,
 }
 
-impl Cuboid {
+impl<'a> Cuboid<'a> {
     pub fn cube(
         size: f32,
         position: Vec3,
         color: Option<Color>,
-        draw_mode: Option<DrawMode>,
-    ) -> Cuboid {
+        vertex_kind: VertexKind,
+        topology: Option<Topology>,
+    ) -> Self {
         // TODO normals
         let pos = get_cube_verts(size);
         //let colors = cuboid_default_colors();
@@ -181,26 +181,30 @@ impl Cuboid {
         let colors = [color; 8];
         let normals = cube_normals();
 
-        let vertices = if let Some(DrawMode::Normal(_)) = draw_mode {
-            let mut vertices = [(Vec3::new_from_one(1), Color::new(0, 0, 0)).into(); 8];
+        let vertices = match vertex_kind {
+            VertexKind::Basic => {
+                let mut vertices = [(Vec3::new_from_one(1), Color::new(0, 0, 0)).into(); 8];
 
-            for i in 0..8 {
-                vertices[i] = (pos[i], colors[i]).into();
+                for i in 0..8 {
+                    vertices[i] = (pos[i], colors[i]).into();
+                }
+                CubioidVertMode::Basic(vertices)
             }
-            CubioidVertMode::Vertex(vertices)
-        } else {
-            let mut vertices = [(
-                Vec3::new_from_one(1),
-                Color::new(0, 0, 0),
-                Vec3::new_from_one(1),
-            )
-                .into(); 8];
+            VertexKind::Shaded => {
+                let mut vertices = [(
+                    Vec3::new_from_one(1),
+                    Color::new(0, 0, 0),
+                    Vec3::new_from_one(1),
+                )
+                    .into(); 8];
 
-            for i in 0..8 {
-                vertices[i] = (pos[i], colors[i], normals[i]).into();
+                for i in 0..8 {
+                    vertices[i] = (pos[i], colors[i], normals[i]).into();
+                }
+
+                CubioidVertMode::Shaded(vertices)
             }
-
-            CubioidVertMode::ShadedVertex(vertices)
+            _ => unimplemented!(),
         };
 
         let faces = [
@@ -233,8 +237,9 @@ impl Cuboid {
             vertices,
             faces,
             indices: cube_indices(),
-            draw_mode: draw_mode
-                .unwrap_or(DrawMode::Shaded(Topology::TriangleList(PolygonMode::Fill))),
+            draw_call_handle: None,
+            push_constant_handle: None,
+            topology: topology.unwrap_or(Topology::TriangleList(PolygonMode::Fill)),
             position,
             rotation: Mat4::identity(),
             moused_over: false,
@@ -243,12 +248,12 @@ impl Cuboid {
 
     pub fn set_color(&mut self, new_color: Color) {
         match self.vertices {
-            CubioidVertMode::Vertex(ref mut verts) => {
+            CubioidVertMode::Basic(ref mut verts) => {
                 for vert in verts.iter_mut() {
                     vert.color = new_color;
                 }
             }
-            CubioidVertMode::ShadedVertex(ref mut verts) => {
+            CubioidVertMode::Shaded(ref mut verts) => {
                 for vert in verts.iter_mut() {
                     vert.color = new_color;
                 }
@@ -265,7 +270,7 @@ impl Cuboid {
     }
 }
 
-impl Entity for Cuboid {
+impl<'a> Entity for Cuboid<'a> {
     fn update(&mut self, ctx: &mut Context) {
         self.moused_over = false;
         let delta_time = ctx.timer_context.delta_time();
@@ -273,8 +278,42 @@ impl Entity for Cuboid {
     }
 }
 
-impl DrawComponent for Cuboid {
-    fn draw(&mut self, ctx: &mut Context) {
+impl<'a> DrawComponent<'a> for Cuboid<'a> {
+    fn register(&mut self, ctx: &mut Context<'a>) {
+        let push_constant = PushConstant::vertex_data(0, &[self.model_matrix()]);
+
+        self.push_constant_handle = Some(ctx.wrangler.add_push_constant(push_constant, "cube :)"));
+
+        self.draw_call_handle = Some(match self.vertices {
+            CubioidVertMode::Basic(verts) => rendering::register_indexed(
+                ctx,
+                &["shaded"],
+                "basic",
+                self.topology,
+                &verts,
+                &self.indices,
+                0..1,
+                self.push_constant_handle.clone(),
+            ),
+            CubioidVertMode::Shaded(verts) => rendering::register_indexed(
+                ctx,
+                &["shaded"],
+                "shaded",
+                self.topology,
+                &verts,
+                &self.indices,
+                0..1,
+                self.push_constant_handle,
+            ),
+        });
+    }
+
+    fn draw(&mut self, ctx: &mut Context<'a>) {
+        if let Some(push_constant_handle) = self.push_constant_handle {
+            ctx.wrangler
+                .get_push_constant_mut(&push_constant_handle)
+                .replace_data(&[self.model_matrix()]);
+        }
         /*
         let mut color: Color = (0, 0, 0).into();
         if self.moused_over {
@@ -291,6 +330,7 @@ impl DrawComponent for Cuboid {
             face_lines.push((tri_two.p2, color));
         }
         */
+        /*
 
         ctx.set_model(self.model_matrix());
         //ctx.draw(Topology::TriangleList(PolygonMode::Line), &face_lines);
@@ -303,9 +343,10 @@ impl DrawComponent for Cuboid {
                 ctx.draw_indexed(self.draw_mode(), &verts, &self.indices);
             }
         }
+        */
     }
 
-    fn debug_draw(&mut self, ctx: &mut Context) {
+    fn debug_draw(&mut self, _ctx: &mut Context) {
         if let Some(verts) = self.vertices.try_as_shaded() {
             let mut lines: Vec<Vertex> = vec![];
             let color = Color::new(0, 0, 0);
@@ -316,19 +357,21 @@ impl DrawComponent for Cuboid {
                 lines.push((vert.position + (3. * vert.normal), end_color).into());
             }
 
+            /*
             ctx.set_model(self.model_matrix());
 
             ctx.draw(
                 DrawMode::Normal(Topology::LineList(PolygonMode::Fill)),
                 &lines,
             );
+            */
         }
     }
 }
 
 // impl AsComponent for Cuboid {}
 
-impl MouseComponent for Cuboid {
+impl<'a> MouseComponent for Cuboid<'a> {
     fn click_start(&mut self, _ctx: &mut Context) {}
     fn click_end(&mut self, _ctx: &mut Context) {}
 
@@ -443,13 +486,9 @@ impl MouseComponent for Cuboid {
     }
 }
 
-impl Drawable for Cuboid {
+impl<'a> Drawable for Cuboid<'a> {
     fn model_matrix(&self) -> Mat4 {
         Mat4::translation::<f32>(self.position.into()) * self.rotation
-    }
-
-    fn draw_mode(&self) -> DrawMode {
-        self.draw_mode
     }
 
     fn rotate(&mut self, theta: f32, axis: Vec3) {

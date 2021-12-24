@@ -4,8 +4,6 @@ members = [
     "pantheon",
     "hermes",
     "game",
-    "core",
-    "server"
 ]
 
 [profile.release]

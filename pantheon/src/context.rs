@@ -1,12 +1,13 @@
+use std::path::PathBuf;
+
 use crate::graphics;
-use crate::graphics::mode::{DrawMode, PolygonMode};
-use crate::graphics::texture::TextureKind;
+use crate::graphics::mode::PolygonMode;
 use crate::input::{keyboard, mouse};
 use crate::math::Vec2;
+use crate::shader;
 use crate::timer;
-use crate::Mat4;
 use futures::executor::block_on;
-use std::sync::Arc;
+use graphics::prelude::*;
 use winit::{event::*, event_loop::EventLoop, window::WindowBuilder};
 
 /// A custom event type for the winit app.
@@ -14,12 +15,14 @@ pub enum EngineEvent {
     RequestRedraw,
 }
 
-pub struct Context {
+pub struct Context<'a> {
     pub continuing: bool,
     pub keyboard_context: keyboard::KeyboardContext,
     pub mouse_context: mouse::MouseContext,
     pub gfx_context: graphics::renderer::GraphicsContext,
+    pub wrangler: RenderWrangler<'a>,
     pub timer_context: timer::TimeContext,
+    pub shader_context: shader::ShaderContext,
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub window: winit::window::Window,
@@ -30,8 +33,11 @@ pub struct Context {
     pub forced_draw_mode: Option<PolygonMode>,
 }
 
-impl<'a> Context {
-    pub fn new(clear_color: crate::math::Vec4) -> (Self, EventLoop<EngineEvent>) {
+impl<'a, 'winit> Context<'a> {
+    pub fn new(
+        clear_color: crate::math::Vec4,
+        shader_path: PathBuf,
+    ) -> (Self, EventLoop<EngineEvent>) {
         let event_loop: EventLoop<EngineEvent> = EventLoop::with_user_event();
 
         let window = WindowBuilder::new().build(&event_loop).unwrap();
@@ -46,16 +52,26 @@ impl<'a> Context {
         }))
         .unwrap();
 
+        println!(
+            "[adapter.is_webgpu_compliant] {}",
+            adapter.get_downlevel_properties().is_webgpu_compliant()
+        );
+
         let mut features = wgpu::Features::empty();
         // @TODO need to wrap this so that non Vulkan/DX12 don't offer multiple pipelines
         features.set(wgpu::Features::POLYGON_MODE_LINE, true);
         features.set(wgpu::Features::POLYGON_MODE_POINT, true);
+        features.set(wgpu::Features::PUSH_CONSTANTS, true);
 
         let (device, queue) = match block_on(adapter.request_device(
             &wgpu::DeviceDescriptor {
                 label: Some("Request Device"),
                 features,
-                limits: wgpu::Limits::default(),
+                limits: wgpu::Limits {
+                    /// AMD pls https://www.khronos.org/registry/vulkan/specs/1.1/html/vkspec.html#limits-minmax
+                    max_push_constant_size: 128,
+                    ..wgpu::Limits::default()
+                },
             },
             None, // Trace path
         )) {
@@ -80,12 +96,16 @@ impl<'a> Context {
         };
         surface.configure(&device, &surface_config);
 
-        let gfx_context = block_on(graphics::renderer::GraphicsContext::new(
-            &window,
-            &device,
-            &surface_config,
-            clear_color,
-        ));
+        let gfx_context = graphics::renderer::GraphicsContext::new(&window, clear_color);
+
+        let wrangler = RenderWrangler::new();
+
+        let shader_src_path = shader_path.clone();
+        let shader_spirv_path = shader_path.join("build");
+        let shader_context = shader::ShaderContext {
+            shader_src_path,
+            shader_spirv_path,
+        };
 
         let event_loop_proxy = std::sync::Mutex::new(event_loop.create_proxy());
         let ctx = Self {
@@ -102,12 +122,14 @@ impl<'a> Context {
             adapter,
             event_loop_proxy,
             forced_draw_mode: None,
+            wrangler,
+            shader_context,
         };
 
         (ctx, event_loop)
     }
 
-    pub fn process_event(&mut self, event: &Event<'a, EngineEvent>) {
+    pub fn process_event(&mut self, event: &Event<'winit, EngineEvent>) {
         match event {
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::Resized(_logical_size) => {}
@@ -154,35 +176,16 @@ impl<'a> Context {
         };
     }
 
-    pub fn set_camera(&mut self, camera: Arc<impl crate::graphics::CameraProjection + 'static>) {
-        self.gfx_context.entity_uniforms.projection = camera.projection_matrix();
-        self.gfx_context.entity_uniforms.view = camera.view_matrix();
-    }
-
-    pub fn set_projection(&mut self, mat: Mat4) {
-        self.gfx_context.entity_uniforms.projection = mat;
-    }
-
-    pub fn set_view(&mut self, mat: Mat4) {
-        self.gfx_context.entity_uniforms.view = mat;
-    }
-
-    pub fn set_model(&mut self, mat: Mat4) {
-        self.gfx_context.entity_uniforms.model = mat;
-    }
-
     pub fn set_cursor_icon(&mut self, icon: winit::window::CursorIcon) {
         self.window.set_cursor_icon(icon);
     }
 
     pub fn reload_shaders(&mut self) {
-        self.gfx_context
-            .reload_shaders(&self.device, &self.surface_config);
+        self.wrangler
+            .reload_shaders(&self.device, &self.surface_config, &self.shader_context);
     }
 
-    pub fn start_drawing(&mut self) {
-        self.gfx_context.start();
-    }
+    pub fn start_drawing(&mut self) {}
 
     pub fn resize(&mut self) {
         let size = self.window.inner_size();
@@ -196,39 +199,7 @@ impl<'a> Context {
 
         self.surface.configure(&self.device, &self.surface_config);
 
-        self.gfx_context
-            .resize(size, &self.device, &self.surface_config, &self.window);
-    }
-
-    pub fn draw<F>(&mut self, mut mode: DrawMode, verts: &[F])
-    where
-        F: bytemuck::Pod,
-    {
-        if let Some(polygon_mode) = self.forced_draw_mode {
-            mode.inner_mut().set_inner(polygon_mode);
-        }
-
-        self.gfx_context.draw::<F>(&self.device, mode, verts);
-    }
-
-    pub fn draw_indexed<F>(&mut self, mut mode: DrawMode, verts: &[F], indices: &[u32])
-    where
-        F: bytemuck::Pod,
-    {
-        if let Some(polygon_mode) = self.forced_draw_mode {
-            mode.inner_mut().set_inner(polygon_mode);
-        }
-
-        self.gfx_context
-            .draw_indexed::<F>(&self.device, mode, verts, indices);
-    }
-
-    pub fn draw_textured<F>(&mut self, mode: DrawMode, verts: &[F], texture: TextureKind)
-    where
-        F: bytemuck::Pod,
-    {
-        self.gfx_context
-            .draw_textured::<F>(&self.device, mode, verts, texture);
+        self.gfx_context.resize(size, &self.window);
     }
 
     pub fn render(&mut self) {
@@ -242,6 +213,6 @@ impl<'a> Context {
         };
 
         self.gfx_context
-            .render(&self.device, current_texture, &self.queue);
+            .render(&self.wrangler, &self.device, current_texture, &self.queue);
     }
 }

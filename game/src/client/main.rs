@@ -33,6 +33,7 @@ use hermes::message::Message;
 use hermes::tokio;
 
 mod entity_manager;
+mod rendering;
 mod ui;
 
 struct State {
@@ -47,6 +48,7 @@ struct State {
     //texture: Texture,
     #[allow(unused)]
     top_right_ui: ui::TexturableQuad,
+    shader_path: String,
 }
 
 impl EventHandler for State {
@@ -245,6 +247,10 @@ impl EventHandler for State {
     }
 
     fn key_mods_changed(&mut self, _ctx: &mut Context, _modifiers_state: ModifiersState) {}
+
+    fn shader_directory(&self) -> std::path::PathBuf {
+        std::path::PathBuf::from(self.shader_path)
+    }
 }
 
 #[allow(dead_code)]
@@ -356,6 +362,8 @@ async fn main() {
 
     let top_right_ui = ui::TexturableQuad::new((0.5, 0.5).into(), (1.0, 1.0).into());
 
+    let shader_path = String::from("assets");
+
     let mut my_game = State {
         frame: 0,
         entity_manager: EntityManager::new(
@@ -380,6 +388,7 @@ async fn main() {
         debug: false,
         sun_mesh: None,
         top_right_ui,
+        shader_path,
     };
 
     ctx.set_view(my_game.entity_manager.camera.view);
