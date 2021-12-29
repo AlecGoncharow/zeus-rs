@@ -101,6 +101,8 @@ where
         shader_reload_handle.clone(),
         ctx.shader_context.shader_src_path.clone(),
     );
+    #[cfg(target_os = "macos")]
+    let mut wait = false;
 
     events_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Poll;
@@ -133,6 +135,15 @@ where
                 }
                 WindowEvent::Focused(gained) => {
                     state.focus_event(&mut ctx, gained);
+
+                    // @HACK @FIXME https://github.com/gfx-rs/wgpu/issues/1783 Just Mac things :)
+                    #[cfg(target_os = "macos")]
+                    if !gained {
+                        *control_flow = ControlFlow::Wait;
+                        wait = true;
+                    } else {
+                        wait = false;
+                    }
                 }
                 WindowEvent::ReceivedCharacter(ch) => {
                     state.text_input_event(&mut ctx, ch);
@@ -206,6 +217,11 @@ where
             },
             Event::DeviceEvent { .. } => (),
             Event::MainEventsCleared => {
+                #[cfg(target_os = "macos")]
+                if wait {
+                    return;
+                }
+
                 if shader_reload_handle.load(Ordering::Relaxed) {
                     ctx.reload_shaders();
                     shader_reload_handle.store(false, Ordering::Relaxed);
