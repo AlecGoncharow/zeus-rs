@@ -1,9 +1,11 @@
 use super::component::*;
-use crate::camera::Camera;
-use crate::Color;
+use super::Camera;
+use crate::base::vertex::ShadedVertex;
+use crate::client::rendering;
 use pantheon::graphics::mode::DrawMode;
-use pantheon::graphics::vertex::ShadedVertex;
+use pantheon::graphics::prelude::*;
 use pantheon::graphics::vertex::Vertex;
+use pantheon::graphics::Color;
 use pantheon::graphics::Drawable;
 use pantheon::graphics::PolygonMode;
 use pantheon::graphics::Topology;
@@ -11,25 +13,31 @@ use pantheon::Vec3;
 use pantheon::{context::Context, Mat4};
 
 #[derive(Debug, Clone)]
-pub struct Terrain {
+pub struct Terrain<'a> {
     pub verts: Vec<ShadedVertex>,
     pub indices: Vec<u32>,
     pub center: Vec3,
     norm_debug: Vec<Vertex>,
+    draw_call_handle: Option<DrawCallHandle<'a>>,
+    topology: Topology,
 }
 
-impl Terrain {
+impl<'a> Terrain<'a> {
     pub fn from_data(verts: Vec<ShadedVertex>, indices: Vec<u32>) -> Self {
+        /*
+        let model_matrix =
+            Mat4::translation((0, 0, 0)) * Mat4::translation((center.x, center.y, center.z));
+        */
+
         Self {
             norm_debug: Vec::with_capacity(verts.len() * 2),
             verts,
             indices,
-            center: (0, 0, 0).into(),
+            center: Vec3::new_from_one(0),
+            draw_call_handle: None,
+            topology: Topology::TriangleList(PolygonMode::Fill),
         }
     }
-}
-
-impl Terrain {
     pub fn init(&mut self, _ctx: &mut Context) {
         let color = Color::new(0, 0, 0);
         let odd_color = Color::new(255, 0, 255);
@@ -50,17 +58,39 @@ impl Terrain {
 
     pub fn update(&mut self, _ctx: &mut Context) {}
 
-    pub fn draw(&mut self, ctx: &mut Context) {
-        ctx.set_model(self.model_matrix());
-        ctx.draw_indexed(self.draw_mode(), &self.verts, &self.indices);
+    pub fn register(&mut self, ctx: &mut Context<'a>) {
+        let push_constant = PushConstant::vertex_data(0, &[self.model_matrix()]);
+
+        let push_constant_handle = Some(ctx.wrangler.add_push_constant(push_constant, "terrain"));
+
+        self.draw_call_handle = Some(rendering::register_indexed(
+            ctx,
+            &["shaded"],
+            "shaded",
+            self.topology,
+            &self.verts,
+            &self.indices,
+            0..1,
+            push_constant_handle,
+        ));
     }
 
-    pub fn debug_draw(&mut self, ctx: &mut Context) {
+    pub fn draw(&mut self, _ctx: &mut Context) {
+        /*
+         * @TODO
+        ctx.set_model(self.model_matrix());
+        ctx.draw_indexed(self.draw_mode(), &self.verts, &self.indices);
+        */
+    }
+
+    pub fn debug_draw(&mut self, _ctx: &mut Context) {
+        /* @TODO
         ctx.set_model(self.model_matrix());
         ctx.draw(
             DrawMode::Normal(Topology::LineList(PolygonMode::Fill)),
             &self.norm_debug,
         );
+        */
     }
 
     pub fn click_start(&mut self, _ctx: &mut Context) {}
@@ -78,7 +108,7 @@ impl Terrain {
     }
 }
 
-impl Drawable for Terrain {
+impl<'a> Drawable for Terrain<'a> {
     fn model_matrix(&self) -> Mat4 {
         Mat4::translation::<f32>((-1. * self.center).into())
     }

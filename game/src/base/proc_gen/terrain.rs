@@ -3,9 +3,9 @@ use pantheon::Vec3;
 
 use super::color::ColorGenerator;
 use super::noise::Perlin;
-use crate::entity::plane::Plane;
-use crate::entity::terrain::Terrain;
-use pantheon::graphics::vertex::ShadedVertex;
+use crate::base::entity::plane::Plane;
+use crate::base::entity::terrain::Terrain;
+use crate::base::vertex::ShadedVertex;
 
 pub struct TerrainGenerator {
     perlin_noise: Perlin,
@@ -20,7 +20,7 @@ impl TerrainGenerator {
         }
     }
 
-    pub fn generate(&self, size: usize, clamped: bool) -> Terrain {
+    pub fn generate(&self, size: usize, clamped: bool) -> Terrain<'static> {
         println!("[terrain proc gen] generating heights");
         let heights: Vec<f32> = (0..(size + 1).pow(2))
             .map(|i| {

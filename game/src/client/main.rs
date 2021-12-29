@@ -33,6 +33,7 @@ use hermes::message::Message;
 use hermes::tokio;
 
 mod entity_manager;
+mod rendering;
 mod ui;
 
 struct State {
@@ -45,12 +46,13 @@ struct State {
     debug: bool,
     sun_mesh: Option<core::entity::sun::Sun>,
     //texture: Texture,
+    #[allow(unused)]
     top_right_ui: ui::TexturableQuad,
+    shader_path: String,
 }
 
 impl EventHandler for State {
     fn draw(&mut self, ctx: &mut Context) -> Result<()> {
-        use pantheon::{graphics::texture::TextureKind, DrawMode, Topology};
         ctx.start_drawing();
         self.frame += 1;
 
@@ -62,6 +64,7 @@ impl EventHandler for State {
 
         //println!("{:#?}", shadow_quad);
 
+        /* Shadow texture debug
         ctx.draw_textured(
             DrawMode::Textured(Topology::TriangleList(PolygonMode::Fill)),
             &self.top_right_ui.verts,
@@ -69,6 +72,7 @@ impl EventHandler for State {
             TextureKind::Shadow,
             //TextureKind::Depth,
         );
+        */
         ctx.render();
         Ok(())
     }
@@ -150,6 +154,10 @@ impl EventHandler for State {
             }
         }
 
+        if keycode == VirtualKeyCode::O {
+            ctx.gfx_context.light_uniforms.toggle_light();
+        }
+
         if keycode == VirtualKeyCode::P {
             self.debug = !self.debug;
         }
@@ -160,13 +168,13 @@ impl EventHandler for State {
 
         if keycode == VirtualKeyCode::T {
             let terrain_size = if cfg!(debug_assertions) { 10 } else { 250 };
-            self.entity_manager.terrain = generate_terrain(terrain_size, None, None);
+            self.entity_manager.terrain = generate_terrain(terrain_size, true, None);
             self.entity_manager.terrain.init(ctx);
         }
 
-            if keycode == VirtualKeyCode::Y {
+        if keycode == VirtualKeyCode::Y {
             let terrain_size = if cfg!(debug_assertions) { 10 } else { 250 };
-            self.entity_manager.terrain = generate_terrain(terrain_size, Some(false), None);
+            self.entity_manager.terrain = generate_terrain(terrain_size, false, None);
             self.entity_manager.terrain.init(ctx);
         }
 
@@ -239,6 +247,10 @@ impl EventHandler for State {
     }
 
     fn key_mods_changed(&mut self, _ctx: &mut Context, _modifiers_state: ModifiersState) {}
+
+    fn shader_directory(&self) -> std::path::PathBuf {
+        std::path::PathBuf::from(self.shader_path)
+    }
 }
 
 #[allow(dead_code)]
@@ -282,7 +294,11 @@ fn populate_grid(grid: &mut Vec<(Vec3, Color, Vec3)>, size: i32, y: f32) {
     }
 }
 
-fn generate_terrain(terrain_size: usize, clamped: Option<bool>, seed: Option<isize>) -> core::entity::terrain::Terrain {
+fn generate_terrain(
+    terrain_size: usize,
+    clamped: bool,
+    seed: Option<isize>,
+) -> core::entity::terrain::Terrain {
     let mut perlin = Perlin::default();
     if let Some(seed) = seed {
         perlin.seed = seed;
@@ -300,7 +316,7 @@ fn generate_terrain(terrain_size: usize, clamped: Option<bool>, seed: Option<isi
     );
 
     let terrain_gen = TerrainGenerator::new(perlin, color_gen);
-    let mut terrain = terrain_gen.generate(terrain_size, clamped.unwrap_or(true));
+    let mut terrain = terrain_gen.generate(terrain_size, clamped);
     terrain.center = (terrain_size as f32 / 2., 0., terrain_size as f32 / 2.).into();
 
     terrain
@@ -329,7 +345,7 @@ async fn main() {
     );
 
     let terrain_size = if cfg!(debug_assertions) { 10 } else { 250 };
-    let mut terrain = generate_terrain(terrain_size, None, Some(0));
+    let mut terrain = generate_terrain(terrain_size, false, Some(0));
     terrain.center = (terrain_size as f32 / 2., 0., terrain_size as f32 / 2.).into();
     terrain.init(&mut ctx);
 
@@ -345,6 +361,8 @@ async fn main() {
     */
 
     let top_right_ui = ui::TexturableQuad::new((0.5, 0.5).into(), (1.0, 1.0).into());
+
+    let shader_path = String::from("assets");
 
     let mut my_game = State {
         frame: 0,
@@ -370,6 +388,7 @@ async fn main() {
         debug: false,
         sun_mesh: None,
         top_right_ui,
+        shader_path,
     };
 
     ctx.set_view(my_game.entity_manager.camera.view);

@@ -1,7 +1,7 @@
 use std::time;
 
 // fps calculation from https://stackoverflow.com/questions/87304/calculating-frames-per-second-in-a-game
-pub const MAX_SAMPLES: usize = 128;
+pub const MAX_SAMPLES: usize = 32_768;
 
 /// taken from (ggez)[https://github.com/ggez/ggez/blob/master/src/timer.rs]
 #[derive(Debug)]
@@ -12,7 +12,7 @@ pub struct TimeContext {
     residual_update_dt: time::Duration,
     delta_since_last_instant: time::Duration,
     samples: [f32; MAX_SAMPLES],
-    sample_sum: f32,
+    pub sample_sum: f32,
     sample_cursor: usize,
     pub average_tick: f32,
     pub frame_count: usize,
@@ -58,7 +58,7 @@ impl TimeContext {
         // save value to be subtracted when it falls off
         self.samples[self.sample_cursor] = dt;
         self.sample_cursor = (self.sample_cursor + 1) % MAX_SAMPLES;
-        self.average_tick = self.sample_sum / MAX_SAMPLES as f32;
+        self.average_tick = self.sample_sum / (MAX_SAMPLES as f32);
     }
 
     pub fn delta_time(&self) -> f32 {

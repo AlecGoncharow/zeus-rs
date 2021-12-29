@@ -1,4 +1,5 @@
 use anyhow::*;
+use core::result::Result::Ok;
 use notify::{DebouncedEvent, RecursiveMode, Watcher};
 use std::fs::read_to_string;
 use std::path::PathBuf;
@@ -46,7 +47,23 @@ impl ShaderData {
     }
 }
 
-pub fn start_hotloader(dirty_flag: Arc<AtomicBool>) {
+pub struct ShaderContext {
+    pub shader_src_path: std::path::PathBuf,
+    pub shader_spirv_path: std::path::PathBuf,
+}
+
+impl ShaderContext {
+    pub fn make_module(&self, device: &wgpu::Device, path: &str) -> wgpu::ShaderModule {
+        let fq_path = self.shader_spirv_path.join(path);
+        let spirv_source = std::fs::read(fq_path).unwrap();
+        device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+            label: Some(&path),
+            source: wgpu::util::make_spirv(&spirv_source),
+        })
+    }
+}
+
+pub fn start_hotloader(dirty_flag: Arc<AtomicBool>, shader_path: std::path::PathBuf) {
     tokio::spawn(async move {
         let (tx, rx) = std::sync::mpsc::channel();
 
@@ -54,11 +71,12 @@ pub fn start_hotloader(dirty_flag: Arc<AtomicBool>) {
             notify::watcher(tx, std::time::Duration::from_millis(500)).expect("water broke");
 
         let path = std::env::current_dir().unwrap();
+        // @TODO possibly rethink how we set the parent path of the shader_path
         let shader_path = if let Some(name) = path.file_name() {
             if name != "zeus-rs" {
                 panic!("ruh roh");
             } else {
-                let output = path.join("pantheon/src/graphics/shaders");
+                let output = path.join(shader_path);
                 if !output.is_dir() {
                     panic!("what");
                 }

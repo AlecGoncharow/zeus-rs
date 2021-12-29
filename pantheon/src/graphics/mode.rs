@@ -132,7 +132,7 @@ impl Topology {
             Topology::TriangleStrip(PolygonMode::Point),
         ];
 
-      static TOPOLOGIES: [Topology; 15] = [
+        static TOPOLOGIES: [Topology; 15] = [
             Topology::PointList(PolygonMode::Fill),
             Topology::PointList(PolygonMode::Fill),
             Topology::PointList(PolygonMode::Fill),
@@ -155,9 +155,62 @@ impl Topology {
         ];
 
         if non_fill {
-             NON_FILL_TOPOLOGIES.iter()
+            NON_FILL_TOPOLOGIES.iter()
         } else {
             TOPOLOGIES.iter()
+        }
+    }
+
+    pub fn array(non_fill: bool) -> [Topology; 15] {
+        // generate all variants
+        static NON_FILL_TOPOLOGIES: [Topology; 15] = [
+            Topology::PointList(PolygonMode::Fill),
+            Topology::PointList(PolygonMode::Line),
+            Topology::PointList(PolygonMode::Point),
+            //
+            Topology::LineList(PolygonMode::Fill),
+            Topology::LineList(PolygonMode::Line),
+            Topology::LineList(PolygonMode::Point),
+            //
+            Topology::LineStrip(PolygonMode::Fill),
+            Topology::LineStrip(PolygonMode::Line),
+            Topology::LineStrip(PolygonMode::Point),
+            //
+            Topology::TriangleList(PolygonMode::Fill),
+            Topology::TriangleList(PolygonMode::Line),
+            Topology::TriangleList(PolygonMode::Point),
+            //
+            Topology::TriangleStrip(PolygonMode::Fill),
+            Topology::TriangleStrip(PolygonMode::Line),
+            Topology::TriangleStrip(PolygonMode::Point),
+        ];
+
+        static TOPOLOGIES: [Topology; 15] = [
+            Topology::PointList(PolygonMode::Fill),
+            Topology::PointList(PolygonMode::Fill),
+            Topology::PointList(PolygonMode::Fill),
+            //
+            Topology::LineList(PolygonMode::Fill),
+            Topology::LineList(PolygonMode::Fill),
+            Topology::LineList(PolygonMode::Fill),
+            //
+            Topology::LineStrip(PolygonMode::Fill),
+            Topology::LineStrip(PolygonMode::Fill),
+            Topology::LineStrip(PolygonMode::Fill),
+            //
+            Topology::TriangleList(PolygonMode::Fill),
+            Topology::TriangleList(PolygonMode::Fill),
+            Topology::TriangleList(PolygonMode::Fill),
+            //
+            Topology::TriangleStrip(PolygonMode::Fill),
+            Topology::TriangleStrip(PolygonMode::Fill),
+            Topology::TriangleStrip(PolygonMode::Fill),
+        ];
+
+        if non_fill {
+            NON_FILL_TOPOLOGIES
+        } else {
+            TOPOLOGIES
         }
     }
 }
