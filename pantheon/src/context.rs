@@ -52,14 +52,14 @@ impl<'a, 'winit> Context<'a> {
         }))
         .unwrap();
 
-        println!(
-            "[adapter.is_webgpu_compliant] {}",
-            adapter.get_downlevel_properties().is_webgpu_compliant()
-        );
+        println!("[adapter.backend] {:#?}", adapter.get_info().backend);
+        println!("[adapter.features] {:#?}", adapter.features());
 
         let mut features = wgpu::Features::empty();
         // @TODO need to wrap this so that non Vulkan/DX12 don't offer multiple pipelines
+        #[cfg(not(target_os = "macos"))]
         features.set(wgpu::Features::POLYGON_MODE_LINE, true);
+        #[cfg(not(target_os = "macos"))]
         features.set(wgpu::Features::POLYGON_MODE_POINT, true);
         features.set(wgpu::Features::PUSH_CONSTANTS, true);
 
@@ -76,16 +76,20 @@ impl<'a, 'winit> Context<'a> {
             None, // Trace path
         )) {
             Ok(stuff) => stuff,
-            Err(_) => block_on(adapter.request_device(
-                &wgpu::DeviceDescriptor {
-                    label: Some("Fallback Device"),
-                    features: wgpu::Features::empty(),
-                    limits: wgpu::Limits::default(),
-                },
-                None,
-            ))
-            .unwrap(),
+            Err(e) => {
+                eprintln!("[request_device] {:#?}", e);
+                block_on(adapter.request_device(
+                    &wgpu::DeviceDescriptor {
+                        label: Some("Fallback Device"),
+                        features: wgpu::Features::empty(),
+                        limits: wgpu::Limits::default(),
+                    },
+                    None,
+                ))
+                .unwrap()
+            }
         };
+        println!("[device.features] {:#?}", device.features());
 
         let surface_config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
