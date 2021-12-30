@@ -182,7 +182,7 @@ impl<'a, 'winit> Context<'a> {
 
     pub fn reload_shaders(&mut self) {
         self.wrangler
-            .reload_shaders(&self.device, &self.surface_config, &self.shader_context);
+            .reload_shaders(&self.device, &self.shader_context, &self.surface_config);
     }
 
     pub fn start_drawing(&mut self) {}

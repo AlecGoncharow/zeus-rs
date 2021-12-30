@@ -59,9 +59,7 @@ impl<'a> Terrain<'a> {
     pub fn update(&mut self, _ctx: &mut Context) {}
 
     pub fn register(&mut self, ctx: &mut Context<'a>) {
-        let push_constant = PushConstant::vertex_data(0, &[self.model_matrix()]);
-
-        let push_constant_handle = Some(ctx.wrangler.add_push_constant(push_constant, "terrain"));
+        let push_constant = Some(PushConstant::vertex_data(0, &[self.model_matrix()]));
 
         self.draw_call_handle = Some(rendering::register_indexed(
             ctx,
@@ -71,7 +69,7 @@ impl<'a> Terrain<'a> {
             &self.verts,
             &self.indices,
             0..1,
-            push_constant_handle,
+            push_constant,
         ));
     }
 

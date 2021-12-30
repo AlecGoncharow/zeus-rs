@@ -107,12 +107,11 @@ impl GraphicsContext {
                     DrawCall::Vertex {
                         vertices,
                         instances,
-                        push_constant_handle,
+                        push_constant,
                         topology,
                     } => {
                         render_pass.set_pipeline(&pass.pipelines[usize::from(*topology)]);
-                        if let Some(handle) = push_constant_handle {
-                            let push_constant = wrangler.get_push_constant(&handle);
+                        if let Some(push_constant) = push_constant {
                             render_pass.set_push_constants(
                                 push_constant.stages,
                                 push_constant.offset,
@@ -129,12 +128,11 @@ impl GraphicsContext {
                         indices,
                         base_vertex,
                         instances,
-                        push_constant_handle,
+                        push_constant,
                         topology,
                     } => {
                         render_pass.set_pipeline(&pass.pipelines[usize::from(*topology)]);
-                        if let Some(handle) = push_constant_handle {
-                            let push_constant = wrangler.get_push_constant(handle);
+                        if let Some(push_constant) = push_constant {
                             /*
                             println!(
                                 "[Debug] Handle: {:#?}, PushConstant: {:#?}",

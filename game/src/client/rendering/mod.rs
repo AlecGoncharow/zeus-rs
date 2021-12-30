@@ -43,7 +43,7 @@ pub fn register<'a, T>(
     topology: Topology,
     verts: &[T],
     instances: std::ops::Range<u32>,
-    push_constant_handle: Option<PushConstantHandle<'a>>,
+    push_constant: Option<PushConstant>,
 ) -> DrawCallHandle<'a>
 where
     T: bytemuck::Pod,
@@ -72,7 +72,7 @@ where
     let draw_call = DrawCall::Vertex {
         vertices,
         instances,
-        push_constant_handle,
+        push_constant,
         topology,
     };
 
@@ -98,7 +98,7 @@ pub fn register_indexed<'a, T>(
     verts: &[T],
     indices: &[u32],
     instances: std::ops::Range<u32>,
-    push_constant_handle: Option<PushConstantHandle<'a>>,
+    push_constant: Option<PushConstant>,
 ) -> DrawCallHandle<'a>
 where
     T: bytemuck::Pod,
@@ -149,7 +149,7 @@ where
         indices,
         base_vertex: vertex_cursor as i32,
         instances,
-        push_constant_handle,
+        push_constant,
         topology,
     };
 

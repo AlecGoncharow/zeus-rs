@@ -1,7 +1,5 @@
 use pantheon::graphics::prelude::*;
-use pantheon::pass::{PipelineContext, RecreatePipelines};
 use pantheon::prelude::*;
-use pantheon::shader::ShaderContext;
 
 const CAMERA_UNIFORM_BUFFER_SIZE: wgpu::BufferAddress = 2 * 16 * 4;
 const LIGHT_UNIFORM_BUFFER_SIZE: wgpu::BufferAddress = (16 + 3 + 1 + 4) * 4;
@@ -51,6 +49,7 @@ pub fn init_light_resources(ctx: &mut Context) {
         texture: shadow_texture,
         view: shadow_view,
         sampler: shadow_sampler,
+        format: SHADOW_FORMAT,
     };
 
     let lights_bind_group_layout =
@@ -266,15 +265,6 @@ pub fn init_shaded_pass<'a>(ctx: &'a mut Context) -> PassHandle<'a> {
     });
     let depth_stencil_view_handle = Some(depth_texture_handle);
 
-    let bind_group_layouts = &[
-        ctx.wrangler
-            .get_bind_group_layout(&camera_bind_group_layout_handle),
-        ctx.wrangler
-            .get_bind_group_layout(&shadow_bind_group_layout_handle),
-        ctx.wrangler
-            .get_bind_group_layout(&lights_bind_group_layout_handle),
-    ];
-
     let pipeline_ctx = PipelineContext {
         uniform_bind_group_layout_handles: vec![
             camera_bind_group_layout_handle,
@@ -285,103 +275,40 @@ pub fn init_shaded_pass<'a>(ctx: &'a mut Context) -> PassHandle<'a> {
         fs_path: Some("shaded.frag.spv"),
         vert_desc: crate::base::vertex::ShadedVertex::desc,
         label: Some("shaded pipelines"),
+        fragment_targets: Some(vec![ColorTarget {
+            format_handle: None,
+            blend: Some(wgpu::BlendState::REPLACE),
+            write_mask: wgpu::ColorWrites::ALL,
+        }]),
+        primitive: wgpu::PrimitiveState {
+            strip_index_format: None,
+            front_face: wgpu::FrontFace::Ccw,
+            cull_mode: None,
+            unclipped_depth: false,
+            conservative: false,
+            ..Default::default()
+        },
+        depth_stencil: Some(wgpu::DepthStencilState {
+            format: pantheon::graphics::texture::Texture::DEPTH_FORMAT,
+            depth_write_enabled: true,
+            depth_compare: wgpu::CompareFunction::Less,
+            stencil: wgpu::StencilState::default(),
+            bias: wgpu::DepthBiasState::default(),
+        }),
+        multisample: wgpu::MultisampleState {
+            count: 1,
+            mask: !0,
+            alpha_to_coverage_enabled: false,
+        },
+
+        multiview: None,
     };
 
-    let recreate_pipelines: RecreatePipelines =
-        |pipelines: &mut Vec<wgpu::RenderPipeline>,
-         pipeline_ctx: &PipelineContext,
-         shader_ctx: &ShaderContext,
-         layouts: &[&wgpu::BindGroupLayout],
-         device: &wgpu::Device,
-         surface_config: &wgpu::SurfaceConfiguration| {
-            pipelines.clear();
-
-            let non_fill_polygon_modes = device
-                .features()
-                .contains(wgpu::Features::POLYGON_MODE_LINE & wgpu::Features::POLYGON_MODE_POINT);
-            let render_pipeline_layout =
-                device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                    label: pipeline_ctx.label,
-                    bind_group_layouts: layouts,
-                    push_constant_ranges: &[wgpu::PushConstantRange {
-                        stages: wgpu::ShaderStages::VERTEX,
-                        range: 0..(4 * 16),
-                    }],
-                });
-
-            Topology::iterator(non_fill_polygon_modes).for_each(|mode| {
-                let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                    label: pipeline_ctx.label,
-                    layout: Some(&render_pipeline_layout),
-                    vertex: wgpu::VertexState {
-                        module: &shader_ctx.make_module(device, &pipeline_ctx.vs_path.unwrap()),
-                        entry_point: "main",
-                        buffers: &[(pipeline_ctx.vert_desc)()],
-                    },
-                    fragment: Some(wgpu::FragmentState {
-                        // 2.
-                        module: &shader_ctx.make_module(device, &pipeline_ctx.fs_path.unwrap()),
-                        entry_point: "main",
-                        targets: &[wgpu::ColorTargetState {
-                            format: surface_config.format,
-                            blend: Some(wgpu::BlendState::REPLACE),
-                            write_mask: wgpu::ColorWrites::ALL,
-                        }],
-                    }),
-
-                    primitive: wgpu::PrimitiveState {
-                        topology: mode.into(),
-                        strip_index_format: None,
-                        front_face: wgpu::FrontFace::Ccw,
-                        cull_mode: None,
-                        polygon_mode: mode.inner().into(),
-                        unclipped_depth: false,
-                        conservative: false,
-                    },
-
-                    depth_stencil: Some(wgpu::DepthStencilState {
-                        format: pantheon::graphics::texture::Texture::DEPTH_FORMAT,
-                        depth_write_enabled: true,
-                        depth_compare: wgpu::CompareFunction::Less,
-                        stencil: wgpu::StencilState::default(),
-                        bias: wgpu::DepthBiasState::default(),
-                    }),
-
-                    multisample: wgpu::MultisampleState {
-                        count: 1,
-                        mask: !0,
-                        alpha_to_coverage_enabled: false,
-                    },
-
-                    multiview: None,
-                });
-
-                if usize::from(*mode) != pipelines.len()
-                    && device.features().contains(
-                        wgpu::Features::POLYGON_MODE_LINE & wgpu::Features::POLYGON_MODE_POINT,
-                    )
-                {
-                    panic!("Render pipeline construction broke");
-                }
-                pipelines.push(pipeline);
-            });
-        };
-
-    let mut pipelines = Vec::new();
-
-    recreate_pipelines(
-        &mut pipelines,
-        &pipeline_ctx,
-        &ctx.shader_context,
-        bind_group_layouts,
-        &ctx.device,
-        &ctx.surface_config,
-    );
+    let pipelines = Vec::new();
 
     let shaded_pass = Pass {
         label: "shaded",
         pipeline_ctx,
-        recreate_pipelines,
         pipelines,
         color_attachment_ops,
         color_attachment_view_handle: None,
@@ -394,5 +321,8 @@ pub fn init_shaded_pass<'a>(ctx: &'a mut Context) -> PassHandle<'a> {
         index_buffer_handle,
     };
 
-    ctx.wrangler.add_pass(shaded_pass, "shaded")
+    let handle = ctx.wrangler.add_pass(shaded_pass, "shaded");
+    ctx.wrangler
+        .reload_shaders(&ctx.device, &ctx.shader_context, &ctx.surface_config);
+    handle
 }

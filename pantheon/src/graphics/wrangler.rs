@@ -16,9 +16,7 @@ pub struct RenderWrangler<'a> {
     pub index_buffer_cursors: Vec<LabeledEntry<'a, wgpu::BufferAddress>>,
     pub uniform_buffers: Vec<LabeledEntry<'a, wgpu::Buffer>>,
     pub textures: Vec<LabeledEntry<'a, Texture>>,
-    pub draw_calls: Vec<LabeledEntry<'a, DrawCall<'a>>>,
-
-    pub push_constants: Vec<LabeledEntry<'a, PushConstant>>,
+    pub draw_calls: Vec<LabeledEntry<'a, DrawCall>>,
 }
 impl<'a> RenderWrangler<'a> {
     pub fn new() -> Self {
@@ -33,7 +31,6 @@ impl<'a> RenderWrangler<'a> {
             uniform_buffers: Vec::new(),
             textures: Vec::new(),
             draw_calls: Vec::new(),
-            push_constants: Vec::new(),
         }
     }
 
@@ -381,9 +378,16 @@ impl<'a> RenderWrangler<'a> {
         &draw_call.entry
     }
 
+    pub fn get_draw_call_mut(&mut self, handle: &DrawCallHandle<'a>) -> &mut DrawCall {
+        let draw_call = &mut self.draw_calls[handle.idx];
+        #[cfg(debug_assertions)]
+        assert_eq!(handle.label, draw_call.label);
+        &mut draw_call.entry
+    }
+
     /// This is an unchecked add, you should keep this handle as there is no guarentee the label
     /// is unique
-    pub fn add_draw_call(&mut self, draw_call: DrawCall<'a>, label: &'a str) -> DrawCallHandle<'a> {
+    pub fn add_draw_call(&mut self, draw_call: DrawCall, label: &'a str) -> DrawCallHandle<'a> {
         //@TODO think about if this ought to be unique
         let idx = self.draw_calls.len();
         self.draw_calls.push(LabeledEntry {
@@ -397,7 +401,7 @@ impl<'a> RenderWrangler<'a> {
         }
     }
 
-    pub fn swap_draw_call(&mut self, handle: &DrawCallHandle, draw_call: DrawCall<'a>) {
+    pub fn swap_draw_call(&mut self, handle: &DrawCallHandle, draw_call: DrawCall) {
         let entry = &mut self.draw_calls[handle.idx];
         #[cfg(debug_assertions)]
         assert_eq!(handle.label, entry.label);
@@ -461,7 +465,6 @@ impl<'a> RenderWrangler<'a> {
 
     /**
      *Push Constants
-     */
 
     pub fn get_push_constant(&self, handle: &PushConstantHandle<'a>) -> &PushConstant {
         let push_constant = &self.push_constants[handle.idx];
@@ -517,6 +520,7 @@ impl<'a> RenderWrangler<'a> {
             marker: PhantomData,
         })
     }
+     */
 
     /// sugar functions, inefficient and should only be used if i know what im doing :)
 
@@ -561,11 +565,13 @@ impl<'a> RenderWrangler<'a> {
     pub fn reload_shaders(
         &mut self,
         device: &wgpu::Device,
-        queue: &wgpu::SurfaceConfiguration,
         shader_context: &ShaderContext,
+        surface_config: &wgpu::SurfaceConfiguration,
     ) {
         // @TODO FIXME? :)
         let bind_group_layouts = &self.bind_group_layouts;
+        let textures = &self.textures;
+        let mut targets = None;
         self.passes.iter_mut().for_each(|pass| {
             let layouts = pass
                 .pipeline_ctx
@@ -579,13 +585,32 @@ impl<'a> RenderWrangler<'a> {
                 })
                 .collect::<Vec<&wgpu::BindGroupLayout>>();
 
-            (pass.recreate_pipelines)(
+            if let Some(fragment_targets) = &pass.pipeline_ctx.fragment_targets {
+                targets = Some(
+                    fragment_targets
+                        .iter()
+                        .map(|target| wgpu::ColorTargetState {
+                            format: if let Some(handle) = target.format_handle {
+                                let texture = &textures[handle.idx];
+                                #[cfg(debug_assertions)]
+                                assert_eq!(handle.label, texture.label);
+                                texture.entry.format.clone()
+                            } else {
+                                surface_config.format
+                            },
+                            blend: target.blend,
+                            write_mask: target.write_mask,
+                        })
+                        .collect(),
+                );
+            }
+
+            pass.pipeline_ctx.recreate_pipelines(
                 &mut pass.pipelines,
-                &pass.pipeline_ctx,
                 shader_context,
                 &layouts,
                 device,
-                queue,
+                targets.as_ref(),
             );
         });
     }

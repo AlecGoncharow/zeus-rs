@@ -159,7 +159,6 @@ pub struct Cuboid<'a> {
     faces: [(Triangle, Triangle); 6],
     indices: [u32; 36],
     draw_call_handle: Option<DrawCallHandle<'a>>,
-    push_constant_handle: Option<PushConstantHandle<'a>>,
     pub topology: Topology,
     pub position: Vec3,
     pub rotation: Mat4,
@@ -238,7 +237,6 @@ impl<'a> Cuboid<'a> {
             faces,
             indices: cube_indices(),
             draw_call_handle: None,
-            push_constant_handle: None,
             topology: topology.unwrap_or(Topology::TriangleList(PolygonMode::Fill)),
             position,
             rotation: Mat4::identity(),
@@ -280,9 +278,7 @@ impl<'a> Entity for Cuboid<'a> {
 
 impl<'a> DrawComponent<'a> for Cuboid<'a> {
     fn register(&mut self, ctx: &mut Context<'a>) {
-        let push_constant = PushConstant::vertex_data(0, &[self.model_matrix()]);
-
-        self.push_constant_handle = Some(ctx.wrangler.add_push_constant(push_constant, "cube :)"));
+        let push_constant = Some(PushConstant::vertex_data(0, &[self.model_matrix()]));
 
         self.draw_call_handle = Some(match self.vertices {
             CubioidVertMode::Basic(verts) => rendering::register_indexed(
@@ -293,7 +289,7 @@ impl<'a> DrawComponent<'a> for Cuboid<'a> {
                 &verts,
                 &self.indices,
                 0..1,
-                self.push_constant_handle.clone(),
+                push_constant,
             ),
             CubioidVertMode::Shaded(verts) => rendering::register_indexed(
                 ctx,
@@ -303,16 +299,14 @@ impl<'a> DrawComponent<'a> for Cuboid<'a> {
                 &verts,
                 &self.indices,
                 0..1,
-                self.push_constant_handle,
+                push_constant,
             ),
         });
     }
 
     fn draw(&mut self, ctx: &mut Context<'a>) {
-        if let Some(push_constant_handle) = self.push_constant_handle {
-            ctx.wrangler
-                .get_push_constant_mut(&push_constant_handle)
-                .replace_data(&[self.model_matrix()]);
+        if let Some(draw_call_handle) = self.draw_call_handle {
+            draw_call_handle.set_push_constant_data(ctx, &[self.model_matrix()]);
         }
         /*
         let mut color: Color = (0, 0, 0).into();
@@ -347,6 +341,7 @@ impl<'a> DrawComponent<'a> for Cuboid<'a> {
     }
 
     fn debug_draw(&mut self, _ctx: &mut Context) {
+        /*
         if let Some(verts) = self.vertices.try_as_shaded() {
             let mut lines: Vec<Vertex> = vec![];
             let color = Color::new(0, 0, 0);
@@ -357,15 +352,14 @@ impl<'a> DrawComponent<'a> for Cuboid<'a> {
                 lines.push((vert.position + (3. * vert.normal), end_color).into());
             }
 
-            /*
             ctx.set_model(self.model_matrix());
 
             ctx.draw(
                 DrawMode::Normal(Topology::LineList(PolygonMode::Fill)),
                 &lines,
             );
-            */
         }
+            */
     }
 }
 
@@ -382,7 +376,7 @@ impl<'a> MouseComponent for Cuboid<'a> {
             //@TODO this is impossible in 3D space dont @ me
             // fix to be in relation to a ground plane
             let delta = mouse::delta(ctx);
-            println!("delta: {:#?}", delta);
+            //println!("delta: {:#?}", delta);
 
             let ndc_x = delta.x / ctx.gfx_context.window_dims.width;
             let ndc_y = -delta.y / ctx.gfx_context.window_dims.height;

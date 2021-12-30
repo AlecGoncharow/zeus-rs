@@ -2,14 +2,13 @@ pub mod color;
 pub mod mesh;
 pub mod mode;
 pub mod pass;
+pub mod pipeline;
 pub mod renderer;
 pub mod texture;
 pub mod vertex;
 pub mod wrangler;
 
 mod common {
-    use crate::handles::PushConstantHandle;
-
     use super::{PolygonMode, Topology};
     use core::ops::Range;
     use std::marker::PhantomData;
@@ -58,28 +57,28 @@ mod common {
     // another?
     // See: https://github.com/rust-lang/rust/pull/27186
     #[derive(Debug)]
-    pub enum DrawCall<'a> {
+    pub enum DrawCall {
         Vertex {
             vertices: Range<u32>,
             instances: Range<u32>,
-            push_constant_handle: Option<PushConstantHandle<'a>>,
+            push_constant: Option<PushConstant>,
             topology: Topology,
         },
         Indexed {
             indices: Range<u32>,
             base_vertex: i32,
             instances: Range<u32>,
-            push_constant_handle: Option<PushConstantHandle<'a>>,
+            push_constant: Option<PushConstant>,
             topology: Topology,
         },
     }
 
-    impl<'a> DrawCall<'a> {
+    impl DrawCall {
         pub fn default_vertex() -> Self {
             DrawCall::Vertex {
                 vertices: 0..0,
                 instances: 0..1,
-                push_constant_handle: None,
+                push_constant: None,
                 topology: Topology::TriangleList(PolygonMode::Fill),
             }
         }
@@ -89,9 +88,21 @@ mod common {
                 indices: 0..0,
                 base_vertex: 0,
                 instances: 0..1,
-                push_constant_handle: None,
+                push_constant: None,
                 topology: Topology::TriangleList(PolygonMode::Fill),
             }
+        }
+
+        pub fn set_push_constant_data<T>(&mut self, data: &[T])
+        where
+            T: bytemuck::Pod,
+        {
+            let push_constant = match self {
+                DrawCall::Vertex { push_constant, .. } => push_constant.as_mut().unwrap(),
+                DrawCall::Indexed { push_constant, .. } => push_constant.as_mut().unwrap(),
+            };
+
+            push_constant.replace_data(data);
         }
     }
 }
@@ -100,14 +111,26 @@ pub mod handles {
     use super::common::*;
     pub use super::pass::Pass;
     pub use super::texture::Texture;
+    use crate::prelude::*;
     pub type BufferHandle<'a> = LabeledEntryHandle<'a, &'a wgpu::Buffer>;
     pub type BufferAddressHandle<'a> = LabeledEntryHandle<'a, &'a wgpu::BufferAddress>;
     pub type BindGroupHandle<'a> = LabeledEntryHandle<'a, &'a wgpu::BindGroup>;
     pub type BindGroupLayoutHandle<'a> = LabeledEntryHandle<'a, &'a wgpu::BindGroupLayout>;
     pub type TextureHandle<'a> = LabeledEntryHandle<'a, &'a Texture>;
-    pub type DrawCallHandle<'a> = LabeledEntryHandle<'a, &'a DrawCall<'a>>;
     pub type PassHandle<'a> = LabeledEntryHandle<'a, &'a Pass<'a>>;
-    pub type PushConstantHandle<'a> = LabeledEntryHandle<'a, &'a PushConstant>;
+
+    pub type DrawCallHandle<'a> = LabeledEntryHandle<'a, &'a DrawCall>;
+
+    impl<'a> DrawCallHandle<'a> {
+        pub fn set_push_constant_data<T>(&self, ctx: &mut Context<'a>, data: &[T])
+        where
+            T: bytemuck::Pod,
+        {
+            let draw_call = ctx.wrangler.get_draw_call_mut(self);
+
+            draw_call.set_push_constant_data(data);
+        }
+    }
 }
 
 pub mod prelude {
@@ -119,6 +142,7 @@ pub mod prelude {
     pub use super::mesh::Mesh;
     pub use super::mode::{PolygonMode, Topology};
     pub use super::pass::Pass;
+    pub use super::pipeline::{ColorTarget, PipelineContext};
     pub use super::texture::Texture;
     pub use super::wrangler::RenderWrangler;
 }

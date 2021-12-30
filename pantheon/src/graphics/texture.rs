@@ -11,6 +11,7 @@ pub struct Texture {
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,
     pub sampler: wgpu::Sampler,
+    pub format: wgpu::TextureFormat,
 }
 
 impl Texture {
@@ -58,6 +59,7 @@ impl Texture {
             texture,
             view,
             sampler,
+            format: Self::DEPTH_FORMAT,
         }
     }
 
@@ -126,6 +128,7 @@ impl Texture {
             texture,
             view,
             sampler,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
         })
     }
 }
