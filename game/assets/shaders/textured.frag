@@ -12,6 +12,6 @@ layout(set=0, binding=1)
 layout (location=0) out vec4 f_color;
 
 void main() {
-    f_color = vec4(vec3(texture(sampler2D(a_texture, a_sampler), tex_coord).r), 1.0);
+    f_color = vec4(vec3(texture(sampler2D(a_texture, a_sampler), tex_coord)), 1.0);
     //f_color = vec4(1.0);
 }

@@ -70,6 +70,7 @@ impl<'a> Terrain<'a> {
             &self.indices,
             0..1,
             push_constant,
+            None,
         ));
     }
 

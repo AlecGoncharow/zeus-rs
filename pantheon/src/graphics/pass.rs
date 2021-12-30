@@ -16,7 +16,7 @@ pub struct Pass<'a> {
 
     /// Drawing stuff
     pub draw_call_handles: Vec<DrawCallHandle<'a>>,
-    pub bind_group_handles: Vec<BindGroupHandle<'a>>,
+    pub bind_group_handles: Option<Vec<BindGroupHandle<'a>>>,
     pub vertex_buffer_handle: BufferHandle<'a>,
     pub index_buffer_handle: BufferHandle<'a>,
 }

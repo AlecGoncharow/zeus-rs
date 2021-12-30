@@ -44,6 +44,7 @@ pub fn register<'a, T>(
     verts: &[T],
     instances: std::ops::Range<u32>,
     push_constant: Option<PushConstant>,
+    bind_group_labels: Option<&[&'a str]>,
 ) -> DrawCallHandle<'a>
 where
     T: bytemuck::Pod,
@@ -69,11 +70,27 @@ where
         .swap_vertex_buffer_cursor(vertex_cursor_handle, new_vert_cursor);
     let vertices = vertex_cursor as u32..vertex_cursor as u32 + vert_count as u32;
 
+    let bind_group_handles = if let Some(labels) = bind_group_labels {
+        Some(
+            labels
+                .iter()
+                .map(|label| {
+                    ctx.wrangler
+                        .handle_to_bind_group(label)
+                        .expect(&format!("No registered pass labeled {}", &label))
+                })
+                .collect(),
+        )
+    } else {
+        None
+    };
+
     let draw_call = DrawCall::Vertex {
         vertices,
         instances,
         push_constant,
         topology,
+        bind_group_handles,
     };
 
     let handle = ctx.wrangler.add_draw_call(draw_call, vertex_label);
@@ -99,6 +116,7 @@ pub fn register_indexed<'a, T>(
     indices: &[u32],
     instances: std::ops::Range<u32>,
     push_constant: Option<PushConstant>,
+    bind_group_labels: Option<&[&'a str]>,
 ) -> DrawCallHandle<'a>
 where
     T: bytemuck::Pod,
@@ -145,12 +163,28 @@ where
 
     let indices = index_cursor as u32..index_cursor as u32 + index_count as u32;
 
+    let bind_group_handles = if let Some(labels) = bind_group_labels {
+        Some(
+            labels
+                .iter()
+                .map(|label| {
+                    ctx.wrangler
+                        .handle_to_bind_group(label)
+                        .expect(&format!("No registered bind group labeled {}", &label))
+                })
+                .collect(),
+        )
+    } else {
+        None
+    };
+
     let draw_call = DrawCall::Indexed {
         indices,
         base_vertex: vertex_cursor as i32,
         instances,
         push_constant,
         topology,
+        bind_group_handles,
     };
 
     println!("[register_indexed] draw_call: {:#?}", draw_call);
@@ -161,7 +195,7 @@ where
         let pass_handle = ctx
             .wrangler
             .handle_to_pass(label)
-            .expect("resource needs to be init first");
+            .expect(&format!("No registered pass labeled {}", &label));
         let pass = ctx.wrangler.get_pass_mut(&pass_handle);
         pass.draw_call_handles.push(handle);
         println!(

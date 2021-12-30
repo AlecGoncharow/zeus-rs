@@ -9,6 +9,7 @@ pub mod vertex;
 pub mod wrangler;
 
 mod common {
+    use super::handles::BindGroupHandle;
     use super::{PolygonMode, Topology};
     use core::ops::Range;
     use std::marker::PhantomData;
@@ -57,12 +58,13 @@ mod common {
     // another?
     // See: https://github.com/rust-lang/rust/pull/27186
     #[derive(Debug)]
-    pub enum DrawCall {
+    pub enum DrawCall<'a> {
         Vertex {
             vertices: Range<u32>,
             instances: Range<u32>,
             push_constant: Option<PushConstant>,
             topology: Topology,
+            bind_group_handles: Option<Vec<BindGroupHandle<'a>>>,
         },
         Indexed {
             indices: Range<u32>,
@@ -70,16 +72,18 @@ mod common {
             instances: Range<u32>,
             push_constant: Option<PushConstant>,
             topology: Topology,
+            bind_group_handles: Option<Vec<BindGroupHandle<'a>>>,
         },
     }
 
-    impl DrawCall {
+    impl<'a> DrawCall<'a> {
         pub fn default_vertex() -> Self {
             DrawCall::Vertex {
                 vertices: 0..0,
                 instances: 0..1,
                 push_constant: None,
                 topology: Topology::TriangleList(PolygonMode::Fill),
+                bind_group_handles: None,
             }
         }
 
@@ -90,6 +94,7 @@ mod common {
                 instances: 0..1,
                 push_constant: None,
                 topology: Topology::TriangleList(PolygonMode::Fill),
+                bind_group_handles: None,
             }
         }
 
@@ -119,7 +124,7 @@ pub mod handles {
     pub type TextureHandle<'a> = LabeledEntryHandle<'a, &'a Texture>;
     pub type PassHandle<'a> = LabeledEntryHandle<'a, &'a Pass<'a>>;
 
-    pub type DrawCallHandle<'a> = LabeledEntryHandle<'a, &'a DrawCall>;
+    pub type DrawCallHandle<'a> = LabeledEntryHandle<'a, &'a DrawCall<'a>>;
 
     impl<'a> DrawCallHandle<'a> {
         pub fn set_push_constant_data<T>(&self, ctx: &mut Context<'a>, data: &[T])

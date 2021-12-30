@@ -248,11 +248,11 @@ pub fn init_shaded_pass<'a>(ctx: &'a mut Context) -> PassHandle<'a> {
     };
     let camera_bind_group_handle = ctx.wrangler.handle_to_bind_group("camera").unwrap();
 
-    let bind_group_handles = vec![
+    let bind_group_handles = Some(vec![
         camera_bind_group_handle,
         shadow_bind_group_handle,
         lights_bind_group_handle,
-    ];
+    ]);
 
     let color_attachment_ops = Some(wgpu::Operations {
         load: wgpu::LoadOp::Clear(ctx.gfx_context.clear_color),
@@ -326,3 +326,5 @@ pub fn init_shaded_pass<'a>(ctx: &'a mut Context) -> PassHandle<'a> {
         .reload_shaders(&ctx.device, &ctx.shader_context, &ctx.surface_config);
     handle
 }
+
+pub fn init_texture_pass<'a>(ctx: &'a mut Context) {}

@@ -16,7 +16,7 @@ pub struct RenderWrangler<'a> {
     pub index_buffer_cursors: Vec<LabeledEntry<'a, wgpu::BufferAddress>>,
     pub uniform_buffers: Vec<LabeledEntry<'a, wgpu::Buffer>>,
     pub textures: Vec<LabeledEntry<'a, Texture>>,
-    pub draw_calls: Vec<LabeledEntry<'a, DrawCall>>,
+    pub draw_calls: Vec<LabeledEntry<'a, DrawCall<'a>>>,
 }
 impl<'a> RenderWrangler<'a> {
     pub fn new() -> Self {
@@ -378,7 +378,7 @@ impl<'a> RenderWrangler<'a> {
         &draw_call.entry
     }
 
-    pub fn get_draw_call_mut(&mut self, handle: &DrawCallHandle<'a>) -> &mut DrawCall {
+    pub fn get_draw_call_mut(&mut self, handle: &DrawCallHandle<'a>) -> &mut DrawCall<'a> {
         let draw_call = &mut self.draw_calls[handle.idx];
         #[cfg(debug_assertions)]
         assert_eq!(handle.label, draw_call.label);
@@ -387,7 +387,7 @@ impl<'a> RenderWrangler<'a> {
 
     /// This is an unchecked add, you should keep this handle as there is no guarentee the label
     /// is unique
-    pub fn add_draw_call(&mut self, draw_call: DrawCall, label: &'a str) -> DrawCallHandle<'a> {
+    pub fn add_draw_call(&mut self, draw_call: DrawCall<'a>, label: &'a str) -> DrawCallHandle<'a> {
         //@TODO think about if this ought to be unique
         let idx = self.draw_calls.len();
         self.draw_calls.push(LabeledEntry {
@@ -401,7 +401,7 @@ impl<'a> RenderWrangler<'a> {
         }
     }
 
-    pub fn swap_draw_call(&mut self, handle: &DrawCallHandle, draw_call: DrawCall) {
+    pub fn swap_draw_call(&mut self, handle: &DrawCallHandle, draw_call: DrawCall<'a>) {
         let entry = &mut self.draw_calls[handle.idx];
         #[cfg(debug_assertions)]
         assert_eq!(handle.label, entry.label);
