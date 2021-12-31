@@ -1,24 +1,33 @@
 use pantheon::graphics::prelude::*;
 use pantheon::prelude::*;
-use pantheon::Mat4;
+use pantheon::*;
 
 /// here be dragons
 pub mod init;
+pub mod lights_init;
 
 pub mod prelude {
-    pub use super::init::init_shaded_pass;
+    pub use super::init;
     pub use super::CameraUniforms;
+    pub use crate::client::rendering;
 }
 
 #[repr(C)]
 pub struct CameraUniforms {
     pub view: Mat4,
     pub projection: Mat4,
+    pub position: Vec3,
+    pub planes: Vec2,
 }
 
 impl CameraUniforms {
-    pub fn new(view: Mat4, projection: Mat4) -> Self {
-        Self { view, projection }
+    pub fn new(view: Mat4, projection: Mat4, position: Vec3, planes: Vec2) -> Self {
+        Self {
+            view,
+            projection,
+            position,
+            planes,
+        }
     }
 
     pub fn as_bytes(&self) -> &[u8] {
@@ -77,7 +86,7 @@ where
                 .map(|label| {
                     ctx.wrangler
                         .handle_to_bind_group(label)
-                        .expect(&format!("No registered pass labeled {}", &label))
+                        .expect(&format!("No registered bind group labeled {}", &label))
                 })
                 .collect(),
         )
@@ -205,4 +214,41 @@ where
     });
 
     handle
+}
+
+pub fn register_texture<'a>(
+    ctx: &mut Context<'a>,
+    texture: Texture,
+    label: &'a str,
+    layout_label: &'a str,
+    sampler_override: Option<&wgpu::Sampler>,
+) -> TextureHandle<'a> {
+    let bglh = ctx
+        .wrangler
+        .handle_to_bind_group_layout(layout_label)
+        .expect(&format!(
+            "bind group layout {} not registered",
+            layout_label
+        ));
+    let layout = ctx.wrangler.get_bind_group_layout(&bglh);
+
+    let bind_group = ctx.device.create_bind_group(&wgpu::BindGroupDescriptor {
+        layout,
+        entries: &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::TextureView(&texture.view),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: wgpu::BindingResource::Sampler(
+                    sampler_override.unwrap_or(&texture.sampler),
+                ),
+            },
+        ],
+        label: Some(&format!("{} Sampler Bind Group", label)),
+    });
+
+    let _bind_group_handle = ctx.wrangler.add_or_swap_bind_group(bind_group, label);
+    ctx.wrangler.add_or_swap_texture(texture, label)
 }

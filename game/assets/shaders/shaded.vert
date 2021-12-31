@@ -12,7 +12,12 @@ const vec4 light_color = vec4(1.0, 250.0 / 255.0, 209.0 / 255.0, 1.0);
 layout(set=0, binding=0) uniform Camera {
     mat4 view;
     mat4 projection;
+    vec3 position;
 } camera;
+
+layout(set=1, binding=0) uniform ClipPlane {
+    vec4 plane;
+} clip;
 
 layout(push_constant) uniform Entity {
     mat4 model;  
@@ -24,6 +29,11 @@ layout(location=1) flat out vec4 v_light_color;
 
 void main() {
     vec4 world_pos = entity.model * vec4(a_position, 1.0);
+    // this is used so reflection passes only draw above water and 
+    // refraction passes only draw below the water
+    //vec4 plane = vec4(clip.plane.xyz, 5);
+    gl_ClipDistance[0] = dot(world_pos, clip.plane);
+
     //
     // compute Lambertian diffuse term
     //

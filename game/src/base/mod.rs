@@ -12,7 +12,10 @@ pub mod prelude {
     use pantheon::graphics::prelude::*;
     pub struct Handles<'a> {
         pub camera_uniforms: BufferHandle<'a>,
+        pub reflected_camera_uniforms: BufferHandle<'a>,
         pub depth_texture: TextureHandle<'a>,
+        pub reflection_texture: TextureHandle<'a>,
+        pub refraction_texture: TextureHandle<'a>,
         pub shaded_pass: PassHandle<'a>,
     }
 }

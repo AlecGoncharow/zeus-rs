@@ -1,10 +1,11 @@
 use super::prelude::*;
 
+#[derive(Debug)]
 pub struct Pass<'a> {
     pub label: &'a str,
 
     /// Pipeline stuff
-    pub pipeline_ctx: PipelineContext<'a>,
+    pub pipeline_ctx: Option<PipelineContext<'a>>,
     pub pipelines: Vec<wgpu::RenderPipeline>,
 
     /// wgpu render pass stuff

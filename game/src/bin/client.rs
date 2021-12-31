@@ -19,6 +19,9 @@ use game::base::camera::Camera;
 use game::client::entity_manager::EntityManager;
 use game::client::rendering::prelude::*;
 
+use game::client::ui::*;
+
+use game::base::entity::water::*;
 use game::base::entity::Entity;
 use game::base::entity::EntityKind;
 use game::base::message::GameMessage;
@@ -43,9 +46,8 @@ struct State<'a> {
     fps: f32,
     debug: bool,
     //texture: Texture,
-    #[allow(unused)]
-    top_right_ui: game::client::ui::TexturableQuad,
     camera_uniforms: CameraUniforms,
+    reflected_camera_uniforms: CameraUniforms,
     handles: Handles<'a>,
 }
 
@@ -128,8 +130,19 @@ impl<'a> EventHandler<'a> for State<'a> {
 
         self.camera_uniforms.view = self.entity_manager.camera.update_view_matrix();
         self.camera_uniforms.projection = self.entity_manager.camera.projection;
+        self.camera_uniforms.position = self.entity_manager.camera.origin;
         self.camera_uniforms
             .push(ctx, &self.handles.camera_uniforms);
+
+        // @NOTE reflected camera uniform's position is not updated ever because it is only used
+        // for the reflection pass, which doesn't care about the position. Only the water passes
+        // care about the camera's position due to the Fresnel Effect
+        // See: https://en.wikipedia.org/wiki/Fresnel_equations
+        self.reflected_camera_uniforms.view =
+            self.entity_manager.camera.update_reflected_view_matrix();
+        self.reflected_camera_uniforms.projection = self.entity_manager.camera.projection;
+        self.reflected_camera_uniforms
+            .push(ctx, &self.handles.reflected_camera_uniforms);
 
         self.entity_manager.update(ctx);
 
@@ -147,7 +160,7 @@ impl<'a> EventHandler<'a> for State<'a> {
         Ok(())
     }
 
-    fn key_down_event(&mut self, ctx: &mut Context, keycode: VirtualKeyCode, _repeat: bool) {
+    fn key_down_event(&mut self, ctx: &mut Context<'a>, keycode: VirtualKeyCode, _repeat: bool) {
         if keycode == VirtualKeyCode::Escape {
             pantheon::event::quit(ctx);
         }
@@ -161,8 +174,7 @@ impl<'a> EventHandler<'a> for State<'a> {
         }
 
         if keycode == VirtualKeyCode::O {
-            // @TODO
-            //ctx.gfx_context.light_uniforms.toggle_light();
+            self.entity_manager.water.toggle_topology(ctx);
         }
 
         if keycode == VirtualKeyCode::P {
@@ -227,7 +239,7 @@ impl<'a> EventHandler<'a> for State<'a> {
     }
     */
 
-    fn resize_event(&mut self, ctx: &mut Context, width: f32, height: f32) {
+    fn resize_event(&mut self, ctx: &mut Context<'a>, width: f32, height: f32) {
         // prevent degenerate case where things go wrong if resize while moving camera orientation
         self.mouse_down = false;
 
@@ -245,9 +257,54 @@ impl<'a> EventHandler<'a> for State<'a> {
 
         let depth_texture =
             Texture::create_depth_texture(&ctx.device, &ctx.surface_config, "depth");
+        let refraction_depth_texture =
+            Texture::create_depth_texture(&ctx.device, &ctx.surface_config, "refraction_depth");
+        let reflection_texture = Texture::create_surface_texture(
+            &ctx.device,
+            &ctx.surface_config,
+            self.handles.reflection_texture.label,
+        );
+        let refraction_texture = Texture::create_surface_texture(
+            &ctx.device,
+            &ctx.surface_config,
+            self.handles.refraction_texture.label,
+        );
 
+        /*
         ctx.wrangler
             .swap_texture(&self.handles.depth_texture, depth_texture);
+        */
+
+        rendering::register_texture(
+            ctx,
+            depth_texture,
+            "depth",
+            "basic_textured",
+            Some(&Texture::surface_texture_sampler(&ctx.device)),
+        );
+
+        rendering::register_texture(
+            ctx,
+            refraction_depth_texture,
+            "refraction_depth",
+            "basic_textured",
+            Some(&Texture::surface_texture_sampler(&ctx.device)),
+        );
+
+        rendering::register_texture(
+            ctx,
+            reflection_texture,
+            self.handles.reflection_texture.label,
+            "basic_textured",
+            None,
+        );
+        rendering::register_texture(
+            ctx,
+            refraction_texture,
+            self.handles.refraction_texture.label,
+            "basic_textured",
+            None,
+        );
     }
 
     fn key_mods_changed(&mut self, _ctx: &mut Context, _modifiers_state: ModifiersState) {}
@@ -335,9 +392,17 @@ async fn main() {
     network_client.send(message).await.unwrap();
 
     let shader_path = std::path::PathBuf::from("game/assets/shaders");
-    let (mut ctx, event_loop) = Context::new((0.529, 0.81, 0.922, 1.0).into(), shader_path);
+    let (mut ctx, event_loop) = Context::new((1.0, 1.0, 1.0, 1.0).into(), shader_path);
 
-    init_shaded_pass(&mut ctx);
+    let water_height = -1.;
+    init::init_shaded_resources(&mut ctx, "shaded", water_height, 1.0);
+    init::init_reflection_pass(&mut ctx);
+    init::init_refraction_pass(&mut ctx);
+    init::init_shaded_pass(&mut ctx);
+    init::init_water_pass(&mut ctx);
+    init::init_basic_textured_pass(&mut ctx);
+
+    let depth_texture_handle = ctx.wrangler.handle_to_texture("depth").expect(":)");
 
     //populate_grid(&mut grid, 50, 15.);
     println!(
@@ -350,9 +415,13 @@ async fn main() {
 
     let terrain_size = if cfg!(debug_assertions) { 250 } else { 250 };
     let mut terrain = generate_terrain(terrain_size, false, Some(0));
-    terrain.center = (terrain_size as f32 / 2., 0., terrain_size as f32 / 2.).into();
+    terrain.center = (terrain_size as f32 / 2., 2., terrain_size as f32 / 2.).into();
     terrain.init(&mut ctx);
     terrain.register(&mut ctx);
+
+    let mut water = generate_water(terrain_size);
+    water.center = terrain.center - (0., water_height, 0.).into();
+    water.register(&mut ctx);
 
     /*
     let test_bytes = include_bytes!("../../dog.png");
@@ -365,8 +434,28 @@ async fn main() {
     .unwrap();
     */
 
-    let top_right_ui = game::client::ui::TexturableQuad::new((0.5, 0.5).into(), (1.0, 1.0).into());
-    let entity_manager = EntityManager::new(
+    let image_bytes = include_bytes!("../../assets/images/wab.png");
+    let _texture = pantheon::graphics::texture::Texture::from_bytes(
+        &ctx.device,
+        &ctx.queue,
+        image_bytes,
+        "wab",
+    )
+    .unwrap();
+    let left_left_ui = TexturableQuad::new((-1., 0.5).into(), (-0.5, 1.0).into());
+    let _left_ui = TexturableQuad::new((-0.5, 0.5).into(), (0.0, 1.0).into());
+    let _right_ui = TexturableQuad::new((0.0, 0.5).into(), (0.5, 1.0).into());
+    let right_right_ui = TexturableQuad::new((0.5, 0.5).into(), (1., 1.0).into());
+
+    let refraction = ctx.wrangler.handle_to_texture("refraction").unwrap();
+    let reflection = ctx.wrangler.handle_to_texture("reflection").unwrap();
+
+    let mut textured_quad = TexturedQuad::new_with_handle(right_right_ui, refraction, "refraction");
+    textured_quad.register(&mut ctx);
+    let mut textured_quad = TexturedQuad::new_with_handle(left_left_ui, reflection, "reflection");
+    textured_quad.register(&mut ctx);
+
+    let mut entity_manager = EntityManager::new(
         Camera::new(
             (20, 20, 20).into(),
             Vec3::new_from_one(0),
@@ -376,18 +465,44 @@ async fn main() {
                 ctx.gfx_context.window_dims.width,
                 ctx.gfx_context.window_dims.height,
             ),
-            (1., 500.0),
+            (0.8, 100.0),
         ),
         terrain,
+        water,
     );
+
+    //@TODO FIXME currently the initial mirrored view matrix is wrong, don't care because it gets
+    //"fixed" when orientation is updated
+    entity_manager.camera.update_orientation();
+
     let camera_uniforms = CameraUniforms {
         view: entity_manager.camera.view,
         projection: entity_manager.camera.projection,
+        position: entity_manager.camera.origin,
+        planes: Vec2::new(
+            entity_manager.camera.near_plane,
+            entity_manager.camera.far_plane,
+        ),
+    };
+    let reflected_camera_uniforms = CameraUniforms {
+        view: entity_manager.camera.reflected_view,
+        projection: entity_manager.camera.projection,
+        position: entity_manager.camera.origin,
+        planes: Vec2::new(
+            entity_manager.camera.near_plane,
+            entity_manager.camera.far_plane,
+        ),
     };
 
     let handles = Handles {
         camera_uniforms: ctx.wrangler.handle_to_uniform_buffer("camera").expect(":)"),
-        depth_texture: ctx.wrangler.handle_to_texture("depth").expect(":)"),
+        reflected_camera_uniforms: ctx
+            .wrangler
+            .handle_to_uniform_buffer("camera_reflect")
+            .expect(":)"),
+        depth_texture: depth_texture_handle,
+        reflection_texture: ctx.wrangler.handle_to_texture("reflection").expect(":)"),
+        refraction_texture: ctx.wrangler.handle_to_texture("refraction").expect(":)"),
         shaded_pass: ctx.wrangler.handle_to_pass("shaded").expect(":)"),
     };
 
@@ -399,8 +514,8 @@ async fn main() {
         network_queue: vec![],
         fps: 0.,
         debug: false,
-        top_right_ui,
         camera_uniforms,
+        reflected_camera_uniforms,
         handles,
     };
 

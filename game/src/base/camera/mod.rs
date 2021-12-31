@@ -34,6 +34,12 @@ pub struct Camera {
 
     pub projection: Mat4,
     pub view: Mat4,
+
+    pub reflected_view: Mat4,
+    pub u_r: Vec3,
+    pub v_r: Vec3,
+    pub w_r: Vec3,
+    camera_flip: Vec3,
 }
 
 impl Camera {
@@ -48,10 +54,14 @@ impl Camera {
         let aspect = width / height;
 
         let origin = look_from;
-        // todo thinkabout camera change on resize
         let w = (look_from - look_at).unit_vector();
         let u = (w.cross(&world_up)).unit_vector();
         let v = u.cross(&w).unit_vector();
+
+        let reflected_look_from = look_from.make_comp_mul(&(0, -1, 0).into());
+        let w_r = (reflected_look_from - look_at).unit_vector();
+        let u_r = (w.cross(&world_up)).unit_vector();
+        let v_r = u.cross(&w).unit_vector();
 
         println!("u: {:#?}, v: {:#?}, w: {:#?}", u, v, w);
         let pitch = w.y.asin();
@@ -79,6 +89,17 @@ impl Camera {
         let translation = Mat4::translation::<f32>(negative_from.into());
         let view = rotation * translation;
 
+        let rotation = Mat4::new(
+            Vec4::new(u_r.x, v_r.x, w_r.x, 0.),
+            Vec4::new(u_r.y, v_r.y, w_r.y, 0.),
+            Vec4::new(u_r.z, v_r.z, w_r.z, 0.),
+            (0, 0, 0, 1).into(),
+        );
+
+        let negative_from = -1.0 * reflected_look_from;
+        let translation = Mat4::translation::<f32>(negative_from.into());
+        let reflected_view = rotation * translation;
+
         Self {
             origin,
             u,
@@ -100,6 +121,12 @@ impl Camera {
 
             projection,
             view,
+
+            reflected_view,
+            u_r,
+            v_r,
+            w_r,
+            camera_flip: Vec3::new(1, -1, 1),
         }
     }
 
@@ -121,6 +148,23 @@ impl Camera {
         self.view = rotation * translation;
 
         self.view
+    }
+
+    pub fn update_reflected_view_matrix(&mut self) -> Mat4 {
+        let rotation = Mat4::new(
+            Vec4::new(self.u_r.x, self.v_r.x, self.w_r.x, 0.),
+            Vec4::new(self.u_r.y, self.v_r.y, self.w_r.y, 0.),
+            Vec4::new(self.u_r.z, self.v_r.z, self.w_r.z, 0.),
+            (0, 0, 0, 1).into(),
+        );
+
+        //let negative_from: Vec3 = -1.0 * Vec3::new(self.origin.x, -5., self.origin.z);
+        let negative_from: Vec3 = -1.0 * self.origin.make_comp_mul(&self.camera_flip);
+        let translation = Mat4::translation::<f32>(negative_from.into());
+
+        self.reflected_view = rotation * translation;
+
+        self.reflected_view
     }
 
     pub fn update_projection_matrix(&mut self) -> Mat4 {
@@ -152,6 +196,15 @@ impl Camera {
 
         self.u = self.w.cross(&self.world_up).unit_vector();
         self.v = self.u.cross(&self.w).unit_vector();
+
+        let pitch_flip = -self.pitch;
+        self.w_r.x = self.yaw.to_radians().cos() * pitch_flip.to_radians().cos();
+        self.w_r.y = pitch_flip.to_radians().sin();
+        self.w_r.z = self.yaw.to_radians().sin() * pitch_flip.to_radians().cos();
+        self.w_r = self.w_r.unit_vector();
+
+        self.u_r = self.w_r.cross(&self.world_up).unit_vector();
+        self.v_r = self.u_r.cross(&self.w_r).unit_vector();
     }
 
     pub fn process_keypress(&mut self, key: VirtualKeyCode, delta_time: f32) {

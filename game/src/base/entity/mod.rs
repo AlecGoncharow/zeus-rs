@@ -14,6 +14,7 @@ pub mod plane;
 pub mod sun;
 pub mod terrain;
 pub mod triangle;
+pub mod water;
 
 //use plane::Plane;
 //use triangle::Triangle;

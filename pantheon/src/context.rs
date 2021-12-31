@@ -69,7 +69,7 @@ impl<'a, 'winit> Context<'a> {
                 features,
                 limits: wgpu::Limits {
                     /// AMD pls https://www.khronos.org/registry/vulkan/specs/1.1/html/vkspec.html#limits-minmax
-                    max_push_constant_size: 128,
+                    max_push_constant_size: 256,
                     ..wgpu::Limits::default()
                 },
             },
@@ -96,7 +96,7 @@ impl<'a, 'winit> Context<'a> {
             format: surface.get_preferred_format(&adapter).unwrap(),
             width: size.width,
             height: size.height,
-            present_mode: wgpu::PresentMode::Immediate,
+            present_mode: wgpu::PresentMode::Mailbox,
         };
         surface.configure(&device, &surface_config);
 
@@ -198,7 +198,7 @@ impl<'a, 'winit> Context<'a> {
             format: self.surface.get_preferred_format(&self.adapter).unwrap(),
             width: size.width,
             height: size.height,
-            present_mode: wgpu::PresentMode::Immediate,
+            present_mode: wgpu::PresentMode::Mailbox,
         };
 
         self.surface.configure(&self.device, &self.surface_config);

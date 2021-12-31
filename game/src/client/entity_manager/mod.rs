@@ -15,6 +15,7 @@ use crate::base::entity::component::MouseComponent;
 use crate::base::entity::component::MousePick;
 use crate::base::entity::cube;
 use crate::base::entity::sun::Sun;
+use crate::base::entity::water::Water;
 use crate::base::entity::{Entity, EntityKind};
 use crate::base::Color;
 
@@ -23,6 +24,7 @@ pub struct EntityManager<'a> {
     pub camera: Camera,
     pub sun: Sun<'a>,
     pub terrain: Terrain<'a>,
+    pub water: Water<'a>,
     new_entities: Vec<EntityKind<'a>>,
     entities: Vec<EntityKind<'a>>,
     commands: Vec<CommandKind>,
@@ -40,7 +42,7 @@ pub trait Command {
 pub enum CommandKind {}
 
 impl<'a> EntityManager<'a> {
-    pub fn new(camera: Camera, terrain: Terrain<'a>) -> Self {
+    pub fn new(camera: Camera, terrain: Terrain<'a>, water: Water<'a>) -> Self {
         Self {
             camera,
             terrain,
@@ -53,6 +55,7 @@ impl<'a> EntityManager<'a> {
             new_entities: vec![],
             entities: vec![],
             commands: vec![],
+            water,
         }
     }
 
@@ -80,13 +83,14 @@ impl<'a> EntityManager<'a> {
         Some(world.truncate(Dim::W).make_unit_vector())
     }
 
-    pub fn update(&mut self, ctx: &mut Context) {
+    pub fn update(&mut self, ctx: &mut Context<'a>) {
         for mut entity in self.new_entities.drain(..) {
             entity.init(ctx);
             self.entities.push(entity);
         }
 
         self.sun.update(ctx);
+        self.water.update(ctx);
 
         let mouse_ray = self.get_mouse_ray(ctx);
 

@@ -9,10 +9,10 @@ pub struct Vec2 {
 
 impl Vec2 {
     #[inline]
-    pub fn new(x: impl Into<f32>, y: impl Into<f32>) -> Self {
+    pub fn new(x: impl Into<f64>, y: impl Into<f64>) -> Self {
         Self {
-            x: x.into(),
-            y: y.into(),
+            x: x.into() as f32,
+            y: y.into() as f32,
         }
     }
 
@@ -36,6 +36,19 @@ impl Vec2 {
         self.squared_mag().sqrt()
     }
 
+    #[inline]
+    pub fn make_comp_mul(&self, other: &Self) -> Self {
+        Self {
+            x: self.x * other.x,
+            y: self.y * other.y,
+        }
+    }
+
+    #[inline]
+    pub fn comp_mul(&mut self, other: &Self) {
+        *self = self.make_comp_mul(other);
+    }
+
     pub fn vec3(&self) -> Vec3 {
         Vec3 {
             x: self.x,
@@ -50,7 +63,7 @@ impl Vec2 {
     }
 }
 
-impl<T: Into<f32>> From<(T, T)> for Vec2 {
+impl<T: Into<f64>> From<(T, T)> for Vec2 {
     fn from(tuple: (T, T)) -> Self {
         Self::new(tuple.0, tuple.1)
     }

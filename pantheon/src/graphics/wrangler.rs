@@ -114,6 +114,29 @@ impl<'a> RenderWrangler<'a> {
         }
     }
 
+    pub fn add_or_swap_bind_group(
+        &mut self,
+        bind_group: wgpu::BindGroup,
+        label: &'a str,
+    ) -> BindGroupHandle<'a> {
+        if let Some(handle) = self.handle_to_bind_group(label) {
+            self.bind_groups[handle.idx].entry = bind_group;
+
+            handle
+        } else {
+            let idx = self.bind_groups.len();
+            self.bind_groups.push(LabeledEntry {
+                label,
+                entry: bind_group,
+            });
+            BindGroupHandle {
+                label,
+                idx,
+                marker: PhantomData,
+            }
+        }
+    }
+
     pub fn handle_to_bind_group(&self, label: &'a str) -> Option<BindGroupHandle<'a>> {
         let idx = self
             .bind_groups
@@ -347,6 +370,24 @@ impl<'a> RenderWrangler<'a> {
         }
     }
 
+    pub fn add_or_swap_texture(&mut self, texture: Texture, label: &'a str) -> TextureHandle<'a> {
+        if let Some(handle) = self.handle_to_texture(label) {
+            self.textures[handle.idx].entry = texture;
+
+            handle
+        } else {
+            let idx = self.textures.len();
+            self.textures.push(LabeledEntry {
+                label,
+                entry: texture,
+            });
+            TextureHandle {
+                label,
+                idx,
+                marker: PhantomData,
+            }
+        }
+    }
     pub fn swap_texture(&mut self, handle: &TextureHandle, texture: Texture) {
         let entry = &mut self.textures[handle.idx];
         #[cfg(debug_assertions)]
@@ -560,6 +601,15 @@ impl<'a> RenderWrangler<'a> {
             .entry
     }
 
+    pub fn find_texture(&self, label: &'a str) -> &Texture {
+        &self
+            .textures
+            .iter()
+            .find(|entry| entry.label == label)
+            .expect("resource does not exist")
+            .entry
+    }
+
     /// Reconfigure stuff to support resizing and hotloading resources
 
     pub fn reload_shaders(
@@ -573,45 +623,47 @@ impl<'a> RenderWrangler<'a> {
         let textures = &self.textures;
         let mut targets = None;
         self.passes.iter_mut().for_each(|pass| {
-            let layouts = pass
-                .pipeline_ctx
-                .uniform_bind_group_layout_handles
-                .iter()
-                .map(|handle| {
-                    let layout = &bind_group_layouts[handle.idx];
-                    #[cfg(debug_assertions)]
-                    assert_eq!(handle.label, layout.label);
-                    &layout.entry
-                })
-                .collect::<Vec<&wgpu::BindGroupLayout>>();
+            if let Some(pipeline_ctx) = &pass.pipeline_ctx {
+                let layouts = pipeline_ctx
+                    .uniform_bind_group_layout_handles
+                    .iter()
+                    .map(|handle| {
+                        let layout = &bind_group_layouts[handle.idx];
+                        #[cfg(debug_assertions)]
+                        assert_eq!(handle.label, layout.label);
+                        println!("[layout.label] {}", layout.label);
+                        &layout.entry
+                    })
+                    .collect::<Vec<&wgpu::BindGroupLayout>>();
 
-            if let Some(fragment_targets) = &pass.pipeline_ctx.fragment_targets {
-                targets = Some(
-                    fragment_targets
-                        .iter()
-                        .map(|target| wgpu::ColorTargetState {
-                            format: if let Some(handle) = target.format_handle {
-                                let texture = &textures[handle.idx];
-                                #[cfg(debug_assertions)]
-                                assert_eq!(handle.label, texture.label);
-                                texture.entry.format.clone()
-                            } else {
-                                surface_config.format
-                            },
-                            blend: target.blend,
-                            write_mask: target.write_mask,
-                        })
-                        .collect(),
+                if let Some(fragment_targets) = &pipeline_ctx.fragment_targets {
+                    targets = Some(
+                        fragment_targets
+                            .iter()
+                            .map(|target| wgpu::ColorTargetState {
+                                format: if let Some(handle) = target.format_handle {
+                                    let texture = &textures[handle.idx];
+                                    #[cfg(debug_assertions)]
+                                    assert_eq!(handle.label, texture.label);
+                                    texture.entry.format.clone()
+                                } else {
+                                    surface_config.format
+                                },
+                                blend: target.blend,
+                                write_mask: target.write_mask,
+                            })
+                            .collect(),
+                    );
+                }
+
+                pipeline_ctx.recreate_pipelines(
+                    &mut pass.pipelines,
+                    shader_context,
+                    &layouts,
+                    device,
+                    targets.as_ref(),
                 );
             }
-
-            pass.pipeline_ctx.recreate_pipelines(
-                &mut pass.pipelines,
-                shader_context,
-                &layouts,
-                device,
-                targets.as_ref(),
-            );
         });
     }
 }

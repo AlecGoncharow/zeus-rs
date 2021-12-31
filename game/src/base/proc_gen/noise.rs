@@ -1,6 +1,6 @@
-pub const AMP: f32 = 10.;
-pub const ROUGHNESS: f32 = 0.35;
-pub const OCTAVES: i32 = 3;
+pub const AMP: f32 = 30.;
+pub const ROUGHNESS: f32 = 0.4;
+pub const OCTAVES: i32 = 5;
 
 pub const X_SEED_SCALAR: isize = 49_632;
 pub const Y_SEED_SCALAR: isize = 325_176;

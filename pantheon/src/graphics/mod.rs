@@ -98,6 +98,17 @@ mod common {
             }
         }
 
+        pub fn set_topology(&mut self, new_topology: Topology) {
+            match self {
+                DrawCall::Vertex {
+                    ref mut topology, ..
+                } => *topology = new_topology,
+                DrawCall::Indexed {
+                    ref mut topology, ..
+                } => *topology = new_topology,
+            }
+        }
+
         pub fn set_push_constant_data<T>(&mut self, data: &[T])
         where
             T: bytemuck::Pod,
@@ -134,6 +145,12 @@ pub mod handles {
             let draw_call = ctx.wrangler.get_draw_call_mut(self);
 
             draw_call.set_push_constant_data(data);
+        }
+
+        pub fn set_topology(&self, ctx: &mut Context<'a>, topology: super::Topology) {
+            let draw_call = ctx.wrangler.get_draw_call_mut(self);
+
+            draw_call.set_topology(topology);
         }
     }
 }

@@ -1,12 +1,71 @@
-use pantheon::graphics::vertex::TexturedVertex;
-use pantheon::{Color, Vec2};
+use crate::base::vertex::BasicTexturedVertex;
+use crate::client::rendering;
+use pantheon::graphics::prelude::*;
+use pantheon::prelude::*;
+use pantheon::Vec2;
 
-#[derive(Debug)]
+pub struct TexturedQuad<'a> {
+    pub quad: TexturableQuad,
+    pub label: &'a str,
+    #[allow(dead_code)]
+    texture_handle: TextureHandle<'a>,
+    draw_call_handle: Option<DrawCallHandle<'a>>,
+}
+
+impl<'a> TexturedQuad<'a> {
+    const TOPOLOGY: Topology = Topology::TriangleList(PolygonMode::Fill);
+
+    pub fn new(
+        ctx: &mut Context<'a>,
+        quad: TexturableQuad,
+        texture: Texture,
+        label: &'a str,
+    ) -> Self {
+        let texture_handle =
+            rendering::register_texture(ctx, texture, label, "basic_textured", None);
+
+        Self {
+            quad,
+            label,
+            texture_handle,
+            draw_call_handle: None,
+        }
+    }
+
+    pub fn new_with_handle(
+        quad: TexturableQuad,
+        texture_handle: TextureHandle<'a>,
+        label: &'a str,
+    ) -> Self {
+        Self {
+            quad,
+            label,
+            texture_handle,
+            draw_call_handle: None,
+        }
+    }
+
+    pub fn register(&mut self, ctx: &mut Context<'a>) {
+        self.draw_call_handle = Some(rendering::register(
+            ctx,
+            &["basic_textured"],
+            "basic_textured",
+            Self::TOPOLOGY,
+            &self.quad.verts,
+            0..1,
+            None,
+            Some(&[self.label]),
+        ));
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
 pub struct TexturableQuad {
-    pub verts: [TexturedVertex; 6],
+    pub verts: [BasicTexturedVertex; 6],
 }
 
 impl TexturableQuad {
+    /// https://github.com/gfx-rs/wgpu#coordinate-systems
     pub fn new(bot_left: Vec2, top_right: Vec2) -> Self {
         let diff_y = top_right.y - bot_left.y;
         let diff_x = top_right.x - bot_left.x;
@@ -22,13 +81,23 @@ impl TexturableQuad {
 
         Self {
             verts: [
-                TexturedVertex::new(top_left.vec3(), Color::new(1, 1, 1), (0.0, 0.0).into()),
-                TexturedVertex::new(bot_left.vec3(), Color::new(1, 1, 1), (0.0, 1.0).into()),
-                TexturedVertex::new(top_right.vec3(), Color::new(1, 1, 1), (1.0, 0.0).into()),
-                TexturedVertex::new(top_right.vec3(), Color::new(1, 1, 1), (1.0, 0.0).into()),
-                TexturedVertex::new(bot_left.vec3(), Color::new(1, 1, 1), (0.0, 1.0).into()),
-                TexturedVertex::new(bot_right.vec3(), Color::new(1, 1, 1), (1.0, 1.0).into()),
+                BasicTexturedVertex::new(top_left, (0.0, 0.0).into()),
+                BasicTexturedVertex::new(bot_left, (0.0, 1.0).into()),
+                BasicTexturedVertex::new(top_right, (1.0, 0.0).into()),
+                BasicTexturedVertex::new(top_right, (1.0, 0.0).into()),
+                BasicTexturedVertex::new(bot_left, (0.0, 1.0).into()),
+                BasicTexturedVertex::new(bot_right, (1.0, 1.0).into()),
             ],
         }
+    }
+
+    pub fn new_vk_coords(bot_left: Vec2, top_right: Vec2) -> Self {
+        let add_one = Vec2::new(1, 1);
+        let scale = Vec2::new(2, -2);
+
+        Self::new(
+            scale.make_comp_mul(&bot_left) + add_one,
+            scale.make_comp_mul(&top_right) + add_one,
+        )
     }
 }

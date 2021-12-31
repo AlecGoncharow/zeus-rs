@@ -63,7 +63,7 @@ impl<'a> Terrain<'a> {
 
         self.draw_call_handle = Some(rendering::register_indexed(
             ctx,
-            &["shaded"],
+            &["reflection", "refraction", "shaded"],
             "shaded",
             self.topology,
             &self.verts,

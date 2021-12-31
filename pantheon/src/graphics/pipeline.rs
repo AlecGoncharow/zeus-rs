@@ -1,12 +1,14 @@
 use crate::graphics::prelude::*;
 use crate::shader::ShaderContext;
 
+#[derive(Debug)]
 pub struct ColorTarget<'a> {
     pub format_handle: Option<TextureHandle<'a>>,
     pub blend: Option<wgpu::BlendState>,
     pub write_mask: wgpu::ColorWrites,
 }
 
+#[derive(Debug)]
 pub struct PipelineContext<'a> {
     pub uniform_bind_group_layout_handles: Vec<BindGroupLayoutHandle<'a>>,
     pub vs_path: Option<&'a str>,
@@ -30,16 +32,17 @@ impl<'a> PipelineContext<'a> {
         device: &wgpu::Device,
         targets: Option<&Vec<wgpu::ColorTargetState>>,
     ) {
+        pipelines.clear();
         let non_fill_polygon_modes = device
             .features()
-            .contains(wgpu::Features::POLYGON_MODE_LINE & wgpu::Features::POLYGON_MODE_POINT);
+            .contains(wgpu::Features::POLYGON_MODE_LINE | wgpu::Features::POLYGON_MODE_POINT);
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: self.label,
                 bind_group_layouts: layouts,
                 push_constant_ranges: &[wgpu::PushConstantRange {
                     stages: wgpu::ShaderStages::VERTEX,
-                    range: 0..(4 * 16),
+                    range: 0..(4 * 20),
                 }],
             });
 
@@ -66,7 +69,11 @@ impl<'a> PipelineContext<'a> {
                     None
                 },
 
-                primitive: self.primitive,
+                primitive: wgpu::PrimitiveState {
+                    topology: mode.into(),
+                    polygon_mode: mode.inner().into(),
+                    ..self.primitive
+                },
 
                 depth_stencil: self.depth_stencil.clone(),
 
@@ -76,10 +83,14 @@ impl<'a> PipelineContext<'a> {
 
             if usize::from(*mode) != pipelines.len()
                 && device.features().contains(
-                    wgpu::Features::POLYGON_MODE_LINE & wgpu::Features::POLYGON_MODE_POINT,
+                    wgpu::Features::POLYGON_MODE_LINE | wgpu::Features::POLYGON_MODE_POINT,
                 )
             {
-                panic!("Render pipeline construction broke");
+                panic!(
+                    "Expected pipelines.len {}, got {}",
+                    usize::from(*mode),
+                    pipelines.len()
+                );
             }
             pipelines.push(pipeline);
         });

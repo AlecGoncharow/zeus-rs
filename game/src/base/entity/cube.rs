@@ -60,22 +60,22 @@ fn cube_indices() -> [u32; 36] {
     [
         // front
         0, 1, 2,
-        0, 3, 2,
+        0, 2, 3,
         // right
-        1, 2, 6,
+        1, 6, 2,
         1, 5, 6,
         // bottom
-        2, 3, 7,
+        2, 7, 3,
         2, 6, 7,
         // left
-        3, 0, 4,
+        3, 4, 0,
         3, 7, 4,
         // top
-        4, 0, 1,
+        4, 1, 0,
         4, 5, 1,
         // back
         5, 4, 7,
-        5, 6, 7,
+        5, 7, 6,
     ]
 }
 
@@ -283,7 +283,7 @@ impl<'a> DrawComponent<'a> for Cuboid<'a> {
         self.draw_call_handle = Some(match self.vertices {
             CubioidVertMode::Basic(verts) => rendering::register_indexed(
                 ctx,
-                &["shaded"],
+                &["reflection", "refraction", "shaded"],
                 "basic",
                 self.topology,
                 &verts,
@@ -294,7 +294,7 @@ impl<'a> DrawComponent<'a> for Cuboid<'a> {
             ),
             CubioidVertMode::Shaded(verts) => rendering::register_indexed(
                 ctx,
-                &["shaded"],
+                &["reflection", "refraction", "shaded"],
                 "shaded",
                 self.topology,
                 &verts,

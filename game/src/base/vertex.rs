@@ -112,26 +112,17 @@ impl From<(Vec3, Color)> for BasicVertex {
     }
 }
 
-unsafe impl bytemuck::Pod for TexturedVertex {}
-unsafe impl bytemuck::Zeroable for TexturedVertex {}
+unsafe impl bytemuck::Pod for WaterVertex {}
+unsafe impl bytemuck::Zeroable for WaterVertex {}
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
-pub struct TexturedVertex {
+pub struct WaterVertex {
     pub position: Vec3,
-    pub color: Color,
-    pub uv_coords: Vec2,
+    pub indicators: [u8; 4],
 }
 
-impl TexturedVertex {
-    pub fn new(position: Vec3, color: Color, uv_coords: Vec2) -> Self {
-        Self {
-            position,
-            color,
-            uv_coords,
-        }
-    }
-
+impl WaterVertex {
     pub fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
         wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
@@ -145,11 +136,53 @@ impl TexturedVertex {
                 wgpu::VertexAttribute {
                     offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
                     shader_location: 1,
-                    format: wgpu::VertexFormat::Float32x4,
+                    format: wgpu::VertexFormat::Uint8x4,
+                },
+            ],
+        }
+    }
+}
+
+impl From<(Vec3, [u8; 4])> for WaterVertex {
+    fn from(vecs: (Vec3, [u8; 4])) -> Self {
+        Self {
+            position: vecs.0,
+            indicators: vecs.1,
+        }
+    }
+}
+
+unsafe impl bytemuck::Pod for BasicTexturedVertex {}
+unsafe impl bytemuck::Zeroable for BasicTexturedVertex {}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct BasicTexturedVertex {
+    pub position: Vec2,
+    pub uv_coords: Vec2,
+}
+
+impl BasicTexturedVertex {
+    pub fn new(position: Vec2, uv_coords: Vec2) -> Self {
+        Self {
+            position,
+            uv_coords,
+        }
+    }
+
+    pub fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
+        wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &[
+                wgpu::VertexAttribute {
+                    offset: 0,
+                    shader_location: 0,
+                    format: wgpu::VertexFormat::Float32x2,
                 },
                 wgpu::VertexAttribute {
-                    offset: std::mem::size_of::<[f32; 7]>() as wgpu::BufferAddress,
-                    shader_location: 2,
+                    offset: std::mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
+                    shader_location: 1,
                     format: wgpu::VertexFormat::Float32x2,
                 },
             ],
@@ -157,12 +190,11 @@ impl TexturedVertex {
     }
 }
 
-impl From<(Vec3, Color, Vec2)> for TexturedVertex {
-    fn from(vecs: (Vec3, Color, Vec2)) -> Self {
+impl From<(Vec2, Vec2)> for BasicTexturedVertex {
+    fn from(vecs: (Vec2, Vec2)) -> Self {
         Self {
             position: vecs.0,
-            color: vecs.1,
-            uv_coords: vecs.2,
+            uv_coords: vecs.1,
         }
     }
 }
