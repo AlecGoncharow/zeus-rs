@@ -3,7 +3,9 @@ resolver = "2"
 members = [
     "pantheon",
     "hermes",
-    "game",
+    "game_client",
+    "atlas",
+    "server",
 ]
 
 [profile.release]

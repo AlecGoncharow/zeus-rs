@@ -1,0 +1,164 @@
+use super::*;
+use pantheon::graphics::prelude::*;
+use pantheon::prelude::*;
+
+pub fn init_textured_resources<'a>(ctx: &mut Context<'a>, label: &'a str) {
+    init_vert_index_buffers(ctx, label);
+
+    let basic_textured_bind_group_layout =
+        ctx.device
+            .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            multisampled: false,
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                ],
+                label: Some(label),
+            });
+
+    let depth_texture_bind_group_layout =
+        ctx.device
+            .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            multisampled: false,
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Comparison),
+                        count: None,
+                    },
+                ],
+                label: Some(label),
+            });
+
+    init_bind_group_for_textured_pass(ctx, &basic_textured_bind_group_layout, "reflection", None);
+    init_bind_group_for_textured_pass(ctx, &basic_textured_bind_group_layout, "refraction", None);
+    init_bind_group_for_textured_pass(
+        ctx,
+        &basic_textured_bind_group_layout,
+        "refraction_depth",
+        Some(&Texture::surface_texture_sampler(&ctx.device)),
+    );
+
+    let _basic_texured_bgl_handle = ctx
+        .wrangler
+        .add_bind_group_layout(basic_textured_bind_group_layout, label);
+    let _handle = ctx
+        .wrangler
+        .add_bind_group_layout(depth_texture_bind_group_layout, "depth_sampler");
+}
+
+pub fn init_basic_textured_pass<'a>(ctx: &'a mut Context) {
+    let pass_label = "basic_textured";
+    init_textured_resources(ctx, pass_label);
+    let bglh_basic_textured = ctx
+        .wrangler
+        .handle_to_bind_group_layout(pass_label)
+        .unwrap();
+    let vertex_buffer_handle = ctx.wrangler.handle_to_vertex_buffer(pass_label).unwrap();
+    let index_buffer_handle = ctx.wrangler.handle_to_index_buffer(pass_label).unwrap();
+
+    let pipeline_ctx = Some(PipelineContext {
+        uniform_bind_group_layout_handles: vec![bglh_basic_textured],
+        vs_path: Some("basic_textured.vert.spv"),
+        fs_path: Some("basic_textured.frag.spv"),
+        vert_desc: crate::vertex::BasicTexturedVertex::desc,
+        label: Some(pass_label),
+        fragment_targets: Some(vec![ColorTarget {
+            format_handle: None,
+            blend: Some(wgpu::BlendState::REPLACE),
+            write_mask: wgpu::ColorWrites::ALL,
+        }]),
+        primitive: wgpu::PrimitiveState {
+            strip_index_format: None,
+            front_face: wgpu::FrontFace::Ccw,
+            cull_mode: None,
+            unclipped_depth: false,
+            conservative: false,
+            ..Default::default()
+        },
+        depth_stencil: None,
+        multisample: wgpu::MultisampleState {
+            count: 1,
+            mask: !0,
+            alpha_to_coverage_enabled: false,
+        },
+
+        multiview: None,
+    });
+
+    let pipelines = Vec::new();
+
+    let color_attachment_ops = Some(wgpu::Operations {
+        load: wgpu::LoadOp::Load,
+        store: true,
+    });
+
+    let pass = Pass {
+        label: pass_label,
+        pipeline_ctx,
+        pipelines,
+        color_attachment_ops,
+        color_attachment_view_handle: None,
+        depth_ops: None,
+        stencil_ops: None,
+        depth_stencil_view_handle: None,
+        draw_call_handles: Vec::new(),
+        bind_group_handles: None,
+        vertex_buffer_handle,
+        index_buffer_handle,
+    };
+
+    let _handle = ctx.wrangler.add_pass(pass, pass_label);
+    ctx.wrangler
+        .reload_shaders(&ctx.device, &ctx.shader_context, &ctx.surface_config);
+}
+
+fn init_bind_group_for_textured_pass<'a>(
+    ctx: &mut Context<'a>,
+    layout: &wgpu::BindGroupLayout,
+    label: &'a str,
+    sample_override: Option<&wgpu::Sampler>,
+) {
+    let texture = ctx.wrangler.find_texture(label);
+    let sampler_bind_group = ctx.device.create_bind_group(&wgpu::BindGroupDescriptor {
+        layout,
+        entries: &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::TextureView(&texture.view),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: wgpu::BindingResource::Sampler(
+                    sample_override.unwrap_or(&texture.sampler),
+                ),
+            },
+        ],
+        label: Some(label),
+    });
+
+    let _handle = ctx.wrangler.add_bind_group(sampler_bind_group, label);
+}

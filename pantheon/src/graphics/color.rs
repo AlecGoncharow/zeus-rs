@@ -1,3 +1,5 @@
+use crate::Vec4;
+
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct Color {
@@ -17,6 +19,10 @@ impl Color {
         Self { r, g, b, a: 1.0 }
     }
 
+    pub const fn floats_a(r: f32, g: f32, b: f32, a: f32) -> Self {
+        Self { r, g, b, a }
+    }
+
     pub fn interpolate(color_1: Self, color_2: Self, blend: f32) -> Self {
         let color_1_weight = 1. - blend;
         Self {
@@ -24,6 +30,17 @@ impl Color {
             g: (color_1_weight * color_1.g) + (blend * color_2.g),
             b: (color_1_weight * color_1.b) + (blend * color_2.b),
             a: (color_1_weight * color_1.a) + (blend * color_2.a),
+        }
+    }
+}
+
+impl From<Color> for Vec4 {
+    fn from(color: Color) -> Self {
+        Self {
+            x: color.r,
+            y: color.g,
+            z: color.b,
+            w: color.a,
         }
     }
 }

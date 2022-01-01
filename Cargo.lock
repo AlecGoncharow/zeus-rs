@@ -47,6 +47,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "atlas"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "enum_dispatch",
+ "hermes",
+ "pantheon",
+ "rand",
+ "wgpu",
+]
+
+[[package]]
 name = "atty"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -726,11 +738,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "game"
+name = "game_client"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bytemuck",
+ "atlas",
  "enum_dispatch",
  "fs_extra",
  "glob",
@@ -738,7 +750,6 @@ dependencies = [
  "pantheon",
  "rand",
  "shaderc",
- "wgpu",
 ]
 
 [[package]]
@@ -1796,6 +1807,14 @@ dependencies = [
  "itoa 1.0.1",
  "ryu",
  "serde",
+]
+
+[[package]]
+name = "server"
+version = "0.1.0"
+dependencies = [
+ "atlas",
+ "hermes",
 ]
 
 [[package]]

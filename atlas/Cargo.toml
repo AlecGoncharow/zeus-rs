@@ -1,0 +1,17 @@
+[package]
+name = "atlas"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+hermes = { path = "../hermes" }
+pantheon = { path = "../pantheon" }
+enum_dispatch = "0.3"
+rand = { version = "0.8", features = ["small_rng"] }
+bytemuck = "1.4"
+
+[dependencies.wgpu]
+version = "0.12"
+features = ["spirv"]
