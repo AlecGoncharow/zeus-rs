@@ -21,23 +21,23 @@ layout(set=0, binding=0) uniform Camera {
     vec2 planes;
 } camera;
 
+layout(set=0, binding=1) uniform GlobalLight {
+    vec3 direction;
+    vec3 color;
+    vec2 bias;
+} global_light;
+
 layout(set=1, binding=0)
     uniform texture2D reflection_texture;
 
 layout(set=1, binding=1)
-    uniform sampler reflection_sampler;
-
-layout(set=2, binding=0)
     uniform texture2D refraction_texture;
 
-layout(set=2, binding=1)
-    uniform sampler refraction_sampler;
-
-layout(set=3, binding=0)
+layout(set=1, binding=2)
     uniform texture2D depth_texture;
 
-layout(set=3, binding=1)
-    uniform sampler depth_sampler;
+layout(set=1, binding=3)
+    uniform sampler color_sampler;
 
 layout (location=0) out vec4 f_color;
 
@@ -57,7 +57,7 @@ float ToLinearDepth(float z_depth) {
 }
 
 float CalculateWaterDepth(vec2 tex_coords) {
-    float depth = texture(sampler2D(depth_texture, depth_sampler), tex_coords).r;
+    float depth = texture(sampler2D(depth_texture, color_sampler), tex_coords).r;
     float floor_distance = ToLinearDepth(depth);
   
     float frag_float = gl_FragCoord.z;
@@ -65,8 +65,23 @@ float CalculateWaterDepth(vec2 tex_coords) {
     float water_distance = ToLinearDepth(frag_float);
 
     float diff = floor_distance - water_distance;
+    
 
-    return floor_distance - water_distance;
+
+
+    /*
+     if (diff == 0) {
+        return 10;
+     }
+     if (diff < 0.00005) {
+        return 8;
+    }
+     if (diff < 0.0005) {
+        return 7;
+    }
+    */
+
+    return diff;
 }
 
 float CalculateFresnel() {
@@ -93,10 +108,10 @@ void main() {
     vec2 reflection_tex_coords = vec2(tex_coords_grid.x, 1.0 - tex_coords_grid.y);
     float water_depth = CalculateWaterDepth(tex_coords_real);
 
-    vec3 refract_color = texture(sampler2D(refraction_texture, refraction_sampler), refraction_tex_coords).rgb;
-    vec3 reflect_color = texture(sampler2D(reflection_texture, reflection_sampler), reflection_tex_coords).rgb;
+    vec3 refract_color = texture(sampler2D(refraction_texture, color_sampler), refraction_tex_coords).rgb;
+    vec3 reflect_color = texture(sampler2D(reflection_texture, color_sampler), reflection_tex_coords).rgb;
 
-    //refract_color = ApplyMurkiness(refract_color, water_depth);
+    refract_color = ApplyMurkiness(refract_color, water_depth);
     reflect_color = mix(reflect_color, WATER_COLOR, MIN_BLUENESS);
 
     vec3 final_color = mix(reflect_color, refract_color, CalculateFresnel());
@@ -120,6 +135,21 @@ void main() {
         f_color = vec4(vec3(0.3), 1);
     }
     if (water_depth < 0.05) {
+        f_color = vec4(vec3(0.2), 1);
+    }
+    if (water_depth == 10) {
+        f_color = vec4(vec3(1), 1);
+    }
+    if (water_depth == 9) {
+        f_color = vec4(vec3(0.7), 1);
+    }
+    if (water_depth == 8) {
+        f_color = vec4(vec3(0.5), 1);
+    }
+    if (water_depth == 7) {
+        f_color = vec4(vec3(0.3), 1);
+    }
+    if (water_depth == 6) {
         f_color = vec4(vec3(0.2), 1);
     }
     */

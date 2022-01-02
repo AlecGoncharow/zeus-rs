@@ -2,6 +2,9 @@ use super::*;
 use pantheon::graphics::prelude::*;
 use pantheon::prelude::*;
 
+/// @NOTE @DEBUG are you trying to reverse engineer how the textures are sampled because the
+/// texture you are trying to sample is outputting garbage? Have you remembered to recreate the
+/// bind group for the texture and sampler after the texture has been recreated on resize?
 pub fn init_textured_resources<'a>(ctx: &mut Context<'a>, label: &'a str) {
     init_vert_index_buffers(ctx, label);
 
@@ -79,9 +82,11 @@ pub fn init_basic_textured_pass<'a>(ctx: &'a mut Context) {
         .unwrap();
     let vertex_buffer_handle = ctx.wrangler.handle_to_vertex_buffer(pass_label).unwrap();
     let index_buffer_handle = ctx.wrangler.handle_to_index_buffer(pass_label).unwrap();
+    let push_constant_ranges = &[];
 
     let pipeline_ctx = Some(PipelineContext {
         uniform_bind_group_layout_handles: vec![bglh_basic_textured],
+        push_constant_ranges,
         vs_path: Some("basic_textured.vert.spv"),
         fs_path: Some("basic_textured.frag.spv"),
         vert_desc: crate::vertex::BasicTexturedVertex::desc,
@@ -126,7 +131,7 @@ pub fn init_basic_textured_pass<'a>(ctx: &'a mut Context) {
         stencil_ops: None,
         depth_stencil_view_handle: None,
         draw_call_handles: Vec::new(),
-        bind_group_handles: None,
+        bind_group_handles: Vec::new(),
         vertex_buffer_handle,
         index_buffer_handle,
     };

@@ -88,10 +88,9 @@ impl GraphicsContext {
                 depth_stencil_attachment,
             });
 
-            if let Some(bind_group_handles) = &pass.bind_group_handles {
-                for (i, handle) in bind_group_handles.iter().enumerate() {
-                    render_pass.set_bind_group(i as u32, wrangler.get_bind_group(handle), &[]);
-                }
+            let draw_call_bg_offset = pass.bind_group_handles.len() as u32;
+            for (i, handle) in pass.bind_group_handles.iter().enumerate() {
+                render_pass.set_bind_group(i as u32, wrangler.get_bind_group(handle), &[]);
             }
 
             let index_buffer = wrangler.get_index_buffer(&pass.index_buffer_handle);
@@ -113,14 +112,12 @@ impl GraphicsContext {
                         topology,
                         bind_group_handles,
                     } => {
-                        if let Some(bind_group_handles) = &bind_group_handles {
-                            for (i, handle) in bind_group_handles.iter().enumerate() {
-                                render_pass.set_bind_group(
-                                    i as u32,
-                                    wrangler.get_bind_group(handle),
-                                    &[],
-                                );
-                            }
+                        for (i, handle) in bind_group_handles.iter().enumerate() {
+                            render_pass.set_bind_group(
+                                draw_call_bg_offset + i as u32,
+                                wrangler.get_bind_group(handle),
+                                &[],
+                            );
                         }
 
                         render_pass.set_pipeline(&pass.pipelines[usize::from(*topology)]);
@@ -145,14 +142,12 @@ impl GraphicsContext {
                         topology,
                         bind_group_handles,
                     } => {
-                        if let Some(bind_group_handles) = &bind_group_handles {
-                            for (i, handle) in bind_group_handles.iter().enumerate() {
-                                render_pass.set_bind_group(
-                                    i as u32,
-                                    wrangler.get_bind_group(handle),
-                                    &[],
-                                );
-                            }
+                        for (i, handle) in bind_group_handles.iter().enumerate() {
+                            render_pass.set_bind_group(
+                                draw_call_bg_offset + i as u32,
+                                wrangler.get_bind_group(handle),
+                                &[],
+                            );
                         }
                         render_pass.set_pipeline(&pass.pipelines[usize::from(*topology)]);
                         if let Some(push_constant) = push_constant {

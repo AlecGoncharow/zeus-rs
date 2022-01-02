@@ -11,6 +11,8 @@ pub struct ColorTarget<'a> {
 #[derive(Debug)]
 pub struct PipelineContext<'a> {
     pub uniform_bind_group_layout_handles: Vec<BindGroupLayoutHandle<'a>>,
+    pub push_constant_ranges: &'a [wgpu::PushConstantRange],
+
     pub vs_path: Option<&'a str>,
     pub fs_path: Option<&'a str>,
     pub vert_desc: fn() -> wgpu::VertexBufferLayout<'a>,
@@ -40,10 +42,7 @@ impl<'a> PipelineContext<'a> {
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: self.label,
                 bind_group_layouts: layouts,
-                push_constant_ranges: &[wgpu::PushConstantRange {
-                    stages: wgpu::ShaderStages::VERTEX,
-                    range: 0..(4 * 20),
-                }],
+                push_constant_ranges: self.push_constant_ranges,
             });
 
         Topology::iterator(non_fill_polygon_modes).for_each(|mode| {

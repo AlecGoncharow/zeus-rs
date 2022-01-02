@@ -99,6 +99,8 @@ impl<T: Messageable> Connection<T> {
                     let header: MessageHeader<T> = MessageHeader::from(&buf[0..byte_count]);
                     let mut msg = Message {
                         header,
+                        // @TODO @SPEED, probably shouldn't allocate a vector everytime, may be worth
+                        // keeping a buffer of vectors or messages and reusing them
                         body: Vec::from(&buf[std::mem::size_of::<MessageHeader<T>>()..byte_count]),
                     };
                     //println!("header size {} | byte_count {}", header.size, byte_count);
@@ -152,6 +154,8 @@ impl<T: Messageable> Connection<T> {
                         };
                         if let Some(msg) = next {
                             println!("[TO:{:?}] trying to send: {:?}", peer_addr, msg.header);
+                            // @TODO @SPEED, probably shouldn't do an allocate like this should
+                            // consider having buffers on hand ready to be written to
                             let bytes: Vec<u8> = Vec::from(msg);
                             //println!("bytes: {:?}", bytes);
 

@@ -1,5 +1,7 @@
-use crate::vertex::*;
 use crate::rendering;
+use crate::rendering::init::UNIFORM_BUFFER_VERTEX;
+use crate::rendering::prelude::*;
+use crate::vertex::*;
 use pantheon::graphics::prelude::*;
 use pantheon::graphics::Drawable;
 use pantheon::math::prelude::*;
@@ -9,8 +11,8 @@ unsafe impl bytemuck::Pod for WaterPushConstants {}
 unsafe impl bytemuck::Zeroable for WaterPushConstants {}
 
 #[derive(Clone, Copy, Debug)]
+#[repr(C)]
 pub struct WaterPushConstants {
-    pub model_matrix: Mat4,
     pub wave_time: f32,
 }
 
@@ -37,11 +39,14 @@ impl<'a> Water<'a> {
     pub fn register(&mut self, ctx: &mut Context<'a>) {
         let push_constant = Some(PushConstant::vertex_data(
             0,
-            &[WaterPushConstants {
-                wave_time: 0.0,
-                model_matrix: self.model_matrix(),
-            }],
+            &[WaterPushConstants { wave_time: 0.0 }],
         ));
+
+        let uniforms = StaticEntityUniforms {
+            model_matrix: self.model_matrix(),
+        };
+        let (bind_group_handle, _buffer_handle) =
+            uniforms.register(ctx, UNIFORM_BUFFER_VERTEX, "water1");
 
         self.draw_call_handle = Some(rendering::register(
             ctx,
@@ -51,7 +56,7 @@ impl<'a> Water<'a> {
             &self.verts,
             0..1,
             push_constant,
-            None,
+            &[bind_group_handle],
         ));
     }
 
@@ -62,7 +67,6 @@ impl<'a> Water<'a> {
                 ctx,
                 &[WaterPushConstants {
                     wave_time: self.wave_time,
-                    model_matrix: self.model_matrix(),
                 }],
             );
         }
@@ -93,16 +97,16 @@ pub fn generate_water<'a>(size: usize) -> Water<'a> {
     let vert_count = size * size * VERTS_PER_SQUARE;
     let mut verts: Vec<WaterVertex> = Vec::with_capacity(vert_count);
 
-    fn get_corner_pos(col: u32, row: u32) -> [Vec3; 4] {
+    fn get_corner_pos(col: u32, row: u32) -> [Vec2; 4] {
         [
-            Vec3::new(col, 0, row),
-            Vec3::new(col, 0, row + 1),
-            Vec3::new(col + 1, 0, row),
-            Vec3::new(col + 1, 0, row + 1),
+            Vec2::new(col, row),
+            Vec2::new(col, row + 1),
+            Vec2::new(col + 1, row),
+            Vec2::new(col + 1, row + 1),
         ]
     }
 
-    fn get_indicators(corner_pos: [Vec3; 4], current: usize, v1: usize, v2: usize) -> [i8; 4] {
+    fn get_indicators(corner_pos: [Vec2; 4], current: usize, v1: usize, v2: usize) -> [i8; 4] {
         let current = corner_pos[current];
         let v1_pos = corner_pos[v1];
         let v2_pos = corner_pos[v2];
@@ -111,13 +115,13 @@ pub fn generate_water<'a>(size: usize) -> Water<'a> {
 
         [
             offset1.x as i8,
-            offset1.z as i8,
+            offset1.y as i8,
             offset2.x as i8,
-            offset2.z as i8,
+            offset2.y as i8,
         ]
     }
 
-    fn push_triangle(verts: &mut Vec<WaterVertex>, corner_pos: [Vec3; 4], left: bool) {
+    fn push_triangle(verts: &mut Vec<WaterVertex>, corner_pos: [Vec2; 4], left: bool) {
         let i0 = if left { 0 } else { 2 };
         let i1 = 1;
         let i2 = if left { 2 } else { 3 };

@@ -3,8 +3,8 @@ use super::plane::Plane;
 use super::triangle::Triangle;
 use super::Camera;
 use super::Entity;
-use crate::vertex::*;
 use crate::rendering;
+use crate::vertex::*;
 use pantheon::context::Context;
 use pantheon::graphics::prelude::*;
 use pantheon::graphics::Drawable;
@@ -290,7 +290,7 @@ impl<'a> DrawComponent<'a> for Cuboid<'a> {
                 &self.indices,
                 0..1,
                 push_constant,
-                None,
+                &[],
             ),
             CubioidVertMode::Shaded(verts) => rendering::register_indexed(
                 ctx,
@@ -301,7 +301,7 @@ impl<'a> DrawComponent<'a> for Cuboid<'a> {
                 &self.indices,
                 0..1,
                 push_constant,
-                None,
+                &[],
             ),
         });
     }

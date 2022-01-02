@@ -1,5 +1,7 @@
+use super::prelude::*;
 use pantheon::graphics::prelude::*;
 use pantheon::prelude::*;
+use wgpu::util::DeviceExt;
 
 const LIGHT_UNIFORM_BUFFER_SIZE: wgpu::BufferAddress = (16 + 3 + 1 + 4) * 4;
 const MAX_LIGHTS: usize = 1;
@@ -9,6 +11,22 @@ const SHADOW_SIZE: wgpu::Extent3d = wgpu::Extent3d {
     height: 4096,
     depth_or_array_layers: MAX_LIGHTS as u32,
 };
+
+pub const GLOBAL_LIGHT: &'static str = "global_light";
+
+pub fn init_global_light(ctx: &mut Context, global_light_uniforms: GlobalLightUniforms) {
+    let light_uniform_buffer = ctx
+        .device
+        .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some(GLOBAL_LIGHT),
+            usage: wgpu::BufferUsages::UNIFORM,
+            contents: bytemuck::cast_slice(global_light_uniforms.as_bytes()),
+        });
+
+    let _handle = ctx
+        .wrangler
+        .add_uniform_buffer(light_uniform_buffer, GLOBAL_LIGHT);
+}
 
 pub fn init_light_resources(ctx: &mut Context) {
     let shadow_sampler = ctx.device.create_sampler(&wgpu::SamplerDescriptor {

@@ -302,6 +302,8 @@ impl<'a> EventHandler<'a> for State<'a> {
             "basic_textured",
             None,
         );
+
+        rendering::recreate_water_sampler_bind_group(ctx);
     }
 
     fn key_mods_changed(&mut self, _ctx: &mut Context, _modifiers_state: ModifiersState) {}
@@ -392,6 +394,14 @@ async fn main() {
     let (mut ctx, event_loop) = Context::new(Color::new(135, 206, 235).into(), shader_path);
 
     let water_height = 0.;
+    let direction = Vec3::new(0.3, -1, 0.5).make_unit_vector();
+    let color = Vec3::new(1, 0.95, 0.95);
+    let bias = Vec2::new(0.3, 0.8);
+    let global_light = GlobalLightUniforms::new(direction, color, bias);
+
+    init::init_shared(&mut ctx);
+    init::init_global_light(&mut ctx, global_light);
+    init::init_camera_resources(&mut ctx);
     init::init_shaded_resources(&mut ctx, "shaded", water_height, 1.0);
     init::init_reflection_pass(&mut ctx);
     init::init_refraction_pass(&mut ctx);
@@ -410,7 +420,7 @@ async fn main() {
         )
     );
 
-    let terrain_size = if cfg!(debug_assertions) { 250 } else { 250 };
+    let terrain_size = if cfg!(debug_assertions) { 25 } else { 250 };
     let mut terrain = generate_terrain(terrain_size, false, Some(0));
     terrain.center = (terrain_size as f32 / 2., 0., terrain_size as f32 / 2.).into();
     terrain.init(&mut ctx);
@@ -445,11 +455,15 @@ async fn main() {
     let right_right_ui = TexturableQuad::new((0.5, 0.5).into(), (1., 1.0).into());
 
     let refraction = ctx.wrangler.handle_to_texture("refraction").unwrap();
+    let refraction_bind = ctx.wrangler.handle_to_bind_group("refraction").unwrap();
     let reflection = ctx.wrangler.handle_to_texture("reflection").unwrap();
+    let reflection_bind = ctx.wrangler.handle_to_bind_group("reflection").unwrap();
 
-    let mut textured_quad = TexturedQuad::new_with_handle(right_right_ui, refraction, "refraction");
+    let mut textured_quad =
+        TexturedQuad::new_with_handles(right_right_ui, refraction_bind, refraction, "refraction");
     textured_quad.register(&mut ctx);
-    let mut textured_quad = TexturedQuad::new_with_handle(left_left_ui, reflection, "reflection");
+    let mut textured_quad =
+        TexturedQuad::new_with_handles(left_left_ui, reflection_bind, reflection, "reflection");
     textured_quad.register(&mut ctx);
 
     let mut entity_manager = EntityManager::new(
@@ -492,7 +506,10 @@ async fn main() {
     };
 
     let handles = Handles {
-        camera_uniforms: ctx.wrangler.handle_to_uniform_buffer("camera").expect(":)"),
+        camera_uniforms: ctx
+            .wrangler
+            .handle_to_uniform_buffer(CAMERA_GLOBAL_LIGHT_UNIFORM)
+            .expect(":)"),
         reflected_camera_uniforms: ctx
             .wrangler
             .handle_to_uniform_buffer("camera_reflect")

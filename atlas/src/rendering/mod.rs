@@ -4,44 +4,12 @@ use pantheon::*;
 
 /// here be dragons
 pub mod init;
+pub mod uniforms;
 
 pub mod prelude {
     pub use super::init;
-    pub use super::CameraUniforms;
+    pub use super::uniforms::*;
     pub use crate::rendering;
-}
-
-#[repr(C)]
-pub struct CameraUniforms {
-    pub view: Mat4,
-    pub projection: Mat4,
-    pub position: Vec3,
-    pub planes: Vec2,
-}
-
-impl CameraUniforms {
-    pub fn new(view: Mat4, projection: Mat4, position: Vec3, planes: Vec2) -> Self {
-        Self {
-            view,
-            projection,
-            position,
-            planes,
-        }
-    }
-
-    pub fn as_bytes(&self) -> &[u8] {
-        unsafe {
-            let data_ptr: *const Self = self;
-            let byte_ptr: *const u8 = data_ptr as *const _;
-            std::slice::from_raw_parts(byte_ptr, std::mem::size_of::<Self>())
-        }
-    }
-
-    pub fn push(&self, ctx: &mut Context, buffer_handle: &BufferHandle) {
-        let buffer = ctx.wrangler.get_uniform_buffer(&buffer_handle);
-
-        ctx.queue.write_buffer(buffer, 0, self.as_bytes());
-    }
 }
 
 pub fn register<'a, T>(
@@ -52,7 +20,7 @@ pub fn register<'a, T>(
     verts: &[T],
     instances: std::ops::Range<u32>,
     push_constant: Option<PushConstant>,
-    bind_group_labels: Option<&[&'a str]>,
+    bind_group_handles: &[BindGroupHandle<'a>],
 ) -> DrawCallHandle<'a>
 where
     T: bytemuck::Pod,
@@ -78,20 +46,7 @@ where
         .swap_vertex_buffer_cursor(vertex_cursor_handle, new_vert_cursor);
     let vertices = vertex_cursor as u32..vertex_cursor as u32 + vert_count as u32;
 
-    let bind_group_handles = if let Some(labels) = bind_group_labels {
-        Some(
-            labels
-                .iter()
-                .map(|label| {
-                    ctx.wrangler
-                        .handle_to_bind_group(label)
-                        .expect(&format!("No registered bind group labeled {}", &label))
-                })
-                .collect(),
-        )
-    } else {
-        None
-    };
+    let bind_group_handles = Vec::from(bind_group_handles);
 
     let draw_call = DrawCall::Vertex {
         vertices,
@@ -124,7 +79,7 @@ pub fn register_indexed<'a, T>(
     indices: &[u32],
     instances: std::ops::Range<u32>,
     push_constant: Option<PushConstant>,
-    bind_group_labels: Option<&[&'a str]>,
+    bind_group_handles: &[BindGroupHandle<'a>],
 ) -> DrawCallHandle<'a>
 where
     T: bytemuck::Pod,
@@ -171,20 +126,7 @@ where
 
     let indices = index_cursor as u32..index_cursor as u32 + index_count as u32;
 
-    let bind_group_handles = if let Some(labels) = bind_group_labels {
-        Some(
-            labels
-                .iter()
-                .map(|label| {
-                    ctx.wrangler
-                        .handle_to_bind_group(label)
-                        .expect(&format!("No registered bind group labeled {}", &label))
-                })
-                .collect(),
-        )
-    } else {
-        None
-    };
+    let bind_group_handles = Vec::from(bind_group_handles);
 
     let draw_call = DrawCall::Indexed {
         indices,
@@ -221,7 +163,7 @@ pub fn register_texture<'a>(
     label: &'a str,
     layout_label: &'a str,
     sampler_override: Option<&wgpu::Sampler>,
-) -> TextureHandle<'a> {
+) -> (BindGroupHandle<'a>, TextureHandle<'a>) {
     let bglh = ctx
         .wrangler
         .handle_to_bind_group_layout(layout_label)
@@ -248,6 +190,47 @@ pub fn register_texture<'a>(
         label: Some(&format!("{} Sampler Bind Group", label)),
     });
 
-    let _bind_group_handle = ctx.wrangler.add_or_swap_bind_group(bind_group, label);
-    ctx.wrangler.add_or_swap_texture(texture, label)
+    (
+        ctx.wrangler.add_or_swap_bind_group(bind_group, label),
+        ctx.wrangler.add_or_swap_texture(texture, label),
+    )
+}
+
+pub fn recreate_water_sampler_bind_group(ctx: &mut Context) {
+    use init::*;
+    let texture_sampler_bind_group_layout = ctx
+        .wrangler
+        .find_bind_group_layout(WATER_TEXTURE_SAMPLER_UNIFORM);
+    let reflection = ctx.wrangler.find_texture(REFLECTION);
+    let refraction = ctx.wrangler.find_texture(REFRACTION);
+    let refraction_depth = ctx.wrangler.find_texture(REFRACTION_DEPTH);
+
+    let texture_sampler_bind_group = ctx.device.create_bind_group(&wgpu::BindGroupDescriptor {
+        layout: &texture_sampler_bind_group_layout,
+        entries: &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::TextureView(&reflection.view),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: wgpu::BindingResource::TextureView(&refraction.view),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: wgpu::BindingResource::TextureView(&refraction_depth.view),
+            },
+            wgpu::BindGroupEntry {
+                binding: 3,
+                resource: wgpu::BindingResource::Sampler(&Texture::surface_texture_sampler(
+                    &ctx.device,
+                )),
+            },
+        ],
+        label: Some(WATER_TEXTURE_SAMPLER_UNIFORM),
+    });
+
+    let _handle = ctx
+        .wrangler
+        .add_or_swap_bind_group(texture_sampler_bind_group, WATER_TEXTURE_SAMPLER_UNIFORM);
 }

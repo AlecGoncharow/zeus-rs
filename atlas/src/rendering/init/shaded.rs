@@ -14,7 +14,7 @@ pub fn init_shaded_resources<'a>(
 
     let no_clip = Vec4::new_from_one(0);
     // @TODO FIXME thin matrix might have different coordinate system
-    let reflection_clip = Vec4::new(0., 1, 0., -water_height);
+    let reflection_clip = Vec4::new(0., 1, 0., -water_height + 0.1);
     let refraction_clip = Vec4::new(0., -1, 0., water_height + refraction_offset);
 
     let shaded_clip_plane_uniform_buffer =
@@ -39,22 +39,7 @@ pub fn init_shaded_resources<'a>(
                 contents: bytemuck::cast_slice(&[refraction_clip]),
             });
 
-    let clip_plane_bind_group_layout =
-        ctx.device
-            .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-
-                    count: None,
-                }],
-                label: Some("clip planebind group layout"),
-            });
+    let clip_plane_bind_group_layout = ctx.wrangler.find_bind_group_layout(UNIFORM_BUFFER_VERTEX);
 
     let shaded_clip_plane_bind_group = ctx.device.create_bind_group(&wgpu::BindGroupDescriptor {
         layout: &clip_plane_bind_group_layout,
@@ -96,9 +81,7 @@ pub fn init_shaded_resources<'a>(
         refraction_clip_plane_uniform_buffer,
         "refraction_clip_plane",
     );
-    let _handle = ctx
-        .wrangler
-        .add_bind_group_layout(clip_plane_bind_group_layout, "clip_plane");
+
     let _handle = ctx
         .wrangler
         .add_bind_group(shaded_clip_plane_bind_group, "shaded_clip_plane");
@@ -123,25 +106,25 @@ pub fn init_shaded_pass<'a>(ctx: &'a mut Context) -> PassHandle<'a> {
     let vertex_buffer_handle = ctx.wrangler.handle_to_vertex_buffer(pass_label).unwrap();
     let index_buffer_handle = ctx.wrangler.handle_to_index_buffer(pass_label).unwrap();
 
-    let camera_bind_group_layout_handle = match ctx.wrangler.handle_to_bind_group_layout("camera") {
-        Some(handle) => handle,
-        None => {
-            init_camera_resources(ctx);
-            ctx.wrangler.handle_to_bind_group_layout("camera").unwrap()
-        }
-    };
-    let camera_bind_group_handle = ctx.wrangler.handle_to_bind_group("camera").unwrap();
+    let camera_bind_group_layout_handle = ctx
+        .wrangler
+        .handle_to_bind_group_layout(CAMERA_GLOBAL_LIGHT_UNIFORM)
+        .unwrap();
+    let camera_bind_group_handle = ctx
+        .wrangler
+        .handle_to_bind_group(CAMERA_GLOBAL_LIGHT_UNIFORM)
+        .unwrap();
 
     let clip_plane_bind_group_layout = ctx
         .wrangler
-        .handle_to_bind_group_layout("clip_plane")
+        .handle_to_bind_group_layout(UNIFORM_BUFFER_VERTEX)
         .unwrap();
     let clip_plane_bind_group = ctx
         .wrangler
         .handle_to_bind_group("shaded_clip_plane")
         .unwrap();
 
-    let bind_group_handles = Some(vec![camera_bind_group_handle, clip_plane_bind_group]);
+    let bind_group_handles = vec![camera_bind_group_handle, clip_plane_bind_group];
 
     let color_attachment_ops = Some(wgpu::Operations {
         load: wgpu::LoadOp::Clear(ctx.gfx_context.clear_color),
@@ -154,11 +137,17 @@ pub fn init_shaded_pass<'a>(ctx: &'a mut Context) -> PassHandle<'a> {
     });
     let depth_stencil_view_handle = Some(depth_texture_handle);
 
+    let push_constant_ranges = &[wgpu::PushConstantRange {
+        stages: wgpu::ShaderStages::VERTEX,
+        range: 0..16 * 4,
+    }];
+
     let pipeline_ctx = Some(PipelineContext {
         uniform_bind_group_layout_handles: vec![
             camera_bind_group_layout_handle,
             clip_plane_bind_group_layout,
         ],
+        push_constant_ranges,
         vs_path: Some("shaded.vert.spv"),
         fs_path: Some("shaded.frag.spv"),
         vert_desc: vertex::ShadedVertex::desc,

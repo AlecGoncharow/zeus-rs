@@ -1,7 +1,7 @@
 use super::component::*;
 use super::Camera;
-use crate::vertex::ShadedVertex;
 use crate::rendering;
+use crate::vertex::ShadedVertex;
 use pantheon::graphics::mode::DrawMode;
 use pantheon::graphics::prelude::*;
 use pantheon::graphics::vertex::Vertex;
@@ -70,7 +70,7 @@ impl<'a> Terrain<'a> {
             &self.indices,
             0..1,
             push_constant,
-            None,
+            &[],
         ));
     }
 

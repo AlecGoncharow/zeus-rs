@@ -118,7 +118,7 @@ unsafe impl bytemuck::Zeroable for WaterVertex {}
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct WaterVertex {
-    pub position: Vec3,
+    pub position: Vec2,
     pub indicators: [i8; 4],
 }
 
@@ -134,7 +134,7 @@ impl WaterVertex {
                     format: wgpu::VertexFormat::Float32x3,
                 },
                 wgpu::VertexAttribute {
-                    offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
+                    offset: std::mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
                     shader_location: 1,
                     format: wgpu::VertexFormat::Sint8x4,
                 },
@@ -143,8 +143,8 @@ impl WaterVertex {
     }
 }
 
-impl From<(Vec3, [i8; 4])> for WaterVertex {
-    fn from(vecs: (Vec3, [i8; 4])) -> Self {
+impl From<(Vec2, [i8; 4])> for WaterVertex {
+    fn from(vecs: (Vec2, [i8; 4])) -> Self {
         Self {
             position: vecs.0,
             indicators: vecs.1,

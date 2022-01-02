@@ -93,24 +93,22 @@ impl<'a> RenderWrangler<'a> {
         &bind_group.entry
     }
 
+    /// This is an unchecked add, you should keep this handle as there is no guarentee the label
+    /// is unique
     pub fn add_bind_group(
         &mut self,
         bind_group: wgpu::BindGroup,
         label: &'a str,
     ) -> BindGroupHandle<'a> {
-        if let Some(handle) = self.handle_to_bind_group(label) {
-            handle
-        } else {
-            let idx = self.bind_groups.len();
-            self.bind_groups.push(LabeledEntry {
-                label,
-                entry: bind_group,
-            });
-            BindGroupHandle {
-                label,
-                idx,
-                marker: PhantomData,
-            }
+        let idx = self.bind_groups.len();
+        self.bind_groups.push(LabeledEntry {
+            label,
+            entry: bind_group,
+        });
+        BindGroupHandle {
+            label,
+            idx,
+            marker: PhantomData,
         }
     }
 
@@ -137,6 +135,7 @@ impl<'a> RenderWrangler<'a> {
         }
     }
 
+    /// Returns first matching label, no guarentee of being the only/expected one
     pub fn handle_to_bind_group(&self, label: &'a str) -> Option<BindGroupHandle<'a>> {
         let idx = self
             .bind_groups
@@ -308,27 +307,27 @@ impl<'a> RenderWrangler<'a> {
         assert_eq!(handle.label, uniform_buffer.label);
         &uniform_buffer.entry
     }
+
+    /// This is an unchecked add, you should keep this handle as there is no guarentee the label
+    /// is unique
     pub fn add_uniform_buffer(
         &mut self,
         uniform_buffer: wgpu::Buffer,
         label: &'a str,
     ) -> BufferHandle<'a> {
-        if let Some(handle) = self.handle_to_uniform_buffer(label) {
-            handle
-        } else {
-            let idx = self.uniform_buffers.len();
-            self.uniform_buffers.push(LabeledEntry {
-                label,
-                entry: uniform_buffer,
-            });
-            BufferHandle {
-                label,
-                idx,
-                marker: PhantomData,
-            }
+        let idx = self.uniform_buffers.len();
+        self.uniform_buffers.push(LabeledEntry {
+            label,
+            entry: uniform_buffer,
+        });
+        BufferHandle {
+            label,
+            idx,
+            marker: PhantomData,
         }
     }
 
+    /// Returns first matching handle, no guarentee of being the only/expected one
     pub fn handle_to_uniform_buffer(&self, label: &'a str) -> Option<BufferHandle<'a>> {
         let idx = self
             .uniform_buffers
@@ -604,6 +603,25 @@ impl<'a> RenderWrangler<'a> {
     pub fn find_texture(&self, label: &'a str) -> &Texture {
         &self
             .textures
+            .iter()
+            .find(|entry| entry.label == label)
+            .expect("resource does not exist")
+            .entry
+    }
+
+    pub fn find_bind_group_layout(&self, label: &'a str) -> &wgpu::BindGroupLayout {
+        &self
+            .bind_group_layouts
+            .iter()
+            .find(|entry| entry.label == label)
+            .expect("resource does not exist")
+            .entry
+    }
+
+    /// NOTE this uniforms do not enforce unique labels, uniqueness should be validated by caller
+    pub fn find_uniform_buffer(&self, label: &'a str) -> &wgpu::Buffer {
+        &self
+            .uniform_buffers
             .iter()
             .find(|entry| entry.label == label)
             .expect("resource does not exist")

@@ -19,7 +19,7 @@ mod common {
         pub idx: usize,
         pub(crate) marker: PhantomData<T>,
     }
-    /// :^)
+
     pub struct LabeledEntry<'a, T> {
         pub label: &'a str,
         pub entry: T,
@@ -64,7 +64,9 @@ mod common {
             instances: Range<u32>,
             push_constant: Option<PushConstant>,
             topology: Topology,
-            bind_group_handles: Option<Vec<BindGroupHandle<'a>>>,
+            // @NOTE @SPEED currently the default max bind_groups per pipeline is 4, may not need
+            // to allocate a vec here
+            bind_group_handles: Vec<BindGroupHandle<'a>>,
         },
         Indexed {
             indices: Range<u32>,
@@ -72,7 +74,9 @@ mod common {
             instances: Range<u32>,
             push_constant: Option<PushConstant>,
             topology: Topology,
-            bind_group_handles: Option<Vec<BindGroupHandle<'a>>>,
+            // @NOTE @SPEED currently the default max bind_groups per pipeline is 4, may not need
+            // to allocate a vec here
+            bind_group_handles: Vec<BindGroupHandle<'a>>,
         },
     }
 
@@ -83,7 +87,7 @@ mod common {
                 instances: 0..1,
                 push_constant: None,
                 topology: Topology::TriangleList(PolygonMode::Fill),
-                bind_group_handles: None,
+                bind_group_handles: Vec::new(),
             }
         }
 
@@ -94,7 +98,7 @@ mod common {
                 instances: 0..1,
                 push_constant: None,
                 topology: Topology::TriangleList(PolygonMode::Fill),
-                bind_group_handles: None,
+                bind_group_handles: Vec::new(),
             }
         }
 

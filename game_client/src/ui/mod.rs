@@ -1,5 +1,5 @@
-use atlas::vertex::BasicTexturedVertex;
 use atlas::rendering;
+use atlas::vertex::BasicTexturedVertex;
 use pantheon::graphics::prelude::*;
 use pantheon::prelude::*;
 use pantheon::Vec2;
@@ -9,6 +9,7 @@ pub struct TexturedQuad<'a> {
     pub label: &'a str,
     #[allow(dead_code)]
     texture_handle: TextureHandle<'a>,
+    bind_group_handle: BindGroupHandle<'a>,
     draw_call_handle: Option<DrawCallHandle<'a>>,
 }
 
@@ -21,25 +22,28 @@ impl<'a> TexturedQuad<'a> {
         texture: Texture,
         label: &'a str,
     ) -> Self {
-        let texture_handle =
+        let (bind_group_handle, texture_handle) =
             rendering::register_texture(ctx, texture, label, "basic_textured", None);
 
         Self {
             quad,
             label,
             texture_handle,
+            bind_group_handle,
             draw_call_handle: None,
         }
     }
 
-    pub fn new_with_handle(
+    pub fn new_with_handles(
         quad: TexturableQuad,
+        bind_group_handle: BindGroupHandle<'a>,
         texture_handle: TextureHandle<'a>,
         label: &'a str,
     ) -> Self {
         Self {
             quad,
             label,
+            bind_group_handle,
             texture_handle,
             draw_call_handle: None,
         }
@@ -54,7 +58,7 @@ impl<'a> TexturedQuad<'a> {
             &self.quad.verts,
             0..1,
             None,
-            Some(&[self.label]),
+            &[self.bind_group_handle],
         ));
     }
 }
