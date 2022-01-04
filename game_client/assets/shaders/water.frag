@@ -42,7 +42,6 @@ layout(set=1, binding=3)
 layout (location=0) out vec4 f_color;
 
 vec3 ApplyMurkiness(vec3 refract_color, float water_depth) {
-    water_depth = water_depth * 1000;
     float murky_factor = smoothstep(0, MURKEY_DEPTH, water_depth);
     float murkiness = MIN_BLUENESS + murky_factor * (MAX_BLUENESS - MIN_BLUENESS);
     return mix(refract_color, WATER_COLOR, murkiness);
@@ -51,37 +50,18 @@ vec3 ApplyMurkiness(vec3 refract_color, float water_depth) {
 float ToLinearDepth(float z_depth) {
     float near = camera.planes.x;
     float far = camera.planes.y;
-    //float near = 10;
-    //float far = 100000;
     return (2.0 * near * far) / (far + near - (2.0 * z_depth - 1.0) * (far - near));
 }
 
 float CalculateWaterDepth(vec2 tex_coords) {
     float depth = texture(sampler2D(depth_texture, color_sampler), tex_coords).r;
-    float floor_distance = ToLinearDepth(depth);
-  
-    float frag_float = gl_FragCoord.z;
-  
-    float water_distance = ToLinearDepth(frag_float);
+    float terrain_distance = ToLinearDepth(depth);
 
-    float diff = floor_distance - water_distance;
-    
+    float pixel_depth = gl_FragCoord.z;
+    float pixel_distance = ToLinearDepth(pixel_depth);
 
-
-
-    /*
-     if (diff == 0) {
-        return 10;
-     }
-     if (diff < 0.00005) {
-        return 8;
-    }
-     if (diff < 0.0005) {
-        return 7;
-    }
-    */
-
-    return diff;
+        
+    return terrain_distance - pixel_distance;
 }
 
 float CalculateFresnel() {
@@ -106,7 +86,7 @@ void main() {
 
     vec2 refraction_tex_coords = tex_coords_grid;
     vec2 reflection_tex_coords = vec2(tex_coords_grid.x, 1.0 - tex_coords_grid.y);
-    float water_depth = CalculateWaterDepth(tex_coords_real);
+    float water_depth = CalculateWaterDepth(tex_coords_real) * 100;
 
     vec3 refract_color = texture(sampler2D(refraction_texture, color_sampler), refraction_tex_coords).rgb;
     vec3 reflect_color = texture(sampler2D(reflection_texture, color_sampler), reflection_tex_coords).rgb;
@@ -119,38 +99,7 @@ void main() {
 
     final_color = final_color * pass_diffuse + pass_specular;
 
-
     f_color = vec4(final_color, 1.0);
-    /*
-    if (water_depth < 0.6) {
-        f_color = vec4(vec3(1), 1);
-    }
-    if (water_depth < 0.4) {
-        f_color = vec4(vec3(0.7), 1);
-    }
-    if (water_depth < 0.2) {
-        f_color = vec4(vec3(0.5), 1);
-    }
-    if (water_depth < 0.1) {
-        f_color = vec4(vec3(0.3), 1);
-    }
-    if (water_depth < 0.05) {
-        f_color = vec4(vec3(0.2), 1);
-    }
-    if (water_depth == 10) {
-        f_color = vec4(vec3(1), 1);
-    }
-    if (water_depth == 9) {
-        f_color = vec4(vec3(0.7), 1);
-    }
-    if (water_depth == 8) {
-        f_color = vec4(vec3(0.5), 1);
-    }
-    if (water_depth == 7) {
-        f_color = vec4(vec3(0.3), 1);
-    }
-    if (water_depth == 6) {
-        f_color = vec4(vec3(0.2), 1);
-    }
-    */
+    f_color.a = clamp(water_depth / EDGE_SOFTNESS, 0.0, 1.0);
 }
+

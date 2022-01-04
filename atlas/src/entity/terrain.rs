@@ -20,6 +20,7 @@ pub struct Terrain<'a> {
     norm_debug: Vec<Vertex>,
     draw_call_handle: Option<DrawCallHandle<'a>>,
     topology: Topology,
+    pub scale: f32,
 }
 
 impl<'a> Terrain<'a> {
@@ -36,6 +37,7 @@ impl<'a> Terrain<'a> {
             center: Vec3::new_from_one(0),
             draw_call_handle: None,
             topology: Topology::TriangleList(PolygonMode::Fill),
+            scale: 1.0,
         }
     }
     pub fn init(&mut self, _ctx: &mut Context) {
@@ -109,7 +111,7 @@ impl<'a> Terrain<'a> {
 
 impl<'a> Drawable for Terrain<'a> {
     fn model_matrix(&self) -> Mat4 {
-        Mat4::translation::<f32>((-1. * self.center).into())
+        Mat4::scalar_from_one(self.scale) * Mat4::translation::<f32>((self.center).into())
     }
 
     fn draw_mode(&self) -> DrawMode {

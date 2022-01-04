@@ -23,6 +23,7 @@ pub struct Water<'a> {
     draw_call_handle: Option<DrawCallHandle<'a>>,
     topology: Topology,
     wave_time: f32,
+    pub scale: f32,
 }
 
 impl<'a> Water<'a> {
@@ -33,6 +34,7 @@ impl<'a> Water<'a> {
             draw_call_handle: None,
             topology: Topology::TriangleList(PolygonMode::Fill),
             wave_time: 0.0,
+            scale: 1.0,
         }
     }
 
@@ -153,7 +155,7 @@ pub fn generate_water<'a>(size: usize) -> Water<'a> {
 
 impl<'a> Drawable for Water<'a> {
     fn model_matrix(&self) -> Mat4 {
-        Mat4::translation::<f32>((-1. * self.center).into())
+        Mat4::scalar_from_one(self.scale) * Mat4::translation::<f32>((self.center).into())
     }
 
     fn rotate(&mut self, _theta: f32, _axis: Vec3) {}

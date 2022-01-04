@@ -133,6 +133,8 @@ impl<'a> EventHandler<'a> for State<'a> {
             self.camera_uniforms
                 .push(ctx, &self.handles.camera_uniforms);
 
+            println!("[CAMERA UNIFORMS] {:#?}", self.camera_uniforms);
+
             // @NOTE reflected camera uniform's position is not updated ever because
             // it is only used for the reflection pass, which doesn't care about the
             // position. Only the water passes care about the camera's position due
@@ -143,6 +145,8 @@ impl<'a> EventHandler<'a> for State<'a> {
             self.reflected_camera_uniforms.projection = self.entity_manager.camera.projection;
             self.reflected_camera_uniforms
                 .push(ctx, &self.handles.reflected_camera_uniforms);
+
+            self.entity_manager.camera.dirty = false;
         }
 
         self.entity_manager.update(ctx);
@@ -363,8 +367,11 @@ fn generate_terrain(
     let color_gen = ColorGenerator::new(
         vec![
             (201, 178, 99).into(),
+            (164, 155, 98).into(),
+            (164, 155, 98).into(),
+            (229, 219, 164).into(),
             (135, 184, 82).into(),
-            (80, 171, 93).into(),
+            //(80, 171, 93).into(),
             (120, 120, 120).into(),
             (200, 200, 210).into(),
         ],
@@ -393,7 +400,12 @@ async fn main() {
     let shader_path = std::path::PathBuf::from("game_client/assets/shaders");
     let (mut ctx, event_loop) = Context::new(Color::new(135, 206, 235).into(), shader_path);
 
+    // @NOTE this has to be 0 unless we want out camera to be paramertized against the water's
+    // height which I think is a bit much, probably easier to just approach life as water == 0
+    // height
     let water_height = 0.;
+    let terrain_height = 3.;
+    let world_scale = 2.0;
     let direction = Vec3::new(0.3, -1, 0.5).make_unit_vector();
     let color = Vec3::new(1, 0.95, 0.95);
     let bias = Vec2::new(0.3, 0.8);
@@ -422,12 +434,19 @@ async fn main() {
 
     let terrain_size = if cfg!(debug_assertions) { 25 } else { 250 };
     let mut terrain = generate_terrain(terrain_size, false, Some(0));
-    terrain.center = (terrain_size as f32 / 2., 0., terrain_size as f32 / 2.).into();
+    terrain.center = (
+        -(terrain_size as f32) / 2.,
+        terrain_height,
+        -(terrain_size as f32) / 2.,
+    )
+        .into();
+    terrain.scale = world_scale;
     terrain.init(&mut ctx);
     terrain.register(&mut ctx);
 
     let mut water = generate_water(terrain_size);
-    water.center = terrain.center - (0., water_height, 0.).into();
+    water.center = terrain.center - (0., terrain_height, 0.).into();
+    water.scale = world_scale;
     water.register(&mut ctx);
 
     /*
@@ -458,13 +477,29 @@ async fn main() {
     let refraction_bind = ctx.wrangler.handle_to_bind_group("refraction").unwrap();
     let reflection = ctx.wrangler.handle_to_texture("reflection").unwrap();
     let reflection_bind = ctx.wrangler.handle_to_bind_group("reflection").unwrap();
+    let _refraction_depth = ctx.wrangler.handle_to_texture("refraction_depth").unwrap();
+    let _refraction_depth_bind = ctx
+        .wrangler
+        .handle_to_bind_group("refraction_depth")
+        .unwrap();
 
+    /*
     let mut textured_quad =
         TexturedQuad::new_with_handles(right_right_ui, refraction_bind, refraction, "refraction");
     textured_quad.register(&mut ctx);
     let mut textured_quad =
         TexturedQuad::new_with_handles(left_left_ui, reflection_bind, reflection, "reflection");
     textured_quad.register(&mut ctx);
+    /*
+    let mut textured_quad = TexturedQuad::new_with_handles(
+        right_ui,
+        refraction_depth_bind,
+        refraction_depth,
+        "refraction_depth",
+    );
+    textured_quad.register(&mut ctx);
+    */
+    */
 
     let mut entity_manager = EntityManager::new(
         Camera::new(
@@ -486,24 +521,24 @@ async fn main() {
     //"fixed" when orientation is updated
     entity_manager.camera.update_orientation();
 
-    let camera_uniforms = CameraUniforms {
-        view: entity_manager.camera.view,
-        projection: entity_manager.camera.projection,
-        position: entity_manager.camera.origin,
-        planes: Vec2::new(
+    let camera_uniforms = CameraUniforms::new(
+        entity_manager.camera.view,
+        entity_manager.camera.projection,
+        entity_manager.camera.origin,
+        Vec2::new(
             entity_manager.camera.near_plane,
             entity_manager.camera.far_plane,
         ),
-    };
-    let reflected_camera_uniforms = CameraUniforms {
-        view: entity_manager.camera.reflected_view,
-        projection: entity_manager.camera.projection,
-        position: entity_manager.camera.origin,
-        planes: Vec2::new(
+    );
+    let reflected_camera_uniforms = CameraUniforms::new(
+        entity_manager.camera.reflected_view,
+        entity_manager.camera.projection,
+        entity_manager.camera.origin,
+        Vec2::new(
             entity_manager.camera.near_plane,
             entity_manager.camera.far_plane,
         ),
-    };
+    );
 
     let handles = Handles {
         camera_uniforms: ctx

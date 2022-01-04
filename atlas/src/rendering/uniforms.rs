@@ -63,7 +63,9 @@ pub struct CameraUniforms {
     pub view: Mat4,
     pub projection: Mat4,
     pub position: Vec3,
+    _pad0: u32,
     pub planes: Vec2,
+    _pad1: u64,
 }
 
 impl CameraUniforms {
@@ -73,6 +75,8 @@ impl CameraUniforms {
             projection,
             position,
             planes,
+            _pad0: 0,
+            _pad1: 0,
         }
     }
 }
@@ -82,11 +86,11 @@ impl Uniforms for GlobalLightUniforms {}
 #[repr(C)]
 pub struct GlobalLightUniforms {
     pub direction: Vec3,
-    _pad0: f32,
+    _pad0: u32,
     pub color: Vec3,
-    _pad1: f32,
+    _pad1: u32,
     pub bias: Vec2,
-    _pad2: f64,
+    _pad2: u64,
 }
 
 impl GlobalLightUniforms {
@@ -95,9 +99,9 @@ impl GlobalLightUniforms {
             direction,
             color,
             bias,
-            _pad0: 0.,
-            _pad1: 0.,
-            _pad2: 0.,
+            _pad0: 0,
+            _pad1: 0,
+            _pad2: 0,
         }
     }
 }
