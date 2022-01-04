@@ -27,13 +27,14 @@ You can modify `.cargo/config.toml` to relax any of these requirements.
 
 #### Windows x86_64:
 * Currently requires nightly toolchain.   
+* May not compile due to `wgpu` switch to `wgpu-hal` and this project's usage of push constants, unverified.
 
 # Running
-This repo contains 2 binaries currently, `game` and `server`, this is likely to change. The game will work without the server for now, 
+This repo contains 2 binaries currently, `game-client` and `server`, this is likely to change. The game will work without the server for now, 
 the server only acts as a sort of entiity orchestrator at the moment.
 
 ### Game
-`cargo run --bin game --release`
+`cargo run --bin game-client --release`
 
 ### Server
 `cargo run --bin server --release`

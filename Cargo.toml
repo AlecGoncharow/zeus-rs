@@ -3,7 +3,7 @@ resolver = "2"
 members = [
     "pantheon",
     "hermes",
-    "game_client",
+    "game-client",
     "atlas",
     "server",
 ]

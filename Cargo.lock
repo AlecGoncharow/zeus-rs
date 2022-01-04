@@ -738,7 +738,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "game_client"
+name = "game-client"
 version = "0.1.0"
 dependencies = [
  "anyhow",
