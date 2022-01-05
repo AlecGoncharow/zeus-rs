@@ -7,16 +7,20 @@ use crate::shader::ShaderContext;
 pub struct RenderWrangler<'a> {
     pub passes: Vec<Pass<'a>>,
 
-    //@TODO swap LabeledEntry for PhantomData enforced types
     pub bind_group_layouts: Vec<LabeledEntry<'a, wgpu::BindGroupLayout>>,
     pub bind_groups: Vec<LabeledEntry<'a, wgpu::BindGroup>>,
     pub vertex_buffers: Vec<LabeledEntry<'a, wgpu::Buffer>>,
     pub vertex_buffer_cursors: Vec<LabeledEntry<'a, wgpu::BufferAddress>>,
     pub index_buffers: Vec<LabeledEntry<'a, wgpu::Buffer>>,
     pub index_buffer_cursors: Vec<LabeledEntry<'a, wgpu::BufferAddress>>,
+    // @TODO @SPEED this should probably just be broken down as per
+    // https://github.com/gfx-rs/wgpu/wiki/Do%27s-and-Dont%27s#do-group-resource-bindings-by-the-change-frequency-start-from-the-lowest
     pub uniform_buffers: Vec<LabeledEntry<'a, wgpu::Buffer>>,
     pub textures: Vec<LabeledEntry<'a, Texture>>,
     pub draw_calls: Vec<LabeledEntry<'a, DrawCall<'a>>>,
+    // validation stuff
+    surface_bound_bind_group_count: usize,
+    surface_bound_bind_group_cursor: usize,
 }
 impl<'a> RenderWrangler<'a> {
     pub fn new() -> Self {
@@ -31,6 +35,8 @@ impl<'a> RenderWrangler<'a> {
             uniform_buffers: Vec::new(),
             textures: Vec::new(),
             draw_calls: Vec::new(),
+            surface_bound_bind_group_count: 0,
+            surface_bound_bind_group_cursor: 0,
         }
     }
 
@@ -122,6 +128,76 @@ impl<'a> RenderWrangler<'a> {
 
             handle
         } else {
+            let idx = self.bind_groups.len();
+            self.bind_groups.push(LabeledEntry {
+                label,
+                entry: bind_group,
+            });
+            BindGroupHandle {
+                label,
+                idx,
+                marker: PhantomData,
+            }
+        }
+    }
+
+    pub fn start_resize(&mut self) {
+        self.surface_bound_bind_group_cursor = 0;
+    }
+
+    pub fn validate_resize(&self) {
+        if self.surface_bound_bind_group_count != self.surface_bound_bind_group_cursor {
+            panic!(
+                "[Wrangler.validate_resize] Expected {} surface bound bind groups rebounded after resize, counted {}",
+                self.surface_bound_bind_group_count, self.surface_bound_bind_group_cursor
+            );
+        }
+    }
+
+    /// use this for any bind group that needs to be recreated on resize, e.g. depth texutres /
+    /// color attachments for additional passes
+    pub fn add_surface_bound_bind_group(
+        &mut self,
+        bind_group: wgpu::BindGroup,
+        label: &'a str,
+    ) -> BindGroupHandle<'a> {
+        #[cfg(debug_assertions)]
+        {
+            self.surface_bound_bind_group_count += 1;
+            self.surface_bound_bind_group_cursor += 1;
+        }
+
+        let idx = self.bind_groups.len();
+        self.bind_groups.push(LabeledEntry {
+            label,
+            entry: bind_group,
+        });
+        BindGroupHandle {
+            label,
+            idx,
+            marker: PhantomData,
+        }
+    }
+
+    pub fn add_or_swap_surface_bound_bind_group(
+        &mut self,
+        bind_group: wgpu::BindGroup,
+        label: &'a str,
+    ) -> BindGroupHandle<'a> {
+        if let Some(handle) = self.handle_to_bind_group(label) {
+            #[cfg(debug_assertions)]
+            {
+                self.surface_bound_bind_group_cursor += 1;
+            }
+            self.bind_groups[handle.idx].entry = bind_group;
+
+            handle
+        } else {
+            #[cfg(debug_assertions)]
+            {
+                self.surface_bound_bind_group_count += 1;
+                self.surface_bound_bind_group_cursor += 1;
+            }
             let idx = self.bind_groups.len();
             self.bind_groups.push(LabeledEntry {
                 label,

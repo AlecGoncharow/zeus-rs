@@ -13,6 +13,7 @@ layout(set=0, binding=0) uniform Camera {
     mat4 view;
     mat4 projection;
     vec3 position;
+    vec2 planes;
 } camera;
 
 layout(set=0, binding=1) uniform GlobalLight {

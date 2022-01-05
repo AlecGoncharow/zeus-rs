@@ -322,7 +322,7 @@ pub fn init_water_resources<'a>(ctx: &mut Context<'a>, label: &'a str) {
     );
     let _handle = ctx
         .wrangler
-        .add_bind_group(texture_sampler_bind_group, WATER_TEXTURE_SAMPLER_UNIFORM);
+        .add_surface_bound_bind_group(texture_sampler_bind_group, WATER_TEXTURE_SAMPLER_UNIFORM);
 }
 
 pub fn init_water_pass<'a>(ctx: &mut Context<'a>) -> PassHandle<'a> {

@@ -165,5 +165,7 @@ fn init_bind_group_for_textured_pass<'a>(
         label: Some(label),
     });
 
-    let _handle = ctx.wrangler.add_bind_group(sampler_bind_group, label);
+    let _handle = ctx
+        .wrangler
+        .add_surface_bound_bind_group(sampler_bind_group, label);
 }

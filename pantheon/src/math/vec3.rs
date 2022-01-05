@@ -2,6 +2,7 @@ use crate::math::Vec4;
 use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
 
 // @TODO think about vector equality, may need to implement floating point epsilon comparisons
+#[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Vec3 {
     pub x: f32,

@@ -157,13 +157,13 @@ where
     handle
 }
 
-pub fn register_texture<'a>(
+fn texture_bind_group<'a>(
     ctx: &mut Context<'a>,
-    texture: Texture,
+    texture: &Texture,
     label: &'a str,
     layout_label: &'a str,
     sampler_override: Option<&wgpu::Sampler>,
-) -> (BindGroupHandle<'a>, TextureHandle<'a>) {
+) -> wgpu::BindGroup {
     let bglh = ctx
         .wrangler
         .handle_to_bind_group_layout(layout_label)
@@ -189,9 +189,36 @@ pub fn register_texture<'a>(
         ],
         label: Some(&format!("{} Sampler Bind Group", label)),
     });
+    bind_group
+}
+
+pub fn register_texture<'a>(
+    ctx: &mut Context<'a>,
+    texture: Texture,
+    label: &'a str,
+    layout_label: &'a str,
+    sampler_override: Option<&wgpu::Sampler>,
+) -> (BindGroupHandle<'a>, TextureHandle<'a>) {
+    let bind_group = texture_bind_group(ctx, &texture, label, layout_label, sampler_override);
 
     (
         ctx.wrangler.add_or_swap_bind_group(bind_group, label),
+        ctx.wrangler.add_or_swap_texture(texture, label),
+    )
+}
+
+pub fn register_surface_bound_texture<'a>(
+    ctx: &mut Context<'a>,
+    texture: Texture,
+    label: &'a str,
+    layout_label: &'a str,
+    sampler_override: Option<&wgpu::Sampler>,
+) -> (BindGroupHandle<'a>, TextureHandle<'a>) {
+    let bind_group = texture_bind_group(ctx, &texture, label, layout_label, sampler_override);
+
+    (
+        ctx.wrangler
+            .add_or_swap_surface_bound_bind_group(bind_group, label),
         ctx.wrangler.add_or_swap_texture(texture, label),
     )
 }
@@ -230,7 +257,8 @@ pub fn recreate_water_sampler_bind_group(ctx: &mut Context) {
         label: Some(WATER_TEXTURE_SAMPLER_UNIFORM),
     });
 
-    let _handle = ctx
-        .wrangler
-        .add_or_swap_bind_group(texture_sampler_bind_group, WATER_TEXTURE_SAMPLER_UNIFORM);
+    let _handle = ctx.wrangler.add_or_swap_surface_bound_bind_group(
+        texture_sampler_bind_group,
+        WATER_TEXTURE_SAMPLER_UNIFORM,
+    );
 }

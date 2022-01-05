@@ -276,7 +276,9 @@ impl<'a> EventHandler<'a> for State<'a> {
             .swap_texture(&self.handles.depth_texture, depth_texture);
         */
 
-        rendering::register_texture(
+        ctx.wrangler.start_resize();
+
+        rendering::register_surface_bound_texture(
             ctx,
             depth_texture,
             "depth",
@@ -284,7 +286,7 @@ impl<'a> EventHandler<'a> for State<'a> {
             Some(&Texture::surface_texture_sampler(&ctx.device)),
         );
 
-        rendering::register_texture(
+        rendering::register_surface_bound_texture(
             ctx,
             refraction_depth_texture,
             "refraction_depth",
@@ -292,14 +294,14 @@ impl<'a> EventHandler<'a> for State<'a> {
             Some(&Texture::surface_texture_sampler(&ctx.device)),
         );
 
-        rendering::register_texture(
+        rendering::register_surface_bound_texture(
             ctx,
             reflection_texture,
             self.handles.reflection_texture.label,
             "basic_textured",
             None,
         );
-        rendering::register_texture(
+        rendering::register_surface_bound_texture(
             ctx,
             refraction_texture,
             self.handles.refraction_texture.label,
@@ -308,6 +310,8 @@ impl<'a> EventHandler<'a> for State<'a> {
         );
 
         rendering::recreate_water_sampler_bind_group(ctx);
+
+        ctx.wrangler.validate_resize();
     }
 
     fn key_mods_changed(&mut self, _ctx: &mut Context, _modifiers_state: ModifiersState) {}
@@ -397,7 +401,7 @@ async fn main() {
     let message: Message<GameMessage> = Message::new(GameMessage::SyncWorld);
     network_client.send(message).await.unwrap();
 
-    let shader_path = std::path::PathBuf::from("game_client/assets/shaders");
+    let shader_path = std::path::PathBuf::from("game-client/assets/shaders");
     let (mut ctx, event_loop) = Context::new(Color::new(135, 206, 235).into(), shader_path);
 
     // @NOTE this has to be 0 unless we want out camera to be paramertized against the water's
