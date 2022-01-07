@@ -290,7 +290,7 @@ impl<'a> DrawComponent<'a> for Cuboid<'a> {
                 &self.indices,
                 0..1,
                 push_constant,
-                &[],
+                None,
             ),
             CubioidVertMode::Shaded(verts) => rendering::register_indexed(
                 ctx,
@@ -301,7 +301,7 @@ impl<'a> DrawComponent<'a> for Cuboid<'a> {
                 &self.indices,
                 0..1,
                 push_constant,
-                &[],
+                None,
             ),
         });
     }

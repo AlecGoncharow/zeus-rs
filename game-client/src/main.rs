@@ -38,6 +38,8 @@ use hermes::message::Message;
 
 use hermes::tokio;
 
+use pantheon::wgpu;
+
 pub mod entity_manager;
 pub mod ui;
 
@@ -402,7 +404,11 @@ async fn main() {
     network_client.send(message).await.unwrap();
 
     let shader_path = std::path::PathBuf::from("game-client/assets/shaders");
-    let (mut ctx, event_loop) = Context::new(Color::new(135, 206, 235).into(), shader_path);
+    let (mut ctx, event_loop) = Context::new(
+        wgpu::PresentMode::Immediate,
+        Color::new(135, 206, 235).into(),
+        shader_path,
+    );
 
     // @NOTE this has to be 0 unless we want out camera to be paramertized against the water's
     // height which I think is a bit much, probably easier to just approach life as water == 0
@@ -424,6 +430,18 @@ async fn main() {
     init::init_shaded_pass(&mut ctx);
     init::init_water_pass(&mut ctx);
     init::init_basic_textured_pass(&mut ctx);
+
+    let frame_bind_group_layout_handle = ctx
+        .wrangler
+        .handle_to_bind_group_layout(GLOBAL_LIGHT)
+        .unwrap();
+    let frame_bind_group_handle = ctx.wrangler.handle_to_bind_group(GLOBAL_LIGHT).unwrap();
+
+    ctx.wrangler.frame_bind_group_layout_handle = frame_bind_group_layout_handle;
+    ctx.wrangler.frame_bind_group_handle = frame_bind_group_handle;
+
+    ctx.wrangler
+        .reload_shaders(&ctx.device, &ctx.shader_context, &ctx.surface_config);
 
     let depth_texture_handle = ctx.wrangler.handle_to_texture("depth").expect(":)");
 
@@ -472,11 +490,12 @@ async fn main() {
         "wab",
     )
     .unwrap();
-    let left_left_ui = TexturableQuad::new((-1., 0.5).into(), (-0.5, 1.0).into());
+    let _left_left_ui = TexturableQuad::new((-1., 0.5).into(), (-0.5, 1.0).into());
     let _left_ui = TexturableQuad::new((-0.5, 0.5).into(), (0.0, 1.0).into());
     let _right_ui = TexturableQuad::new((0.0, 0.5).into(), (0.5, 1.0).into());
-    let right_right_ui = TexturableQuad::new((0.5, 0.5).into(), (1., 1.0).into());
+    let _right_right_ui = TexturableQuad::new((0.5, 0.5).into(), (1., 1.0).into());
 
+    /*
     let refraction = ctx.wrangler.handle_to_texture("refraction").unwrap();
     let refraction_bind = ctx.wrangler.handle_to_bind_group("refraction").unwrap();
     let reflection = ctx.wrangler.handle_to_texture("reflection").unwrap();
@@ -486,6 +505,7 @@ async fn main() {
         .wrangler
         .handle_to_bind_group("refraction_depth")
         .unwrap();
+    */
 
     /*
     let mut textured_quad =
@@ -545,17 +565,20 @@ async fn main() {
     );
 
     let handles = Handles {
-        camera_uniforms: ctx
-            .wrangler
-            .handle_to_uniform_buffer(CAMERA_GLOBAL_LIGHT_UNIFORM)
-            .expect(":)"),
+        camera_uniforms: ctx.wrangler.handle_to_uniform_buffer(CAMERA).expect(":)"),
         reflected_camera_uniforms: ctx
             .wrangler
-            .handle_to_uniform_buffer("camera_reflect")
+            .handle_to_uniform_buffer(CAMERA_REFLECT)
             .expect(":)"),
         depth_texture: depth_texture_handle,
-        reflection_texture: ctx.wrangler.handle_to_texture("reflection").expect(":)"),
-        refraction_texture: ctx.wrangler.handle_to_texture("refraction").expect(":)"),
+        reflection_texture: ctx
+            .wrangler
+            .handle_to_texture(REFLECTION_TEXTURE)
+            .expect(":)"),
+        refraction_texture: ctx
+            .wrangler
+            .handle_to_texture(REFRACTION_TEXTURE)
+            .expect(":)"),
         shaded_pass: ctx.wrangler.handle_to_pass("shaded").expect(":)"),
     };
     camera_uniforms.push(&mut ctx, &handles.camera_uniforms);

@@ -88,9 +88,13 @@ impl GraphicsContext {
                 depth_stencil_attachment,
             });
 
-            let draw_call_bg_offset = pass.bind_group_handles.len() as u32;
-            for (i, handle) in pass.bind_group_handles.iter().enumerate() {
-                render_pass.set_bind_group(i as u32, wrangler.get_bind_group(handle), &[]);
+            render_pass.set_bind_group(
+                0,
+                wrangler.get_bind_group(&wrangler.frame_bind_group_handle),
+                &[],
+            );
+            if let Some(pass_bind_group_handle) = &pass.pass_bind_group_handle {
+                render_pass.set_bind_group(1, wrangler.get_bind_group(pass_bind_group_handle), &[]);
             }
 
             let index_buffer = wrangler.get_index_buffer(&pass.index_buffer_handle);
@@ -104,69 +108,34 @@ impl GraphicsContext {
                 .map(|handle| wrangler.get_draw_call(handle));
 
             for call in draw_calls {
-                match call {
-                    DrawCall::Vertex {
-                        vertices,
-                        instances,
-                        push_constant,
-                        topology,
-                        bind_group_handles,
-                    } => {
-                        for (i, handle) in bind_group_handles.iter().enumerate() {
-                            render_pass.set_bind_group(
-                                draw_call_bg_offset + i as u32,
-                                wrangler.get_bind_group(handle),
-                                &[],
-                            );
-                        }
+                if let Some(handle) = &call.bind_group_handle {
+                    render_pass.set_bind_group(2, wrangler.get_bind_group(handle), &[]);
+                }
+                render_pass.set_pipeline(&pass.pipelines[usize::from(call.topology)]);
+                if let Some(push_constant) = &call.push_constant {
+                    render_pass.set_push_constants(
+                        push_constant.stages,
+                        push_constant.offset,
+                        &push_constant.data,
+                    );
+                }
 
-                        render_pass.set_pipeline(&pass.pipelines[usize::from(*topology)]);
-                        if let Some(push_constant) = push_constant {
-                            render_pass.set_push_constants(
-                                push_constant.stages,
-                                push_constant.offset,
-                                &push_constant.data,
-                            );
-                        }
-
-                        // @TODO revisit this, Range does not impl Copy, is it better to keep
+                match call.kind {
+                    DrawCallKind::Vertex => {
+                        // @TODO @SPEED revisit this, Range does not impl Copy, is it better to keep
                         // params of range in data and to just create on fly vs clone?
                         // See: https://github.com/rust-lang/rust/pull/27186
-                        render_pass.draw(vertices.clone(), instances.clone());
+                        render_pass.draw(call.index_range.clone(), call.instances.clone());
                     }
-                    DrawCall::Indexed {
-                        indices,
-                        base_vertex,
-                        instances,
-                        push_constant,
-                        topology,
-                        bind_group_handles,
-                    } => {
-                        for (i, handle) in bind_group_handles.iter().enumerate() {
-                            render_pass.set_bind_group(
-                                draw_call_bg_offset + i as u32,
-                                wrangler.get_bind_group(handle),
-                                &[],
-                            );
-                        }
-                        render_pass.set_pipeline(&pass.pipelines[usize::from(*topology)]);
-                        if let Some(push_constant) = push_constant {
-                            /*
-                            println!(
-                                "[Debug] Handle: {:#?}, PushConstant: {:#?}",
-                                handle, push_constant
-                            );
-                            */
-                            render_pass.set_push_constants(
-                                push_constant.stages,
-                                push_constant.offset,
-                                &push_constant.data,
-                            );
-                        }
+                    DrawCallKind::Indexed(base_vertex) => {
                         render_pass
                             .set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
 
-                        render_pass.draw_indexed(indices.clone(), *base_vertex, instances.clone());
+                        render_pass.draw_indexed(
+                            call.index_range.clone(),
+                            base_vertex,
+                            call.instances.clone(),
+                        );
                     }
                 }
             }

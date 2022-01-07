@@ -56,8 +56,18 @@ pub fn init_textured_resources<'a>(ctx: &mut Context<'a>, label: &'a str) {
                 label: Some(label),
             });
 
-    init_bind_group_for_textured_pass(ctx, &basic_textured_bind_group_layout, "reflection", None);
-    init_bind_group_for_textured_pass(ctx, &basic_textured_bind_group_layout, "refraction", None);
+    init_bind_group_for_textured_pass(
+        ctx,
+        &basic_textured_bind_group_layout,
+        REFLECTION_TEXTURE,
+        None,
+    );
+    init_bind_group_for_textured_pass(
+        ctx,
+        &basic_textured_bind_group_layout,
+        REFRACTION_TEXTURE,
+        None,
+    );
     init_bind_group_for_textured_pass(
         ctx,
         &basic_textured_bind_group_layout,
@@ -85,7 +95,8 @@ pub fn init_basic_textured_pass<'a>(ctx: &'a mut Context) {
     let push_constant_ranges = &[];
 
     let pipeline_ctx = Some(PipelineContext {
-        uniform_bind_group_layout_handles: vec![bglh_basic_textured],
+        pass_bind_group_layout_handle: None,
+        draw_call_bind_group_layout_handle: Some(bglh_basic_textured),
         push_constant_ranges,
         vs_path: Some("basic_textured.vert.spv"),
         fs_path: Some("basic_textured.frag.spv"),
@@ -131,14 +142,12 @@ pub fn init_basic_textured_pass<'a>(ctx: &'a mut Context) {
         stencil_ops: None,
         depth_stencil_view_handle: None,
         draw_call_handles: Vec::new(),
-        bind_group_handles: Vec::new(),
+        pass_bind_group_handle: None,
         vertex_buffer_handle,
         index_buffer_handle,
     };
 
     let _handle = ctx.wrangler.add_pass(pass, pass_label);
-    ctx.wrangler
-        .reload_shaders(&ctx.device, &ctx.shader_context, &ctx.surface_config);
 }
 
 fn init_bind_group_for_textured_pass<'a>(

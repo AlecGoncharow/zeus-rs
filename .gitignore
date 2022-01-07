@@ -6,3 +6,4 @@
 
 *.txt
 .DS_STORE
+renderdoc/

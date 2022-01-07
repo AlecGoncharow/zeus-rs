@@ -53,76 +53,46 @@ mod common {
         }
     }
 
+    #[derive(Debug, Clone, Copy)]
+    pub enum DrawCallKind {
+        Vertex,
+        Indexed(i32),
+    }
     // @TODO Range doesn't impl Copy, need to think about how best to approach this, do we clone the
     // Range on draw or do we keep the params necessary to construct on the fly, is one faster than
     // another?
     // See: https://github.com/rust-lang/rust/pull/27186
     #[derive(Debug)]
-    pub enum DrawCall<'a> {
-        Vertex {
-            vertices: Range<u32>,
-            instances: Range<u32>,
-            push_constant: Option<PushConstant>,
-            topology: Topology,
-            // @NOTE @SPEED currently the default max bind_groups per pipeline is 4, may not need
-            // to allocate a vec here
-            bind_group_handles: Vec<BindGroupHandle<'a>>,
-        },
-        Indexed {
-            indices: Range<u32>,
-            base_vertex: i32,
-            instances: Range<u32>,
-            push_constant: Option<PushConstant>,
-            topology: Topology,
-            // @NOTE @SPEED currently the default max bind_groups per pipeline is 4, may not need
-            // to allocate a vec here
-            bind_group_handles: Vec<BindGroupHandle<'a>>,
-        },
+    pub struct DrawCall<'a> {
+        pub kind: DrawCallKind,
+        pub index_range: Range<u32>,
+        pub instances: Range<u32>,
+        pub push_constant: Option<PushConstant>,
+        pub topology: Topology,
+        pub bind_group_handle: Option<BindGroupHandle<'a>>,
     }
 
     impl<'a> DrawCall<'a> {
-        pub fn default_vertex() -> Self {
-            DrawCall::Vertex {
-                vertices: 0..0,
+        pub fn default() -> Self {
+            Self {
+                kind: DrawCallKind::Vertex,
+                index_range: 0..0,
                 instances: 0..1,
                 push_constant: None,
                 topology: Topology::TriangleList(PolygonMode::Fill),
-                bind_group_handles: Vec::new(),
-            }
-        }
-
-        pub fn default_indexed() -> Self {
-            DrawCall::Indexed {
-                indices: 0..0,
-                base_vertex: 0,
-                instances: 0..1,
-                push_constant: None,
-                topology: Topology::TriangleList(PolygonMode::Fill),
-                bind_group_handles: Vec::new(),
+                bind_group_handle: None,
             }
         }
 
         pub fn set_topology(&mut self, new_topology: Topology) {
-            match self {
-                DrawCall::Vertex {
-                    ref mut topology, ..
-                } => *topology = new_topology,
-                DrawCall::Indexed {
-                    ref mut topology, ..
-                } => *topology = new_topology,
-            }
+            self.topology = new_topology;
         }
 
         pub fn set_push_constant_data<T>(&mut self, data: &[T])
         where
             T: bytemuck::Pod,
         {
-            let push_constant = match self {
-                DrawCall::Vertex { push_constant, .. } => push_constant.as_mut().unwrap(),
-                DrawCall::Indexed { push_constant, .. } => push_constant.as_mut().unwrap(),
-            };
-
-            push_constant.replace_data(data);
+            self.push_constant.as_mut().unwrap().replace_data(data);
         }
     }
 }

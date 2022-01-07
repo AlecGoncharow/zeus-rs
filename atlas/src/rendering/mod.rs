@@ -20,7 +20,7 @@ pub fn register<'a, T>(
     verts: &[T],
     instances: std::ops::Range<u32>,
     push_constant: Option<PushConstant>,
-    bind_group_handles: &[BindGroupHandle<'a>],
+    bind_group_handle: Option<BindGroupHandle<'a>>,
 ) -> DrawCallHandle<'a>
 where
     T: bytemuck::Pod,
@@ -46,14 +46,13 @@ where
         .swap_vertex_buffer_cursor(vertex_cursor_handle, new_vert_cursor);
     let vertices = vertex_cursor as u32..vertex_cursor as u32 + vert_count as u32;
 
-    let bind_group_handles = Vec::from(bind_group_handles);
-
-    let draw_call = DrawCall::Vertex {
-        vertices,
+    let draw_call = DrawCall {
+        kind: DrawCallKind::Vertex,
+        index_range: vertices,
         instances,
         push_constant,
         topology,
-        bind_group_handles,
+        bind_group_handle,
     };
 
     let handle = ctx.wrangler.add_draw_call(draw_call, vertex_label);
@@ -79,7 +78,7 @@ pub fn register_indexed<'a, T>(
     indices: &[u32],
     instances: std::ops::Range<u32>,
     push_constant: Option<PushConstant>,
-    bind_group_handles: &[BindGroupHandle<'a>],
+    bind_group_handle: Option<BindGroupHandle<'a>>,
 ) -> DrawCallHandle<'a>
 where
     T: bytemuck::Pod,
@@ -126,15 +125,13 @@ where
 
     let indices = index_cursor as u32..index_cursor as u32 + index_count as u32;
 
-    let bind_group_handles = Vec::from(bind_group_handles);
-
-    let draw_call = DrawCall::Indexed {
-        indices,
-        base_vertex: vertex_cursor as i32,
+    let draw_call = DrawCall {
+        kind: DrawCallKind::Indexed(vertex_cursor as i32),
+        index_range: indices,
         instances,
         push_constant,
         topology,
-        bind_group_handles,
+        bind_group_handle,
     };
 
     println!("[register_indexed] draw_call: {:#?}", draw_call);
@@ -225,40 +222,42 @@ pub fn register_surface_bound_texture<'a>(
 
 pub fn recreate_water_sampler_bind_group(ctx: &mut Context) {
     use init::*;
-    let texture_sampler_bind_group_layout = ctx
-        .wrangler
-        .find_bind_group_layout(WATER_TEXTURE_SAMPLER_UNIFORM);
-    let reflection = ctx.wrangler.find_texture(REFLECTION);
-    let refraction = ctx.wrangler.find_texture(REFRACTION);
+    let texture_sampler_bind_group_layout = ctx.wrangler.find_bind_group_layout(WATER);
+    let reflection = ctx.wrangler.find_texture(REFLECTION_TEXTURE);
+    let refraction = ctx.wrangler.find_texture(REFRACTION_TEXTURE);
     let refraction_depth = ctx.wrangler.find_texture(REFRACTION_DEPTH);
+    let camera_buffer = ctx.wrangler.find_uniform_buffer(CAMERA);
 
     let texture_sampler_bind_group = ctx.device.create_bind_group(&wgpu::BindGroupDescriptor {
         layout: &texture_sampler_bind_group_layout,
         entries: &[
             wgpu::BindGroupEntry {
                 binding: 0,
-                resource: wgpu::BindingResource::TextureView(&reflection.view),
+                resource: camera_buffer.as_entire_binding(),
             },
             wgpu::BindGroupEntry {
                 binding: 1,
-                resource: wgpu::BindingResource::TextureView(&refraction.view),
+                resource: wgpu::BindingResource::TextureView(&reflection.view),
             },
             wgpu::BindGroupEntry {
                 binding: 2,
-                resource: wgpu::BindingResource::TextureView(&refraction_depth.view),
+                resource: wgpu::BindingResource::TextureView(&refraction.view),
             },
             wgpu::BindGroupEntry {
                 binding: 3,
+                resource: wgpu::BindingResource::TextureView(&refraction_depth.view),
+            },
+            wgpu::BindGroupEntry {
+                binding: 4,
                 resource: wgpu::BindingResource::Sampler(&Texture::surface_texture_sampler(
                     &ctx.device,
                 )),
             },
         ],
-        label: Some(WATER_TEXTURE_SAMPLER_UNIFORM),
+        label: Some(WATER),
     });
 
-    let _handle = ctx.wrangler.add_or_swap_surface_bound_bind_group(
-        texture_sampler_bind_group,
-        WATER_TEXTURE_SAMPLER_UNIFORM,
-    );
+    let _handle = ctx
+        .wrangler
+        .add_or_swap_surface_bound_bind_group(texture_sampler_bind_group, WATER);
 }

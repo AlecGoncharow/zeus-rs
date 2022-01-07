@@ -58,7 +58,7 @@ impl<'a> Water<'a> {
             &self.verts,
             0..1,
             push_constant,
-            &[bind_group_handle],
+            Some(bind_group_handle),
         ));
     }
 
@@ -76,17 +76,12 @@ impl<'a> Water<'a> {
 
     pub fn toggle_topology(&mut self, ctx: &mut Context<'a>) {
         if let Some(draw_call_handle) = self.draw_call_handle {
-            let mut draw_call = ctx.wrangler.get_draw_call_mut(&draw_call_handle);
-
-            if let DrawCall::Vertex {
-                ref mut topology, ..
-            } = &mut draw_call
-            {
-                match topology.inner() {
-                    PolygonMode::Fill => topology.set_inner(PolygonMode::Line),
-                    PolygonMode::Line => topology.set_inner(PolygonMode::Point),
-                    PolygonMode::Point => topology.set_inner(PolygonMode::Fill),
-                }
+            let draw_call = ctx.wrangler.get_draw_call_mut(&draw_call_handle);
+            let topology = &mut draw_call.topology;
+            match topology.inner() {
+                PolygonMode::Fill => topology.set_inner(PolygonMode::Line),
+                PolygonMode::Line => topology.set_inner(PolygonMode::Point),
+                PolygonMode::Point => topology.set_inner(PolygonMode::Fill),
             }
         }
     }

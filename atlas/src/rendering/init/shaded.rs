@@ -4,6 +4,8 @@ use pantheon::math::prelude::*;
 use pantheon::prelude::*;
 use wgpu::util::DeviceExt;
 
+pub const SHADED: &'static str = "shaded";
+
 pub fn init_shaded_resources<'a>(
     ctx: &mut Context<'a>,
     label: &'a str,
@@ -42,58 +44,109 @@ pub fn init_shaded_resources<'a>(
                 contents: bytemuck::cast_slice(&[refraction_clip]),
             });
 
-    let clip_plane_bind_group_layout = ctx.wrangler.find_bind_group_layout(UNIFORM_BUFFER_VERTEX);
+    let camera_buffer = ctx.wrangler.find_uniform_buffer(CAMERA);
+    let camera_reflect_buffer = ctx.wrangler.find_uniform_buffer(CAMERA_REFLECT);
+
+    let shaded_bind_group_layout =
+        ctx.device
+            .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::VERTEX,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+
+                        count: None,
+                    },
+                ],
+                label: Some(SHADED),
+            });
 
     let shaded_clip_plane_bind_group = ctx.device.create_bind_group(&wgpu::BindGroupDescriptor {
-        layout: &clip_plane_bind_group_layout,
-        entries: &[wgpu::BindGroupEntry {
-            binding: 0,
-            resource: shaded_clip_plane_uniform_buffer.as_entire_binding(),
-        }],
-        label: Some("shaded clip plane Bind Group"),
+        layout: &shaded_bind_group_layout,
+        entries: &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: camera_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: shaded_clip_plane_uniform_buffer.as_entire_binding(),
+            },
+        ],
+        label: Some("shaded Bind Group"),
     });
 
     let reflection_clip_plane_bind_group =
         ctx.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &clip_plane_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: reflection_clip_plane_uniform_buffer.as_entire_binding(),
-            }],
-            label: Some("Reflect clip plane Bind Group"),
+            layout: &shaded_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: camera_reflect_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: reflection_clip_plane_uniform_buffer.as_entire_binding(),
+                },
+            ],
+            label: Some("reflect Bind Group"),
         });
 
     let refraction_clip_plane_bind_group =
         ctx.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &clip_plane_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: refraction_clip_plane_uniform_buffer.as_entire_binding(),
-            }],
-            label: Some("Refraction clip plane Bind Group"),
+            layout: &shaded_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: camera_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: refraction_clip_plane_uniform_buffer.as_entire_binding(),
+                },
+            ],
+            label: Some("refraction Bind Group"),
         });
 
     let _handle = ctx
         .wrangler
-        .add_uniform_buffer(shaded_clip_plane_uniform_buffer, "shaded_clip_plane");
-    let _handle = ctx.wrangler.add_uniform_buffer(
-        reflection_clip_plane_uniform_buffer,
-        "reflection_clip_plane",
-    );
-    let _handle = ctx.wrangler.add_uniform_buffer(
-        refraction_clip_plane_uniform_buffer,
-        "refraction_clip_plane",
-    );
+        .add_uniform_buffer(shaded_clip_plane_uniform_buffer, SHADED);
+    let _handle = ctx
+        .wrangler
+        .add_uniform_buffer(reflection_clip_plane_uniform_buffer, REFLECTION_CAMERA_CLIP);
+    let _handle = ctx
+        .wrangler
+        .add_uniform_buffer(refraction_clip_plane_uniform_buffer, REFRACTION_CAMERA_CLIP);
 
     let _handle = ctx
         .wrangler
-        .add_bind_group(shaded_clip_plane_bind_group, "shaded_clip_plane");
+        .add_bind_group(shaded_clip_plane_bind_group, SHADED);
     let _handle = ctx
         .wrangler
-        .add_bind_group(reflection_clip_plane_bind_group, "reflection_clip_plane");
+        .add_bind_group(reflection_clip_plane_bind_group, REFLECTION_CAMERA_CLIP);
     let _handle = ctx
         .wrangler
-        .add_bind_group(refraction_clip_plane_bind_group, "refraction_clip_plane");
+        .add_bind_group(refraction_clip_plane_bind_group, REFRACTION_CAMERA_CLIP);
+
+    let _handle = ctx
+        .wrangler
+        .add_bind_group_layout(shaded_bind_group_layout, SHADED);
 }
 
 pub fn init_shaded_pass<'a>(ctx: &'a mut Context) -> PassHandle<'a> {
@@ -109,25 +162,10 @@ pub fn init_shaded_pass<'a>(ctx: &'a mut Context) -> PassHandle<'a> {
     let vertex_buffer_handle = ctx.wrangler.handle_to_vertex_buffer(pass_label).unwrap();
     let index_buffer_handle = ctx.wrangler.handle_to_index_buffer(pass_label).unwrap();
 
-    let camera_bind_group_layout_handle = ctx
-        .wrangler
-        .handle_to_bind_group_layout(CAMERA_GLOBAL_LIGHT_UNIFORM)
-        .unwrap();
-    let camera_bind_group_handle = ctx
-        .wrangler
-        .handle_to_bind_group(CAMERA_GLOBAL_LIGHT_UNIFORM)
-        .unwrap();
+    let clip_plane_bind_group_layout = ctx.wrangler.handle_to_bind_group_layout(SHADED).unwrap();
+    let clip_plane_bind_group = ctx.wrangler.handle_to_bind_group(SHADED).unwrap();
 
-    let clip_plane_bind_group_layout = ctx
-        .wrangler
-        .handle_to_bind_group_layout(UNIFORM_BUFFER_VERTEX)
-        .unwrap();
-    let clip_plane_bind_group = ctx
-        .wrangler
-        .handle_to_bind_group("shaded_clip_plane")
-        .unwrap();
-
-    let bind_group_handles = vec![camera_bind_group_handle, clip_plane_bind_group];
+    let pass_bind_group_handle = Some(clip_plane_bind_group);
 
     let color_attachment_ops = Some(wgpu::Operations {
         load: wgpu::LoadOp::Clear(ctx.gfx_context.clear_color),
@@ -146,10 +184,8 @@ pub fn init_shaded_pass<'a>(ctx: &'a mut Context) -> PassHandle<'a> {
     }];
 
     let pipeline_ctx = Some(PipelineContext {
-        uniform_bind_group_layout_handles: vec![
-            camera_bind_group_layout_handle,
-            clip_plane_bind_group_layout,
-        ],
+        pass_bind_group_layout_handle: Some(clip_plane_bind_group_layout),
+        draw_call_bind_group_layout_handle: None,
         push_constant_ranges,
         vs_path: Some("shaded.vert.spv"),
         fs_path: Some("shaded.frag.spv"),
@@ -195,14 +231,12 @@ pub fn init_shaded_pass<'a>(ctx: &'a mut Context) -> PassHandle<'a> {
         depth_ops,
         stencil_ops: None,
         depth_stencil_view_handle,
+        pass_bind_group_handle,
         draw_call_handles: Vec::new(),
-        bind_group_handles,
         vertex_buffer_handle,
         index_buffer_handle,
     };
 
     let handle = ctx.wrangler.add_pass(pass, pass_label);
-    ctx.wrangler
-        .reload_shaders(&ctx.device, &ctx.shader_context, &ctx.surface_config);
     handle
 }

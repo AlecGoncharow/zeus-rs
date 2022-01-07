@@ -10,7 +10,8 @@ pub struct ColorTarget<'a> {
 
 #[derive(Debug)]
 pub struct PipelineContext<'a> {
-    pub uniform_bind_group_layout_handles: Vec<BindGroupLayoutHandle<'a>>,
+    pub pass_bind_group_layout_handle: Option<BindGroupLayoutHandle<'a>>,
+    pub draw_call_bind_group_layout_handle: Option<BindGroupLayoutHandle<'a>>,
     pub push_constant_ranges: &'a [wgpu::PushConstantRange],
 
     pub vs_path: Option<&'a str>,

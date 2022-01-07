@@ -4,16 +4,18 @@ use pantheon::prelude::*;
 
 pub const WATER: &'static str = "water";
 pub const REFRACTION_DEPTH: &'static str = "refraction_depth";
-pub const REFRACTION: &'static str = "refraction";
-pub const REFLECTION: &'static str = "reflection";
-pub const WATER_TEXTURE_SAMPLER_UNIFORM: &'static str = "water_texture_sampler";
+pub const REFRACTION_CAMERA_CLIP: &'static str = "refraction_camera_clip";
+pub const REFRACTION_TEXTURE: &'static str = "refraction_texture";
+pub const REFLECTION_CAMERA_CLIP: &'static str = "reflection_camera_clip";
+pub const REFLECTION_TEXTURE: &'static str = "reflection_texture";
 
 pub fn init_refraction_resources<'a>(ctx: &mut Context<'a>) {
-    let texture = Texture::create_surface_texture(&ctx.device, &ctx.surface_config, REFRACTION);
+    let texture =
+        Texture::create_surface_texture(&ctx.device, &ctx.surface_config, REFRACTION_TEXTURE);
     let depth_texture =
         Texture::create_depth_texture(&ctx.device, &ctx.surface_config, REFRACTION_DEPTH);
 
-    let _handle = ctx.wrangler.add_texture(texture, REFRACTION);
+    let _handle = ctx.wrangler.add_texture(texture, REFRACTION_TEXTURE);
     let _handle = ctx.wrangler.add_texture(depth_texture, REFRACTION_DEPTH);
 }
 
@@ -26,25 +28,13 @@ pub fn init_refraction_pass<'a>(ctx: &'a mut Context) {
     let vertex_buffer_handle = ctx.wrangler.handle_to_vertex_buffer(shaded_label).unwrap();
     let index_buffer_handle = ctx.wrangler.handle_to_index_buffer(shaded_label).unwrap();
 
-    let camera_bind_group_layout_handle = ctx
-        .wrangler
-        .handle_to_bind_group_layout(CAMERA_GLOBAL_LIGHT_UNIFORM)
-        .unwrap();
-    let camera_bind_group_handle = ctx
-        .wrangler
-        .handle_to_bind_group(CAMERA_GLOBAL_LIGHT_UNIFORM)
-        .unwrap();
-
-    let clip_plane_bind_group_layout = ctx
-        .wrangler
-        .handle_to_bind_group_layout(UNIFORM_BUFFER_VERTEX)
-        .unwrap();
+    let clip_plane_bind_group_layout = ctx.wrangler.handle_to_bind_group_layout(SHADED).unwrap();
     let clip_plane_bind_group = ctx
         .wrangler
-        .handle_to_bind_group("refraction_clip_plane")
+        .handle_to_bind_group(REFRACTION_CAMERA_CLIP)
         .unwrap();
 
-    let bind_group_handles = vec![camera_bind_group_handle, clip_plane_bind_group];
+    let pass_bind_group_handle = Some(clip_plane_bind_group);
 
     let color_attachment_ops = Some(wgpu::Operations {
         load: wgpu::LoadOp::Clear(ctx.gfx_context.clear_color),
@@ -62,10 +52,9 @@ pub fn init_refraction_pass<'a>(ctx: &'a mut Context) {
     }];
 
     let pipeline_ctx = Some(PipelineContext {
-        uniform_bind_group_layout_handles: vec![
-            camera_bind_group_layout_handle,
-            clip_plane_bind_group_layout,
-        ],
+        pass_bind_group_layout_handle: Some(clip_plane_bind_group_layout),
+        draw_call_bind_group_layout_handle: None,
+
         push_constant_ranges,
         vs_path: Some("shaded.vert.spv"),
         fs_path: Some("shaded.frag.spv"),
@@ -102,7 +91,8 @@ pub fn init_refraction_pass<'a>(ctx: &'a mut Context) {
 
     let pipelines = Vec::new();
 
-    let color_attachment_view_handle = Some(ctx.wrangler.handle_to_texture(pass_label).unwrap());
+    let color_attachment_view_handle =
+        Some(ctx.wrangler.handle_to_texture(REFRACTION_TEXTURE).unwrap());
 
     let pass = Pass {
         label: pass_label,
@@ -114,20 +104,19 @@ pub fn init_refraction_pass<'a>(ctx: &'a mut Context) {
         stencil_ops: None,
         depth_stencil_view_handle,
         draw_call_handles: Vec::new(),
-        bind_group_handles,
+        pass_bind_group_handle,
         vertex_buffer_handle,
         index_buffer_handle,
     };
 
     let _handle = ctx.wrangler.add_pass(pass, pass_label);
-    ctx.wrangler
-        .reload_shaders(&ctx.device, &ctx.shader_context, &ctx.surface_config);
 }
 
-pub fn init_reflection_resources<'a>(ctx: &mut Context<'a>, label: &'a str) {
-    let texture = Texture::create_surface_texture(&ctx.device, &ctx.surface_config, label);
+pub fn init_reflection_resources<'a>(ctx: &mut Context<'a>) {
+    let texture =
+        Texture::create_surface_texture(&ctx.device, &ctx.surface_config, REFLECTION_TEXTURE);
 
-    let _handle = ctx.wrangler.add_texture(texture, label);
+    let _handle = ctx.wrangler.add_texture(texture, REFLECTION_TEXTURE);
 }
 
 pub fn init_reflection_pass<'a>(ctx: &'a mut Context) {
@@ -141,26 +130,17 @@ pub fn init_reflection_pass<'a>(ctx: &'a mut Context) {
         }
     };
 
-    init_reflection_resources(ctx, pass_label);
+    init_reflection_resources(ctx);
     let vertex_buffer_handle = ctx.wrangler.handle_to_vertex_buffer(shaded_label).unwrap();
     let index_buffer_handle = ctx.wrangler.handle_to_index_buffer(shaded_label).unwrap();
 
-    let camera_bind_group_layout_handle = ctx
-        .wrangler
-        .handle_to_bind_group_layout(CAMERA_GLOBAL_LIGHT_UNIFORM)
-        .unwrap();
-    let camera_bind_group_handle = ctx.wrangler.handle_to_bind_group("camera_reflect").unwrap();
-
-    let clip_plane_bind_group_layout = ctx
-        .wrangler
-        .handle_to_bind_group_layout(UNIFORM_BUFFER_VERTEX)
-        .unwrap();
+    let clip_plane_bind_group_layout = ctx.wrangler.handle_to_bind_group_layout(SHADED).unwrap();
     let clip_plane_bind_group = ctx
         .wrangler
-        .handle_to_bind_group("reflection_clip_plane")
+        .handle_to_bind_group(REFLECTION_CAMERA_CLIP)
         .unwrap();
 
-    let bind_group_handles = vec![camera_bind_group_handle, clip_plane_bind_group];
+    let pass_bind_group_handle = Some(clip_plane_bind_group);
 
     let color_attachment_ops = Some(wgpu::Operations {
         load: wgpu::LoadOp::Clear(ctx.gfx_context.clear_color),
@@ -178,10 +158,9 @@ pub fn init_reflection_pass<'a>(ctx: &'a mut Context) {
     }];
 
     let pipeline_ctx = Some(PipelineContext {
-        uniform_bind_group_layout_handles: vec![
-            camera_bind_group_layout_handle,
-            clip_plane_bind_group_layout,
-        ],
+        pass_bind_group_layout_handle: Some(clip_plane_bind_group_layout),
+        draw_call_bind_group_layout_handle: None,
+
         push_constant_ranges,
         vs_path: Some("shaded.vert.spv"),
         fs_path: Some("shaded.frag.spv"),
@@ -218,7 +197,8 @@ pub fn init_reflection_pass<'a>(ctx: &'a mut Context) {
 
     let pipelines = Vec::new();
 
-    let color_attachment_view_handle = Some(ctx.wrangler.handle_to_texture(pass_label).unwrap());
+    let color_attachment_view_handle =
+        Some(ctx.wrangler.handle_to_texture(REFLECTION_TEXTURE).unwrap());
 
     let pass = Pass {
         label: pass_label,
@@ -230,14 +210,12 @@ pub fn init_reflection_pass<'a>(ctx: &'a mut Context) {
         stencil_ops: None,
         depth_stencil_view_handle,
         draw_call_handles: Vec::new(),
-        bind_group_handles,
+        pass_bind_group_handle,
         vertex_buffer_handle,
         index_buffer_handle,
     };
 
     let _handle = ctx.wrangler.add_pass(pass, pass_label);
-    ctx.wrangler
-        .reload_shaders(&ctx.device, &ctx.shader_context, &ctx.surface_config);
 }
 
 pub fn init_water_resources<'a>(ctx: &mut Context<'a>, label: &'a str) {
@@ -249,12 +227,13 @@ pub fn init_water_resources<'a>(ctx: &mut Context<'a>, label: &'a str) {
                 entries: &[
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            multisampled: false,
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                            view_dimension: wgpu::TextureViewDimension::D2,
+                        visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
                         },
+
                         count: None,
                     },
                     wgpu::BindGroupLayoutEntry {
@@ -280,49 +259,63 @@ pub fn init_water_resources<'a>(ctx: &mut Context<'a>, label: &'a str) {
                     wgpu::BindGroupLayoutEntry {
                         binding: 3,
                         visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            multisampled: false,
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 4,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                         count: None,
                     },
                 ],
-                label: Some(WATER_TEXTURE_SAMPLER_UNIFORM),
+                label: Some(WATER),
             });
 
-    let reflection = ctx.wrangler.find_texture(REFLECTION);
-    let refraction = ctx.wrangler.find_texture(REFRACTION);
+    let reflection = ctx.wrangler.find_texture(REFLECTION_TEXTURE);
+    let refraction = ctx.wrangler.find_texture(REFRACTION_TEXTURE);
     let refraction_depth = ctx.wrangler.find_texture(REFRACTION_DEPTH);
+    let camera_buffer = ctx.wrangler.find_uniform_buffer(CAMERA);
 
     let texture_sampler_bind_group = ctx.device.create_bind_group(&wgpu::BindGroupDescriptor {
         layout: &texture_sampler_bind_group_layout,
         entries: &[
             wgpu::BindGroupEntry {
                 binding: 0,
-                resource: wgpu::BindingResource::TextureView(&reflection.view),
+                resource: camera_buffer.as_entire_binding(),
             },
             wgpu::BindGroupEntry {
                 binding: 1,
-                resource: wgpu::BindingResource::TextureView(&refraction.view),
+                resource: wgpu::BindingResource::TextureView(&reflection.view),
             },
             wgpu::BindGroupEntry {
                 binding: 2,
-                resource: wgpu::BindingResource::TextureView(&refraction_depth.view),
+                resource: wgpu::BindingResource::TextureView(&refraction.view),
             },
             wgpu::BindGroupEntry {
                 binding: 3,
+                resource: wgpu::BindingResource::TextureView(&refraction_depth.view),
+            },
+            wgpu::BindGroupEntry {
+                binding: 4,
                 resource: wgpu::BindingResource::Sampler(&Texture::surface_texture_sampler(
                     &ctx.device,
                 )),
             },
         ],
-        label: Some(WATER_TEXTURE_SAMPLER_UNIFORM),
+        label: Some(WATER),
     });
 
-    let _handle = ctx.wrangler.add_bind_group_layout(
-        texture_sampler_bind_group_layout,
-        WATER_TEXTURE_SAMPLER_UNIFORM,
-    );
     let _handle = ctx
         .wrangler
-        .add_surface_bound_bind_group(texture_sampler_bind_group, WATER_TEXTURE_SAMPLER_UNIFORM);
+        .add_bind_group_layout(texture_sampler_bind_group_layout, WATER);
+    let _handle = ctx
+        .wrangler
+        .add_surface_bound_bind_group(texture_sampler_bind_group, WATER);
 }
 
 pub fn init_water_pass<'a>(ctx: &mut Context<'a>) -> PassHandle<'a> {
@@ -339,30 +332,15 @@ pub fn init_water_pass<'a>(ctx: &mut Context<'a>) -> PassHandle<'a> {
     let vertex_buffer_handle = ctx.wrangler.handle_to_vertex_buffer(pass_label).unwrap();
     let index_buffer_handle = ctx.wrangler.handle_to_index_buffer(pass_label).unwrap();
 
-    let camera_bind_group_layout_handle = ctx
-        .wrangler
-        .handle_to_bind_group_layout(CAMERA_GLOBAL_LIGHT_UNIFORM)
-        .unwrap();
-
-    let texture_sampler_bind_group_layout_handle = ctx
-        .wrangler
-        .handle_to_bind_group_layout(WATER_TEXTURE_SAMPLER_UNIFORM)
-        .unwrap();
+    let texture_sampler_bind_group_layout_handle =
+        ctx.wrangler.handle_to_bind_group_layout(WATER).unwrap();
     let static_entity_bind_group_layout_handle = ctx
         .wrangler
         .handle_to_bind_group_layout(UNIFORM_BUFFER_VERTEX)
         .unwrap();
-    let camera_bind_group_handle = ctx
-        .wrangler
-        .handle_to_bind_group(CAMERA_GLOBAL_LIGHT_UNIFORM)
-        .unwrap();
+    let texture_sampler_bind_group_handle = ctx.wrangler.handle_to_bind_group(WATER).unwrap();
 
-    let texture_sampler_bind_group_handle = ctx
-        .wrangler
-        .handle_to_bind_group(WATER_TEXTURE_SAMPLER_UNIFORM)
-        .unwrap();
-
-    let bind_group_handles = vec![camera_bind_group_handle, texture_sampler_bind_group_handle];
+    let pass_bind_group_handle = Some(texture_sampler_bind_group_handle);
 
     let color_attachment_ops = Some(wgpu::Operations {
         load: wgpu::LoadOp::Load,
@@ -380,11 +358,8 @@ pub fn init_water_pass<'a>(ctx: &mut Context<'a>) -> PassHandle<'a> {
     }];
 
     let pipeline_ctx = Some(PipelineContext {
-        uniform_bind_group_layout_handles: vec![
-            camera_bind_group_layout_handle,
-            texture_sampler_bind_group_layout_handle,
-            static_entity_bind_group_layout_handle,
-        ],
+        pass_bind_group_layout_handle: Some(texture_sampler_bind_group_layout_handle),
+        draw_call_bind_group_layout_handle: Some(static_entity_bind_group_layout_handle),
         push_constant_ranges,
         vs_path: Some("water.vert.spv"),
         fs_path: Some("water.frag.spv"),
@@ -431,13 +406,11 @@ pub fn init_water_pass<'a>(ctx: &mut Context<'a>) -> PassHandle<'a> {
         stencil_ops: None,
         depth_stencil_view_handle,
         draw_call_handles: Vec::new(),
-        bind_group_handles,
+        pass_bind_group_handle,
         vertex_buffer_handle,
         index_buffer_handle,
     };
 
     let handle = ctx.wrangler.add_pass(pass, pass_label);
-    ctx.wrangler
-        .reload_shaders(&ctx.device, &ctx.shader_context, &ctx.surface_config);
     handle
 }

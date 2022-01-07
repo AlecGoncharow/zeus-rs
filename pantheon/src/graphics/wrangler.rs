@@ -4,6 +4,9 @@ use super::prelude::*;
 use crate::graphics::pass::*;
 use crate::shader::ShaderContext;
 
+// :)
+pub const PASS_PADDING: &'static str = "pass_padding";
+
 pub struct RenderWrangler<'a> {
     pub passes: Vec<Pass<'a>>,
 
@@ -18,6 +21,13 @@ pub struct RenderWrangler<'a> {
     pub uniform_buffers: Vec<LabeledEntry<'a, wgpu::Buffer>>,
     pub textures: Vec<LabeledEntry<'a, Texture>>,
     pub draw_calls: Vec<LabeledEntry<'a, DrawCall<'a>>>,
+
+    /// per https://github.com/gfx-rs/wgpu/wiki/Do%27s-and-Dont%27s#do-group-resource-bindings-by-the-change-frequency-start-from-the-lowest
+    /// these make it possible to enforce a global frame bind group without the init code for each
+    /// pass caring about it
+    pub frame_bind_group_layout_handle: BindGroupLayoutHandle<'a>,
+    pub frame_bind_group_handle: BindGroupHandle<'a>,
+
     // validation stuff
     surface_bound_bind_group_count: usize,
     surface_bound_bind_group_cursor: usize,
@@ -37,6 +47,19 @@ impl<'a> RenderWrangler<'a> {
             draw_calls: Vec::new(),
             surface_bound_bind_group_count: 0,
             surface_bound_bind_group_cursor: 0,
+
+            // this is hack to avoid runtime overhead of options or something, trust the process
+            frame_bind_group_handle: BindGroupHandle {
+                idx: usize::MAX,
+                label: "uninit",
+                marker: PhantomData,
+            },
+            // this is hack to avoid runtime overhead of options or something, trust the process
+            frame_bind_group_layout_handle: BindGroupLayoutHandle {
+                idx: usize::MAX,
+                label: "uninit",
+                marker: PhantomData,
+            },
         }
     }
 
@@ -704,6 +727,16 @@ impl<'a> RenderWrangler<'a> {
             .entry
     }
 
+    /// NOTE this uniforms do not enforce unique labels, uniqueness should be validated by caller
+    pub fn find_bind_group(&self, label: &'a str) -> &wgpu::BindGroup {
+        &self
+            .bind_groups
+            .iter()
+            .find(|entry| entry.label == label)
+            .expect("resource does not exist")
+            .entry
+    }
+
     /// Reconfigure stuff to support resizing and hotloading resources
 
     pub fn reload_shaders(
@@ -714,21 +747,35 @@ impl<'a> RenderWrangler<'a> {
     ) {
         // @TODO FIXME? :)
         let bind_group_layouts = &self.bind_group_layouts;
+        let frame_bgl = &bind_group_layouts[self.frame_bind_group_layout_handle.idx].entry;
+        let handle = self.handle_to_bind_group_layout(PASS_PADDING).unwrap();
+        let padding_bgl = &bind_group_layouts[handle.idx].entry;
         let textures = &self.textures;
         let mut targets = None;
+
         self.passes.iter_mut().for_each(|pass| {
             if let Some(pipeline_ctx) = &pass.pipeline_ctx {
-                let layouts = pipeline_ctx
-                    .uniform_bind_group_layout_handles
-                    .iter()
-                    .map(|handle| {
-                        let layout = &bind_group_layouts[handle.idx];
-                        #[cfg(debug_assertions)]
-                        assert_eq!(handle.label, layout.label);
-                        println!("[layout.label] {}", layout.label);
-                        &layout.entry
-                    })
-                    .collect::<Vec<&wgpu::BindGroupLayout>>();
+                let mut layouts = Vec::with_capacity(3);
+
+                layouts.push(frame_bgl);
+
+                let pass_layout;
+                if let Some(handle) = &pipeline_ctx.pass_bind_group_layout_handle {
+                    pass_layout = &bind_group_layouts[handle.idx];
+                    #[cfg(debug_assertions)]
+                    assert_eq!(pass_layout.label, handle.label);
+                    layouts.push(&pass_layout.entry);
+                } else {
+                    layouts.push(padding_bgl);
+                }
+
+                let draw_layout;
+                if let Some(handle) = &pipeline_ctx.draw_call_bind_group_layout_handle {
+                    draw_layout = &bind_group_layouts[handle.idx];
+                    #[cfg(debug_assertions)]
+                    assert_eq!(draw_layout.label, handle.label);
+                    layouts.push(&draw_layout.entry);
+                }
 
                 if let Some(fragment_targets) = &pipeline_ctx.fragment_targets {
                     targets = Some(
@@ -749,6 +796,8 @@ impl<'a> RenderWrangler<'a> {
                             .collect(),
                     );
                 }
+
+                println!("[reload_shaders] {:#?} {:#?}", pass.label, layouts);
 
                 pipeline_ctx.recreate_pipelines(
                     &mut pass.pipelines,

@@ -14,29 +14,29 @@ layout(location=3) in vec4 pass_clip_space_grid;
 layout (location=4) in vec3 pass_specular;
 layout (location=5) in vec3 pass_diffuse;
 
-layout(set=0, binding=0) uniform Camera {
+layout(set=0, binding=0) uniform GlobalLight {
+    vec3 direction;
+    vec3 color;
+    vec2 bias;
+} global_light;
+
+layout(set=1, binding=0) uniform Camera {
     mat4 view;
     mat4 projection;
     vec3 position;
     vec2 planes;
 } camera;
 
-layout(set=0, binding=1) uniform GlobalLight {
-    vec3 direction;
-    vec3 color;
-    vec2 bias;
-} global_light;
-
-layout(set=1, binding=0)
+layout(set=1, binding=1)
     uniform texture2D reflection_texture;
 
-layout(set=1, binding=1)
+layout(set=1, binding=2)
     uniform texture2D refraction_texture;
 
-layout(set=1, binding=2)
+layout(set=1, binding=3)
     uniform texture2D depth_texture;
 
-layout(set=1, binding=3)
+layout(set=1, binding=4)
     uniform sampler color_sampler;
 
 layout (location=0) out vec4 f_color;

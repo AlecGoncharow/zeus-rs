@@ -35,6 +35,7 @@ pub struct Context<'a> {
 
 impl<'a, 'winit> Context<'a> {
     pub fn new(
+        present_mode: wgpu::PresentMode,
         clear_color: crate::math::Vec4,
         shader_path: PathBuf,
     ) -> (Self, EventLoop<EngineEvent>) {
@@ -96,7 +97,7 @@ impl<'a, 'winit> Context<'a> {
             format: surface.get_preferred_format(&adapter).unwrap(),
             width: size.width,
             height: size.height,
-            present_mode: wgpu::PresentMode::Mailbox,
+            present_mode,
         };
         surface.configure(&device, &surface_config);
 
@@ -198,7 +199,7 @@ impl<'a, 'winit> Context<'a> {
             format: self.surface.get_preferred_format(&self.adapter).unwrap(),
             width: size.width,
             height: size.height,
-            present_mode: wgpu::PresentMode::Mailbox,
+            present_mode: self.surface_config.present_mode,
         };
 
         self.surface.configure(&self.device, &self.surface_config);

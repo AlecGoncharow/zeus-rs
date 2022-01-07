@@ -1,5 +1,6 @@
 pub use anyhow;
 pub use image;
+pub use wgpu;
 pub use winit;
 
 pub mod context;

@@ -9,20 +9,20 @@ layout(location=2) in vec3 a_normal;
 
 //const float ambient = 0.2;
 
-layout(set=0, binding=0) uniform Camera {
+layout(set=0, binding=0) uniform GlobalLight {
+    vec3 direction;
+    vec3 color;
+    vec2 bias;
+} global_light;
+
+layout(set=1, binding=0) uniform Camera {
     mat4 view;
     mat4 projection;
     vec3 position;
     vec2 planes;
 } camera;
 
-layout(set=0, binding=1) uniform GlobalLight {
-    vec3 direction;
-    vec3 color;
-    vec2 bias;
-} global_light;
-
-layout(set=1, binding=0) uniform ClipPlane {
+layout(set=1, binding=1) uniform ClipPlane {
     vec4 plane;
 } clip;
 

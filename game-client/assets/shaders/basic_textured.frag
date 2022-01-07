@@ -2,10 +2,10 @@
 
 layout (location=0) in vec2 tex_coord;
 
-layout(set=0, binding=0)
+layout(set=2, binding=0)
     uniform texture2D a_texture;
 
-layout(set=0, binding=1)
+layout(set=2, binding=1)
     uniform sampler a_sampler;
 
 layout (location=0) out vec4 f_color;

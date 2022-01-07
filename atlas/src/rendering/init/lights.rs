@@ -15,6 +15,23 @@ const SHADOW_SIZE: wgpu::Extent3d = wgpu::Extent3d {
 pub const GLOBAL_LIGHT: &'static str = "global_light";
 
 pub fn init_global_light(ctx: &mut Context, global_light_uniforms: GlobalLightUniforms) {
+    let buffer_bgl = ctx
+        .device
+        .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+
+                count: None,
+            }],
+            label: Some(GLOBAL_LIGHT),
+        });
+
     let light_uniform_buffer = ctx
         .device
         .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -23,9 +40,21 @@ pub fn init_global_light(ctx: &mut Context, global_light_uniforms: GlobalLightUn
             contents: bytemuck::cast_slice(global_light_uniforms.as_bytes()),
         });
 
+    let lights_bind_group = ctx.device.create_bind_group(&wgpu::BindGroupDescriptor {
+        layout: &buffer_bgl,
+        entries: &[wgpu::BindGroupEntry {
+            binding: 0,
+            resource: light_uniform_buffer.as_entire_binding(),
+        }],
+        label: Some(GLOBAL_LIGHT),
+    });
+
     let _handle = ctx
         .wrangler
         .add_uniform_buffer(light_uniform_buffer, GLOBAL_LIGHT);
+
+    let _handle = ctx.wrangler.add_bind_group_layout(buffer_bgl, GLOBAL_LIGHT);
+    let _handle = ctx.wrangler.add_bind_group(lights_bind_group, GLOBAL_LIGHT);
 }
 
 pub fn init_light_resources(ctx: &mut Context) {

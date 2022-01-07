@@ -58,7 +58,7 @@ impl<'a> TexturedQuad<'a> {
             &self.quad.verts,
             0..1,
             None,
-            &[self.bind_group_handle],
+            Some(self.bind_group_handle),
         ));
     }
 }

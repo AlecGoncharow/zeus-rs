@@ -12,18 +12,18 @@ const float SHINE_DAMPER = 20.0;
 layout (location=0) in vec2 a_pos;
 layout (location=1) in ivec4 a_indicators;
 
-layout(set=0, binding=0) uniform Camera {
+layout(set=0, binding=0) uniform GlobalLight {
+    vec3 direction;
+    vec3 color;
+    vec2 bias;
+} global_light;
+
+layout(set=1, binding=0) uniform Camera {
     mat4 view;
     mat4 projection;
     vec3 position;
     vec2 planes;
 } camera;
-
-layout(set=0, binding=1) uniform GlobalLight {
-    vec3 direction;
-    vec3 color;
-    vec2 bias;
-} global_light;
 
 layout(set=2, binding=0) uniform Model {
     mat4 model;
