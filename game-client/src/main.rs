@@ -188,6 +188,12 @@ impl<'a> EventHandler<'a> for State<'a> {
             self.debug = !self.debug;
         }
 
+        if keycode == VirtualKeyCode::C {
+            self.entity_manager.camera.infinite_perspective =
+                !self.entity_manager.camera.infinite_perspective;
+            self.entity_manager.camera.update_projection_matrix();
+        }
+
         if keycode == VirtualKeyCode::R {
             ctx.reload_shaders();
         }
@@ -405,7 +411,7 @@ async fn main() {
 
     let shader_path = std::path::PathBuf::from("game-client/assets/shaders");
     let (mut ctx, event_loop) = Context::new(
-        wgpu::PresentMode::Immediate,
+        wgpu::PresentMode::Mailbox,
         Color::new(135, 206, 235).into(),
         shader_path,
     );
@@ -454,7 +460,7 @@ async fn main() {
         )
     );
 
-    let terrain_size = if cfg!(debug_assertions) { 25 } else { 250 };
+    let terrain_size = if cfg!(debug_assertions) { 50 } else { 250 };
     let mut terrain = generate_terrain(terrain_size, false, Some(0));
     terrain.center = (
         -(terrain_size as f32) / 2.,

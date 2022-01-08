@@ -16,6 +16,8 @@ pub const VERTEX_BUFFER_SIZE: wgpu::BufferAddress = ((3 + 4 + 3) * 4 * 3) * 200_
 // @TODO FIXME this is arbitrary
 pub const INDEX_BUFFER_SIZE: wgpu::BufferAddress = 4 * 2_000_000;
 
+pub const DEPTH_CLEAR: f32 = 0.0;
+
 pub const UNIFORM_BUFFER_VERTEX: &'static str = "uniform_buffer_vertex";
 pub const UNIFORM_BUFFER_FRAGMENT: &'static str = "uniform_buffer_fragment";
 pub const UNIFORM_BUFFER_VERTEX_FRAGMENT: &'static str = "uniform_buffer_vertex_fragment";

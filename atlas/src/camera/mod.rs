@@ -8,6 +8,8 @@ use pantheon::winit::event::VirtualKeyCode;
 //const PITCH_DEFAULT: f32 = 0.0;
 const MOVE_DEFAULT: f32 = 5.;
 const MOUSE_DEFAULT: f32 = 100.;
+const EPSILON: f32 = 9.53674316 * 0.00000001;
+const INFINITE_PERSPECTIVE: bool = false;
 
 #[derive(Debug)]
 pub struct Camera {
@@ -42,6 +44,8 @@ pub struct Camera {
     pub camera_flip: Vec3,
 
     pub dirty: bool,
+
+    pub infinite_perspective: bool,
 }
 
 impl Camera {
@@ -78,7 +82,11 @@ impl Camera {
         };
         let pitch = pitch.to_degrees();
         println!("pitch: {:#?}, yaw: {:#?}", pitch, yaw);
-        let projection = Mat4::perspective(vfov, aspect, near_plane, far_plane);
+        let projection = if INFINITE_PERSPECTIVE {
+            Mat4::infinite_perspective(vfov, aspect, near_plane, EPSILON)
+        } else {
+            Mat4::reverse_infinite_perspective(vfov, aspect, near_plane, EPSILON)
+        };
 
         let rotation = Mat4::new(
             Vec4::new(u.x, v.x, w.x, 0.),
@@ -130,6 +138,8 @@ impl Camera {
             w_r,
             camera_flip: Vec3::new(1, -1, 1),
             dirty: false,
+
+            infinite_perspective: INFINITE_PERSPECTIVE,
         }
     }
 
@@ -171,8 +181,12 @@ impl Camera {
     }
 
     pub fn update_projection_matrix(&mut self) -> Mat4 {
-        let projection_matrix =
-            Mat4::perspective(self.vfov, self.aspect, self.near_plane, self.far_plane);
+        self.dirty = true;
+        let projection_matrix = if self.infinite_perspective {
+            Mat4::infinite_perspective(self.vfov, self.aspect, self.near_plane, EPSILON)
+        } else {
+            Mat4::reverse_infinite_perspective(self.vfov, self.aspect, self.near_plane, EPSILON)
+        };
 
         /*
         let to_vk_ndc: Mat4 =

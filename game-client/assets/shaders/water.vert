@@ -39,6 +39,7 @@ layout (location=2) out vec3 pass_vert_to_camera;
 layout (location=3) out vec4 pass_clip_space_grid;
 layout (location=4) out vec3 pass_specular;
 layout (location=5) out vec3 pass_diffuse;
+layout (location=6) out float texel_depth;
 
 vec3 SpecularLighting(vec3 to_cam_vec, vec3 to_light_vec, vec3 normal) {
     vec3 reflected_light_dir = reflect(-to_light_vec, normal);
@@ -102,6 +103,7 @@ void main() {
 
     pass_clip_space_real = camera.projection * camera.view * model.model * vec4(vert_0, 1.0);
     gl_Position = pass_clip_space_real;
+    texel_depth = gl_Position.w;
 
     pass_vert_to_camera = normalize(camera.position - vert_0);
 

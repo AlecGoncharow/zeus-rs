@@ -20,12 +20,32 @@ impl Mat4 {
     }
 
     #[inline]
-    pub fn identity() -> Self {
+    pub const fn identity() -> Self {
         Self {
-            x: Vec4::new(1.0, 0.0, 0.0, 0.0),
-            y: Vec4::new(0.0, 1.0, 0.0, 0.0),
-            z: Vec4::new(0.0, 0.0, 1.0, 0.0),
-            w: Vec4::new(0.0, 0.0, 0.0, 1.0),
+            x: Vec4 {
+                x: 1.0,
+                y: 0.0,
+                z: 0.0,
+                w: 0.0,
+            },
+            y: Vec4 {
+                x: 0.0,
+                y: 1.0,
+                z: 0.0,
+                w: 0.0,
+            },
+            z: Vec4 {
+                x: 0.0,
+                y: 0.0,
+                z: 1.0,
+                w: 0.0,
+            },
+            w: Vec4 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+                w: 1.0,
+            },
         }
     }
 
@@ -279,6 +299,16 @@ impl Mat4 {
         rotation * translation
     }
 
+    /// doesn't work but nice idea
+    pub const fn gl_to_wgpu() -> Self {
+        let mut mat = Self::identity();
+
+        mat.z.z = -0.5;
+        mat.w.z = -1.0;
+
+        mat
+    }
+
     pub fn perspective(fov: f32, aspect_ratio: f32, near_plane: f32, far_plane: f32) -> Self {
         let mut projection_matrix = Mat4::identity();
 
@@ -292,12 +322,66 @@ impl Mat4 {
         projection_matrix.y.y = y_scale;
 
         projection_matrix.z.z = -0.5 * (near_plane + far_plane) * range_inv;
-        projection_matrix.z.w = -near_plane * far_plane * range_inv;
+        projection_matrix.z.w = -1.0;
 
-        projection_matrix.w.z = -1.0;
+        projection_matrix.w.z = -near_plane * far_plane * range_inv;
         projection_matrix.w.w = 0.0;
 
         projection_matrix
+    }
+
+    /// from Section 6.3.2 of Foundations of Game Engine Development
+    pub fn infinite_perspective(
+        fovy: f32,
+        aspect_ratio: f32,
+        near_plane: f32,
+        epsilon: f32,
+    ) -> Self {
+        let y_scale = (fovy / 2.0).to_radians().atan();
+        let x_scale = y_scale / aspect_ratio;
+        let e = 1.0 - epsilon;
+
+        let mut infinite_projection = Mat4::identity();
+
+        infinite_projection.x.x = x_scale;
+
+        infinite_projection.y.y = y_scale;
+
+        infinite_projection.z.z = -e;
+        infinite_projection.z.w = -1.0;
+
+        infinite_projection.w.z = -e * near_plane;
+        infinite_projection.w.w = 0.0;
+
+        infinite_projection
+    }
+
+    /// from Section 6.3.2 of Foundations of Game Engine Development
+    /// https://outerra.blogspot.com/2012/11/maximizing-depth-buffer-range-and.html
+    /// https://developer.nvidia.com/content/depth-precision-visualized
+    pub fn reverse_infinite_perspective(
+        fovy: f32,
+        aspect_ratio: f32,
+        near_plane: f32,
+        epsilon: f32,
+    ) -> Self {
+        let y_scale = (fovy / 2.0).to_radians().atan();
+        let x_scale = y_scale / aspect_ratio;
+        let e = 1.0 - epsilon;
+
+        let mut infinite_projection = Mat4::identity();
+
+        infinite_projection.x.x = x_scale;
+
+        infinite_projection.y.y = y_scale;
+
+        infinite_projection.z.z = epsilon;
+        infinite_projection.z.w = -1.0;
+
+        infinite_projection.w.z = e * near_plane;
+        infinite_projection.w.w = 0.0;
+
+        infinite_projection
     }
 
     /// Might not actually be pyramidal, only functional difference to perspective is

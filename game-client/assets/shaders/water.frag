@@ -13,6 +13,7 @@ layout(location=2) in vec3 pass_vert_to_camera;
 layout(location=3) in vec4 pass_clip_space_grid;
 layout (location=4) in vec3 pass_specular;
 layout (location=5) in vec3 pass_diffuse;
+layout (location=6) in float texel_depth;
 
 layout(set=0, binding=0) uniform GlobalLight {
     vec3 direction;
@@ -50,7 +51,10 @@ vec3 ApplyMurkiness(vec3 refract_color, float water_depth) {
 float ToLinearDepth(float z_depth) {
     float near = camera.planes.x;
     float far = camera.planes.y;
+    /*
     return (2.0 * near * far) / (far + near - (2.0 * z_depth - 1.0) * (far - near));
+    */
+    return log(z_depth /  near) / log( far / near) ;
 }
 
 float CalculateWaterDepth(vec2 tex_coords) {
@@ -86,12 +90,13 @@ void main() {
 
     vec2 refraction_tex_coords = tex_coords_grid;
     vec2 reflection_tex_coords = vec2(tex_coords_grid.x, 1.0 - tex_coords_grid.y);
-    float water_depth = CalculateWaterDepth(tex_coords_real) * 100;
+    //float water_depth =  CalculateWaterDepth(tex_coords_real) * 1000;
 
     vec3 refract_color = texture(sampler2D(refraction_texture, color_sampler), refraction_tex_coords).rgb;
     vec3 reflect_color = texture(sampler2D(reflection_texture, color_sampler), reflection_tex_coords).rgb;
 
-    refract_color = ApplyMurkiness(refract_color, water_depth);
+    //refract_color = ApplyMurkiness(refract_color, water_depth);
+    refract_color = mix(refract_color, WATER_COLOR, MIN_BLUENESS);
     reflect_color = mix(reflect_color, WATER_COLOR, MIN_BLUENESS);
 
     vec3 final_color = mix(reflect_color, refract_color, CalculateFresnel());
@@ -100,6 +105,6 @@ void main() {
     final_color = final_color * pass_diffuse + pass_specular;
 
     f_color = vec4(final_color, 1.0);
-    f_color.a = clamp(water_depth / EDGE_SOFTNESS, 0.0, 1.0);
+    //f_color.a = clamp(water_depth / EDGE_SOFTNESS, 0.0, 1.0);
 }
 

@@ -42,7 +42,7 @@ pub fn init_refraction_pass<'a>(ctx: &'a mut Context) {
     });
 
     let depth_ops = Some(wgpu::Operations {
-        load: wgpu::LoadOp::Clear(1.0),
+        load: wgpu::LoadOp::Clear(DEPTH_CLEAR),
         store: true,
     });
     let depth_stencil_view_handle = Some(depth_texture_handle);
@@ -76,7 +76,7 @@ pub fn init_refraction_pass<'a>(ctx: &'a mut Context) {
         depth_stencil: Some(wgpu::DepthStencilState {
             format: pantheon::graphics::texture::Texture::DEPTH_FORMAT,
             depth_write_enabled: true,
-            depth_compare: wgpu::CompareFunction::Less,
+            depth_compare: wgpu::CompareFunction::Greater,
             stencil: wgpu::StencilState::default(),
             bias: wgpu::DepthBiasState::default(),
         }),
@@ -148,7 +148,7 @@ pub fn init_reflection_pass<'a>(ctx: &'a mut Context) {
     });
 
     let depth_ops = Some(wgpu::Operations {
-        load: wgpu::LoadOp::Clear(1.0),
+        load: wgpu::LoadOp::Clear(DEPTH_CLEAR),
         store: true,
     });
     let depth_stencil_view_handle = Some(depth_texture_handle);
@@ -182,7 +182,7 @@ pub fn init_reflection_pass<'a>(ctx: &'a mut Context) {
         depth_stencil: Some(wgpu::DepthStencilState {
             format: pantheon::graphics::texture::Texture::DEPTH_FORMAT,
             depth_write_enabled: true,
-            depth_compare: wgpu::CompareFunction::Less,
+            depth_compare: wgpu::CompareFunction::Greater,
             stencil: wgpu::StencilState::default(),
             bias: wgpu::DepthBiasState::default(),
         }),
@@ -381,7 +381,7 @@ pub fn init_water_pass<'a>(ctx: &mut Context<'a>) -> PassHandle<'a> {
         depth_stencil: Some(wgpu::DepthStencilState {
             format: pantheon::graphics::texture::Texture::DEPTH_FORMAT,
             depth_write_enabled: true,
-            depth_compare: wgpu::CompareFunction::Less,
+            depth_compare: wgpu::CompareFunction::Greater,
             stencil: wgpu::StencilState::default(),
             bias: wgpu::DepthBiasState::default(),
         }),
