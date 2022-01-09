@@ -16,7 +16,7 @@ pub struct Texture {
 }
 
 impl Texture {
-    pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth24Plus; // 1.
+    pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth24Plus;
     pub const IMAGE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8UnormSrgb;
     pub const SURFACE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
 
@@ -31,6 +31,20 @@ impl Texture {
             height: surface_config.height,
             depth_or_array_layers: 1,
         };
+        Self::create_depth_texture_with_size(
+            device,
+            size,
+            &wgpu::TextureViewDescriptor::default(),
+            label,
+        )
+    }
+
+    pub fn create_depth_texture_with_size(
+        device: &wgpu::Device,
+        size: wgpu::Extent3d,
+        view_descriptor: &wgpu::TextureViewDescriptor,
+        label: &str,
+    ) -> Self {
         let desc = wgpu::TextureDescriptor {
             label: Some(label),
             size,
@@ -43,7 +57,7 @@ impl Texture {
         };
         let texture = device.create_texture(&desc);
 
-        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let view = texture.create_view(view_descriptor);
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             // 4.
             address_mode_u: wgpu::AddressMode::ClampToEdge,

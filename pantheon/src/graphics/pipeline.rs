@@ -1,3 +1,6 @@
+use super::mode::MAX_PIPELINES;
+use std::mem::MaybeUninit;
+
 use crate::graphics::prelude::*;
 use crate::shader::ShaderContext;
 
@@ -27,15 +30,16 @@ pub struct PipelineContext<'a> {
 }
 
 impl<'a> PipelineContext<'a> {
-    pub fn recreate_pipelines(
+    pub fn create_pipelines(
         &self,
-        pipelines: &mut Vec<wgpu::RenderPipeline>,
         shader_ctx: &ShaderContext,
         layouts: &[&wgpu::BindGroupLayout],
         device: &wgpu::Device,
         targets: Option<&Vec<wgpu::ColorTargetState>>,
-    ) {
-        pipelines.clear();
+    ) -> [wgpu::RenderPipeline; 15] {
+        let mut pipelines: [MaybeUninit<wgpu::RenderPipeline>; MAX_PIPELINES] =
+            unsafe { MaybeUninit::uninit().assume_init() };
+        let mut pipeline_cursor = 0;
         let non_fill_polygon_modes = device
             .features()
             .contains(wgpu::Features::POLYGON_MODE_LINE | wgpu::Features::POLYGON_MODE_POINT);
@@ -81,7 +85,7 @@ impl<'a> PipelineContext<'a> {
                 multiview: self.multiview,
             });
 
-            if usize::from(*mode) != pipelines.len()
+            if usize::from(*mode) != pipeline_cursor
                 && device.features().contains(
                     wgpu::Features::POLYGON_MODE_LINE | wgpu::Features::POLYGON_MODE_POINT,
                 )
@@ -92,7 +96,10 @@ impl<'a> PipelineContext<'a> {
                     pipelines.len()
                 );
             }
-            pipelines.push(pipeline);
+            pipelines[pipeline_cursor].write(pipeline);
+            pipeline_cursor += 1;
         });
+
+        unsafe { std::mem::transmute(pipelines) }
     }
 }

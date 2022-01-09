@@ -5,14 +5,25 @@ use wgpu::util::DeviceExt;
 
 const LIGHT_UNIFORM_BUFFER_SIZE: wgpu::BufferAddress = (16 + 3 + 1 + 4) * 4;
 const MAX_LIGHTS: usize = 1;
-const SHADOW_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
+const SHADOW_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth24Plus;
 const SHADOW_SIZE: wgpu::Extent3d = wgpu::Extent3d {
     width: 4096,
     height: 4096,
     depth_or_array_layers: MAX_LIGHTS as u32,
 };
 
+const GLOBAL_LIGHT_SHADOW_SIZE: wgpu::Extent3d = wgpu::Extent3d {
+    width: 1024,
+    height: 1024,
+    depth_or_array_layers: 4,
+};
+
 pub const GLOBAL_LIGHT: &'static str = "global_light";
+pub const GLOBAL_LIGHT_SHADOW: &'static str = "global_light_shadow";
+pub const GLOBAL_LIGHT_SHADOW_0: &'static str = "global_light_shadow_0";
+pub const GLOBAL_LIGHT_SHADOW_1: &'static str = "global_light_shadow_1";
+pub const GLOBAL_LIGHT_SHADOW_2: &'static str = "global_light_shadow_2";
+pub const GLOBAL_LIGHT_SHADOW_3: &'static str = "global_light_shadow_3";
 
 pub fn init_global_light(ctx: &mut Context, global_light_uniforms: GlobalLightUniforms) {
     let buffer_bgl = ctx
@@ -49,12 +60,30 @@ pub fn init_global_light(ctx: &mut Context, global_light_uniforms: GlobalLightUn
         label: Some(GLOBAL_LIGHT),
     });
 
+    let _texture = Texture::create_depth_texture_with_size(
+        &ctx.device,
+        GLOBAL_LIGHT_SHADOW_SIZE,
+        &wgpu::TextureViewDescriptor {
+            label: Some(GLOBAL_LIGHT_SHADOW),
+            format: None,
+            dimension: Some(wgpu::TextureViewDimension::D2Array),
+            aspect: wgpu::TextureAspect::All,
+            base_mip_level: 0,
+            mip_level_count: None,
+            base_array_layer: 0 as u32,
+            array_layer_count: std::num::NonZeroU32::new(4),
+        },
+        GLOBAL_LIGHT_SHADOW,
+    );
+
     let _handle = ctx
         .wrangler
         .add_uniform_buffer(light_uniform_buffer, GLOBAL_LIGHT);
 
-    let _handle = ctx.wrangler.add_bind_group_layout(buffer_bgl, GLOBAL_LIGHT);
-    let _handle = ctx.wrangler.add_bind_group(lights_bind_group, GLOBAL_LIGHT);
+    let bgl_handle = ctx.wrangler.add_bind_group_layout(buffer_bgl, GLOBAL_LIGHT);
+    let bg_handle = ctx.wrangler.add_bind_group(lights_bind_group, GLOBAL_LIGHT);
+    ctx.wrangler.frame_bind_group_layout_handle = bgl_handle;
+    ctx.wrangler.frame_bind_group_handle = bg_handle;
 }
 
 pub fn init_light_resources(ctx: &mut Context) {

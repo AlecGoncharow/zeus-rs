@@ -51,7 +51,7 @@ pub fn init_refraction_pass<'a>(ctx: &'a mut Context) {
         range: 0..16 * 4,
     }];
 
-    let pipeline_ctx = Some(PipelineContext {
+    let pipeline_ctx = PipelineContext {
         pass_bind_group_layout_handle: Some(clip_plane_bind_group_layout),
         draw_call_bind_group_layout_handle: None,
 
@@ -87,9 +87,14 @@ pub fn init_refraction_pass<'a>(ctx: &'a mut Context) {
         },
 
         multiview: None,
-    });
+    };
 
-    let pipelines = Vec::new();
+    let pipelines = ctx.wrangler.create_pipelines(
+        &ctx.device,
+        &ctx.shader_context,
+        &ctx.surface_config,
+        &pipeline_ctx,
+    );
 
     let color_attachment_view_handle =
         Some(ctx.wrangler.handle_to_texture(REFRACTION_TEXTURE).unwrap());
@@ -103,7 +108,6 @@ pub fn init_refraction_pass<'a>(ctx: &'a mut Context) {
         depth_ops,
         stencil_ops: None,
         depth_stencil_view_handle,
-        draw_call_handles: Vec::new(),
         pass_bind_group_handle,
         vertex_buffer_handle,
         index_buffer_handle,
@@ -157,7 +161,7 @@ pub fn init_reflection_pass<'a>(ctx: &'a mut Context) {
         range: 0..16 * 4,
     }];
 
-    let pipeline_ctx = Some(PipelineContext {
+    let pipeline_ctx = PipelineContext {
         pass_bind_group_layout_handle: Some(clip_plane_bind_group_layout),
         draw_call_bind_group_layout_handle: None,
 
@@ -193,9 +197,14 @@ pub fn init_reflection_pass<'a>(ctx: &'a mut Context) {
         },
 
         multiview: None,
-    });
+    };
 
-    let pipelines = Vec::new();
+    let pipelines = ctx.wrangler.create_pipelines(
+        &ctx.device,
+        &ctx.shader_context,
+        &ctx.surface_config,
+        &pipeline_ctx,
+    );
 
     let color_attachment_view_handle =
         Some(ctx.wrangler.handle_to_texture(REFLECTION_TEXTURE).unwrap());
@@ -209,7 +218,6 @@ pub fn init_reflection_pass<'a>(ctx: &'a mut Context) {
         depth_ops,
         stencil_ops: None,
         depth_stencil_view_handle,
-        draw_call_handles: Vec::new(),
         pass_bind_group_handle,
         vertex_buffer_handle,
         index_buffer_handle,
@@ -357,7 +365,7 @@ pub fn init_water_pass<'a>(ctx: &mut Context<'a>) -> PassHandle<'a> {
         range: 0..16,
     }];
 
-    let pipeline_ctx = Some(PipelineContext {
+    let pipeline_ctx = PipelineContext {
         pass_bind_group_layout_handle: Some(texture_sampler_bind_group_layout_handle),
         draw_call_bind_group_layout_handle: Some(static_entity_bind_group_layout_handle),
         push_constant_ranges,
@@ -392,9 +400,14 @@ pub fn init_water_pass<'a>(ctx: &mut Context<'a>) -> PassHandle<'a> {
         },
 
         multiview: None,
-    });
+    };
 
-    let pipelines = Vec::new();
+    let pipelines = ctx.wrangler.create_pipelines(
+        &ctx.device,
+        &ctx.shader_context,
+        &ctx.surface_config,
+        &pipeline_ctx,
+    );
 
     let pass = Pass {
         label: pass_label,
@@ -405,7 +418,6 @@ pub fn init_water_pass<'a>(ctx: &mut Context<'a>) -> PassHandle<'a> {
         depth_ops,
         stencil_ops: None,
         depth_stencil_view_handle,
-        draw_call_handles: Vec::new(),
         pass_bind_group_handle,
         vertex_buffer_handle,
         index_buffer_handle,

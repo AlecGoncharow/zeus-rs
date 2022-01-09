@@ -17,6 +17,8 @@ use std::sync::Arc;
 
 use crate::input::{keyboard, mouse};
 
+use tracing::{span, Level};
+
 pub trait EventHandler<'a> {
     // Called upon each logic update to the game.
     /// This should be where the game's logic takes place.
@@ -105,6 +107,7 @@ where
     let mut wait = false;
 
     events_loop.run(move |event, _, control_flow| {
+        let _event_span = span!(Level::DEBUG, "event").entered();
         *control_flow = ControlFlow::Poll;
         ctx.process_event(&event);
 
@@ -112,6 +115,7 @@ where
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::Resized(logical_size) => {
                     // let actual_size = logical_size;
+                    let _resize_span = span!(Level::DEBUG, "resized").entered();
                     ctx.resize();
                     state.resize_event(
                         &mut ctx,
@@ -120,6 +124,7 @@ where
                     );
                 }
                 WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                    let _resize_span = span!(Level::DEBUG, "scale factor changed").entered();
                     // new_inner_size is &&mut so we have to dereference it twice
                     ctx.resize();
                     state.resize_event(
@@ -217,6 +222,7 @@ where
             },
             Event::DeviceEvent { .. } => (),
             Event::MainEventsCleared => {
+                let _events_cleared_span = span!(Level::DEBUG, "main events cleared").entered();
                 #[cfg(target_os = "macos")]
                 if wait {
                     return;
@@ -231,8 +237,13 @@ where
                     *control_flow = ControlFlow::Exit;
                 } else {
                     ctx.timer_context.tick();
+                    let update_span = span!(Level::DEBUG, "update").entered();
                     let _ = state.update(&mut ctx);
+                    update_span.exit();
+
+                    let draw_span = span!(Level::DEBUG, "draw").entered();
                     let _ = state.draw(&mut ctx);
+                    draw_span.exit();
 
                     // CLEAR VALUES
                     ctx.mouse_context.set_last_delta((0.0, 0.0).into());

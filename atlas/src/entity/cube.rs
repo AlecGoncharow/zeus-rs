@@ -4,6 +4,7 @@ use super::triangle::Triangle;
 use super::Camera;
 use super::Entity;
 use crate::rendering;
+use crate::rendering::prelude::Passes;
 use crate::vertex::*;
 use pantheon::context::Context;
 use pantheon::graphics::prelude::*;
@@ -283,7 +284,7 @@ impl<'a> DrawComponent<'a> for Cuboid<'a> {
         self.draw_call_handle = Some(match self.vertices {
             CubioidVertMode::Basic(verts) => rendering::register_indexed(
                 ctx,
-                &["reflection", "refraction", "shaded"],
+                Passes::SHADED_BUNDLE,
                 "basic",
                 self.topology,
                 &verts,
@@ -294,7 +295,7 @@ impl<'a> DrawComponent<'a> for Cuboid<'a> {
             ),
             CubioidVertMode::Shaded(verts) => rendering::register_indexed(
                 ctx,
-                &["reflection", "refraction", "shaded"],
+                Passes::SHADED_BUNDLE,
                 "shaded",
                 self.topology,
                 &verts,

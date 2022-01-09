@@ -9,7 +9,7 @@ pub mod vertex;
 pub mod wrangler;
 
 mod common {
-    use super::handles::BindGroupHandle;
+    use super::handles::{BindGroupHandle, PassHandle};
     use super::{PolygonMode, Topology};
     use core::ops::Range;
     use std::marker::PhantomData;
@@ -31,6 +31,8 @@ mod common {
         pub offset: u32,
         pub data: Vec<u8>,
     }
+
+    pub type PassBundle<'a> = Vec<PassHandle<'a>>;
 
     impl PushConstant {
         pub fn vertex_data<T>(offset: u32, data: &[T]) -> Self
@@ -65,6 +67,8 @@ mod common {
     #[derive(Debug)]
     pub struct DrawCall<'a> {
         pub kind: DrawCallKind,
+        /// this should really be typed against the generated bitflags struct but I'm lazy
+        pub pass_flags: usize,
         pub index_range: Range<u32>,
         pub instances: Range<u32>,
         pub push_constant: Option<PushConstant>,
@@ -76,6 +80,7 @@ mod common {
         pub fn default() -> Self {
             Self {
                 kind: DrawCallKind::Vertex,
+                pass_flags: 0,
                 index_range: 0..0,
                 instances: 0..1,
                 push_constant: None,
@@ -108,6 +113,7 @@ pub mod handles {
     pub type BindGroupLayoutHandle<'a> = LabeledEntryHandle<'a, &'a wgpu::BindGroupLayout>;
     pub type TextureHandle<'a> = LabeledEntryHandle<'a, &'a Texture>;
     pub type PassHandle<'a> = LabeledEntryHandle<'a, &'a Pass<'a>>;
+    pub type PassBundleHandle<'a> = LabeledEntryHandle<'a, PassBundle<'a>>;
 
     pub type DrawCallHandle<'a> = LabeledEntryHandle<'a, &'a DrawCall<'a>>;
 

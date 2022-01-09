@@ -1,5 +1,6 @@
 pub use anyhow;
 pub use image;
+pub use tracing;
 pub use wgpu;
 pub use winit;
 

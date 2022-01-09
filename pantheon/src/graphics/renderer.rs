@@ -41,6 +41,7 @@ impl GraphicsContext {
     pub fn render<'a>(
         &mut self,
         wrangler: &RenderWrangler<'a>,
+        //passes: &[Pass<'a>],
         device: &wgpu::Device,
         output: wgpu::SurfaceTexture,
         queue: &wgpu::Queue,
@@ -50,6 +51,7 @@ impl GraphicsContext {
             .create_view(&wgpu::TextureViewDescriptor::default());
         let mut encoder =
             device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+        let mut pass_mask = 1;
         for pass in &wrangler.passes {
             encoder.push_debug_group(pass.label);
 
@@ -102,12 +104,11 @@ impl GraphicsContext {
             let vertex_buffer = wrangler.get_vertex_buffer(&pass.vertex_buffer_handle);
             render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
 
-            let draw_calls = pass
-                .draw_call_handles
+            for LabeledEntry { entry: call, .. } in wrangler
+                .draw_calls
                 .iter()
-                .map(|handle| wrangler.get_draw_call(handle));
-
-            for call in draw_calls {
+                .filter(|entry| (entry.entry.pass_flags & pass_mask) != 0)
+            {
                 if let Some(handle) = &call.bind_group_handle {
                     render_pass.set_bind_group(2, wrangler.get_bind_group(handle), &[]);
                 }
@@ -141,6 +142,8 @@ impl GraphicsContext {
             }
             drop(render_pass);
             encoder.pop_debug_group();
+
+            pass_mask <<= 1;
         }
 
         queue.submit(std::iter::once(encoder.finish()));

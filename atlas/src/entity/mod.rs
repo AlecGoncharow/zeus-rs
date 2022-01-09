@@ -10,6 +10,7 @@ use enum_dispatch::enum_dispatch;
 use sun::Sun;
 
 pub mod cube;
+pub mod light;
 pub mod plane;
 pub mod sun;
 pub mod terrain;

@@ -40,6 +40,27 @@ use hermes::tokio;
 
 use pantheon::wgpu;
 
+// tracing
+use std::fs::File;
+use std::io::BufWriter;
+use std::path::Path;
+use tracing::{span, Level};
+use tracing_flame::FlameLayer;
+use tracing_flame::FlushGuard;
+use tracing_subscriber::{prelude::*, registry::Registry};
+
+static PATH: &str = "flame.folded";
+
+fn setup_global_collector(dir: &Path) -> FlushGuard<BufWriter<File>> {
+    let (flame_layer, guard) = FlameLayer::with_file(dir.join(PATH)).unwrap();
+
+    let collector = Registry::default().with(flame_layer);
+
+    tracing::subscriber::set_global_default(collector).unwrap();
+
+    guard
+}
+
 pub mod entity_manager;
 pub mod ui;
 
@@ -55,6 +76,10 @@ struct State<'a> {
     camera_uniforms: CameraUniforms,
     reflected_camera_uniforms: CameraUniforms,
     handles: Handles<'a>,
+
+    //passes: [Pass<'a>; NUM_PASSES],
+    #[allow(dead_code)]
+    tracing_guard: FlushGuard<BufWriter<File>>,
 }
 
 impl<'a> EventHandler<'a> for State<'a> {
@@ -62,11 +87,13 @@ impl<'a> EventHandler<'a> for State<'a> {
         ctx.start_drawing();
         self.frame += 1;
 
+        let span = span!(Level::DEBUG, "entity_manager draw").entered();
         self.entity_manager.draw(ctx);
 
         if self.debug {
             self.entity_manager.debug_draw(ctx);
         }
+        drop(span);
 
         //println!("{:#?}", shadow_quad);
 
@@ -79,6 +106,7 @@ impl<'a> EventHandler<'a> for State<'a> {
             //TextureKind::Depth,
         );
         */
+        let _span = span!(Level::DEBUG, "render").entered();
         ctx.render();
         Ok(())
     }
@@ -130,6 +158,7 @@ impl<'a> EventHandler<'a> for State<'a> {
         }
 
         if self.entity_manager.camera.dirty {
+            let span = span!(Level::DEBUG, "dirty camera").entered();
             self.camera_uniforms.view = self.entity_manager.camera.update_view_matrix();
             self.camera_uniforms.position = self.entity_manager.camera.origin;
             self.camera_uniforms
@@ -149,9 +178,12 @@ impl<'a> EventHandler<'a> for State<'a> {
                 .push(ctx, &self.handles.reflected_camera_uniforms);
 
             self.entity_manager.camera.dirty = false;
+            drop(span);
         }
 
+        let span = span!(Level::DEBUG, "entity_manager update").entered();
         self.entity_manager.update(ctx);
+        drop(span);
 
         self.fps = 1.0 / ctx.timer_context.average_tick;
         if ctx.timer_context.frame_count % (pantheon::timer::MAX_SAMPLES) == 0 {
@@ -399,22 +431,29 @@ fn generate_terrain(
 
 #[tokio::main]
 async fn main() {
+    let tracing_guard = setup_global_collector(&Path::new("./flamegraph"));
+    let _root_span = span!(Level::INFO, "main").entered();
+
+    let netup = span!(Level::INFO, "network setup").entered();
     let mut network_client: ClientInterface<GameMessage> = ClientInterface::new();
     println!(
-        "Connectinon status: {:?}",
+        "Connection status: {:?}",
         network_client.connect("127.0.0.1", 8080).await
     );
     let message: Message<GameMessage> = Message::new(GameMessage::GetId);
     network_client.send(message).await.unwrap();
     let message: Message<GameMessage> = Message::new(GameMessage::SyncWorld);
     network_client.send(message).await.unwrap();
+    netup.exit();
 
+    let ctx_span = span!(Level::INFO, "Context setup").entered();
     let shader_path = std::path::PathBuf::from("game-client/assets/shaders");
     let (mut ctx, event_loop) = Context::new(
-        wgpu::PresentMode::Mailbox,
+        wgpu::PresentMode::Immediate,
         Color::new(135, 206, 235).into(),
         shader_path,
     );
+    ctx_span.exit();
 
     // @NOTE this has to be 0 unless we want out camera to be paramertized against the water's
     // height which I think is a bit much, probably easier to just approach life as water == 0
@@ -427,6 +466,7 @@ async fn main() {
     let bias = Vec2::new(0.3, 0.8);
     let global_light = GlobalLightUniforms::new(direction, color, bias);
 
+    let init_span = span!(Level::INFO, "renderer init").entered();
     init::init_shared(&mut ctx);
     init::init_global_light(&mut ctx, global_light);
     init::init_camera_resources(&mut ctx);
@@ -437,17 +477,17 @@ async fn main() {
     init::init_water_pass(&mut ctx);
     init::init_basic_textured_pass(&mut ctx);
 
-    let frame_bind_group_layout_handle = ctx
-        .wrangler
-        .handle_to_bind_group_layout(GLOBAL_LIGHT)
-        .unwrap();
-    let frame_bind_group_handle = ctx.wrangler.handle_to_bind_group(GLOBAL_LIGHT).unwrap();
+    /*
+    let passes = unsafe {
+        let mut arr: [MaybeUninit<Pass>] = MaybeUninit::uninit().assume_init();
 
-    ctx.wrangler.frame_bind_group_layout_handle = frame_bind_group_layout_handle;
-    ctx.wrangler.frame_bind_group_handle = frame_bind_group_handle;
+        std::slice::bytes::copy_memory(&ctx.wrangler.passes, &mut arr);
 
-    ctx.wrangler
-        .reload_shaders(&ctx.device, &ctx.shader_context, &ctx.surface_config);
+        std::mem::transmute(arr)
+    };
+    */
+
+    init_span.exit();
 
     let depth_texture_handle = ctx.wrangler.handle_to_texture("depth").expect(":)");
 
@@ -601,6 +641,8 @@ async fn main() {
         camera_uniforms,
         reflected_camera_uniforms,
         handles,
+
+        tracing_guard,
     };
 
     /* @TODO

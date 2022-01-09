@@ -4,17 +4,20 @@ use pantheon::*;
 
 /// here be dragons
 pub mod init;
+pub mod passes;
 pub mod uniforms;
 
 pub mod prelude {
     pub use super::init;
+    pub use super::passes::*;
     pub use super::uniforms::*;
     pub use crate::rendering;
 }
+use passes::Passes;
 
 pub fn register<'a, T>(
     ctx: &mut Context<'a>,
-    pass_labels: &[&'a str],
+    passes: Passes,
     vertex_label: &'a str,
     topology: Topology,
     verts: &[T],
@@ -48,6 +51,7 @@ where
 
     let draw_call = DrawCall {
         kind: DrawCallKind::Vertex,
+        pass_flags: passes.bits(),
         index_range: vertices,
         instances,
         push_constant,
@@ -57,21 +61,12 @@ where
 
     let handle = ctx.wrangler.add_draw_call(draw_call, vertex_label);
 
-    pass_labels.iter().for_each(|label| {
-        let pass_handle = ctx
-            .wrangler
-            .handle_to_pass(label)
-            .expect("resource needs to be init first");
-        let pass = ctx.wrangler.get_pass_mut(&pass_handle);
-        pass.draw_call_handles.push(handle);
-    });
-
     handle
 }
 
 pub fn register_indexed<'a, T>(
     ctx: &mut Context<'a>,
-    pass_labels: &[&'a str],
+    passes: Passes,
     vertex_label: &'a str,
     topology: Topology,
     verts: &[T],
@@ -127,6 +122,7 @@ where
 
     let draw_call = DrawCall {
         kind: DrawCallKind::Indexed(vertex_cursor as i32),
+        pass_flags: passes.bits(),
         index_range: indices,
         instances,
         push_constant,
@@ -137,19 +133,6 @@ where
     println!("[register_indexed] draw_call: {:#?}", draw_call);
 
     let handle = ctx.wrangler.add_draw_call(draw_call, vertex_label);
-
-    pass_labels.iter().for_each(|label| {
-        let pass_handle = ctx
-            .wrangler
-            .handle_to_pass(label)
-            .expect(&format!("No registered pass labeled {}", &label));
-        let pass = ctx.wrangler.get_pass_mut(&pass_handle);
-        pass.draw_call_handles.push(handle);
-        println!(
-            "[register_indexed] pass.draw_call_handles: {:#?}",
-            pass.draw_call_handles
-        );
-    });
 
     handle
 }

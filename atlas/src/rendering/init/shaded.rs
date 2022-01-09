@@ -183,7 +183,7 @@ pub fn init_shaded_pass<'a>(ctx: &'a mut Context) -> PassHandle<'a> {
         range: 0..16 * 4,
     }];
 
-    let pipeline_ctx = Some(PipelineContext {
+    let pipeline_ctx = PipelineContext {
         pass_bind_group_layout_handle: Some(clip_plane_bind_group_layout),
         draw_call_bind_group_layout_handle: None,
         push_constant_ranges,
@@ -218,9 +218,14 @@ pub fn init_shaded_pass<'a>(ctx: &'a mut Context) -> PassHandle<'a> {
         },
 
         multiview: None,
-    });
+    };
 
-    let pipelines = Vec::new();
+    let pipelines = ctx.wrangler.create_pipelines(
+        &ctx.device,
+        &ctx.shader_context,
+        &ctx.surface_config,
+        &pipeline_ctx,
+    );
 
     let pass = Pass {
         label: pass_label,
@@ -232,7 +237,6 @@ pub fn init_shaded_pass<'a>(ctx: &'a mut Context) -> PassHandle<'a> {
         stencil_ops: None,
         depth_stencil_view_handle,
         pass_bind_group_handle,
-        draw_call_handles: Vec::new(),
         vertex_buffer_handle,
         index_buffer_handle,
     };

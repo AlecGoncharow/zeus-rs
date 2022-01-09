@@ -1,6 +1,7 @@
 use super::component::*;
 use super::Camera;
 use crate::rendering;
+use crate::rendering::prelude::Passes;
 use crate::vertex::ShadedVertex;
 use pantheon::graphics::mode::DrawMode;
 use pantheon::graphics::prelude::*;
@@ -65,7 +66,7 @@ impl<'a> Terrain<'a> {
 
         self.draw_call_handle = Some(rendering::register_indexed(
             ctx,
-            &["reflection", "refraction", "shaded"],
+            Passes::SHADED_BUNDLE,
             "shaded",
             self.topology,
             &self.verts,

@@ -94,7 +94,7 @@ pub fn init_basic_textured_pass<'a>(ctx: &'a mut Context) {
     let index_buffer_handle = ctx.wrangler.handle_to_index_buffer(pass_label).unwrap();
     let push_constant_ranges = &[];
 
-    let pipeline_ctx = Some(PipelineContext {
+    let pipeline_ctx = PipelineContext {
         pass_bind_group_layout_handle: None,
         draw_call_bind_group_layout_handle: Some(bglh_basic_textured),
         push_constant_ranges,
@@ -123,9 +123,14 @@ pub fn init_basic_textured_pass<'a>(ctx: &'a mut Context) {
         },
 
         multiview: None,
-    });
+    };
 
-    let pipelines = Vec::new();
+    let pipelines = ctx.wrangler.create_pipelines(
+        &ctx.device,
+        &ctx.shader_context,
+        &ctx.surface_config,
+        &pipeline_ctx,
+    );
 
     let color_attachment_ops = Some(wgpu::Operations {
         load: wgpu::LoadOp::Load,
@@ -141,7 +146,6 @@ pub fn init_basic_textured_pass<'a>(ctx: &'a mut Context) {
         depth_ops: None,
         stencil_ops: None,
         depth_stencil_view_handle: None,
-        draw_call_handles: Vec::new(),
         pass_bind_group_handle: None,
         vertex_buffer_handle,
         index_buffer_handle,

@@ -7,3 +7,9 @@
 *.txt
 .DS_STORE
 renderdoc/
+
+perf.data
+perf.data.old
+flamegraph/*.folded
+flamegraph/inferno-flamegraph
+*.svg
