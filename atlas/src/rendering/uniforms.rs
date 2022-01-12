@@ -46,7 +46,7 @@ pub trait Uniforms: 'static + Sized + Send + Sync + std::fmt::Debug + AlignedGLS
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some(label),
-                usage: wgpu::BufferUsages::UNIFORM,
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
                 contents: bytemuck::cast_slice(self.as_bytes()),
             });
 
@@ -143,5 +143,24 @@ impl AlignedGLSL for StaticEntityUniforms {
 impl StaticEntityUniforms {
     pub fn new(model_matrix: Mat4) -> Self {
         Self { model_matrix }
+    }
+}
+
+impl Uniforms for ShadowBakeUniforms {}
+#[derive(Debug, Clone, Copy)]
+#[repr(C)]
+pub struct ShadowBakeUniforms {
+    pub projection: Mat4,
+    pub view: Mat4,
+}
+impl AlignedGLSL for ShadowBakeUniforms {
+    fn validate_alignment(&self) {
+        assert_eq!(64 + 64, std::mem::size_of::<Self>());
+    }
+}
+
+impl ShadowBakeUniforms {
+    pub fn new(projection: Mat4, view: Mat4) -> Self {
+        Self { projection, view }
     }
 }

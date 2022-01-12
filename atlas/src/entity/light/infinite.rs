@@ -5,8 +5,8 @@ use pantheon::math::prelude::*;
 use pantheon::Color;
 
 pub const CASCADE_COUNT: usize = 4;
-pub const A_DISTS: [f32; CASCADE_COUNT] = [0., 25., 100., 250.];
-pub const B_DISTS: [f32; CASCADE_COUNT] = [50., 200., 500., 1000.];
+pub const A_DISTS: [f32; CASCADE_COUNT] = [0., 10., 50., 200.];
+pub const B_DISTS: [f32; CASCADE_COUNT] = [25., 100., 300., 500.];
 pub const MAP_SIZE: f32 = 1024.;
 
 /*
@@ -46,6 +46,7 @@ impl BoundingBox {
                 Vec3::new(a * s / g, -a / g, a),
                 Vec3::new(-a * s / g, a / g, a),
                 Vec3::new(-a * s / g, -a / g, a),
+                //
                 Vec3::new(b * s / g, b / g, b),
                 Vec3::new(b * s / g, -b / g, b),
                 Vec3::new(-b * s / g, b / g, b),
@@ -66,6 +67,7 @@ impl BoundingBox {
             Vec3::new(a * s / g, -a / g, a),
             Vec3::new(-a * s / g, a / g, a),
             Vec3::new(-a * s / g, -a / g, a),
+            //
             Vec3::new(b * s / g, b / g, b),
             Vec3::new(b * s / g, -b / g, b),
             Vec3::new(-b * s / g, b / g, b),
@@ -188,11 +190,7 @@ pub struct Cascade {
 }
 
 impl Cascade {
-    pub fn new(
-        bounding_box: BoundingBox,
-        min_max: MinMax,
-        transpose_light_rotation: &Mat4,
-    ) -> Self {
+    pub fn new(bounding_box: BoundingBox, min_max: MinMax, transpose_light_rotation: Mat4) -> Self {
         let d = bounding_box.map_size();
         let t = d / MAP_SIZE;
         let s = min_max.pos(t);
@@ -201,8 +199,10 @@ impl Cascade {
         projection.y.y = 2.0 / d;
         projection.z.z = 1.0 / (min_max.z_max - min_max.z_min);
 
-        let mut cascade_space_transform = *transpose_light_rotation;
-        cascade_space_transform.w = -1.0f32 * s.vec4_with(1.0);
+        let translation = Mat4::translation::<f32>((-1.0f32 * s).into());
+        let cascade_space_transform = transpose_light_rotation * translation;
+        //let mut cascade_space_transform = transpose_light_rotation;
+        //cascade_space_transform.w = (-1.0f32 * s).vec4_with(1.0);
 
         Self {
             bounding_box,
@@ -217,7 +217,7 @@ impl Cascade {
         }
     }
 
-    pub fn update(&mut self, transpose_light_rotation: &Mat4, light_space_transform: &Mat4) {
+    pub fn update(&mut self, transpose_light_rotation: Mat4, light_space_transform: &Mat4) {
         self.min_max
             .update(&self.bounding_box, light_space_transform);
         self.d = self.bounding_box.map_size();
@@ -228,8 +228,10 @@ impl Cascade {
         self.projection.y.y = 2.0 / self.d;
         self.projection.z.z = 1.0 / (self.min_max.z_max - self.min_max.z_min);
 
-        self.cascade_space_transform = *transpose_light_rotation;
-        self.cascade_space_transform.w = -1.0f32 * self.s.vec4_with(1.0);
+        let translation = Mat4::translation::<f32>((-1.0f32 * self.s).into());
+        self.cascade_space_transform = transpose_light_rotation * translation
+        //self.cascade_space_transform = transpose_light_rotation;
+        //self.cascade_space_transform.w = (-1.0f32 * self.s).vec4_with(1.0);
     }
 
     pub fn resize(&mut self, aspect_ratio: f32, fovy: f32) {
@@ -263,7 +265,9 @@ pub struct Infinite {
 
 impl Infinite {
     pub fn new(camera: &Camera, direction: Vec3, color: Color) -> Self {
-        let w = direction.unit_vector();
+        let mut w = direction.unit_vector();
+        w.y *= -1.0;
+
         let u = w.cross(&camera.world_up).unit_vector();
         let v = u.cross(&w).unit_vector();
         let uvw = Mat3::new(u, v, w);
@@ -284,7 +288,7 @@ impl Infinite {
                 let bounding_box = BoundingBox::new(*a, *b, aspect_ratio, fovy);
                 let min_max = MinMax::init(&bounding_box, &light_space_transform);
 
-                arr[i].write(Cascade::new(bounding_box, min_max, &transform_transpose));
+                arr[i].write(Cascade::new(bounding_box, min_max, transform_transpose));
             }
 
             unsafe { std::mem::transmute(arr) }
@@ -310,7 +314,7 @@ impl Infinite {
         self.light_space_transform = self.transform_transpose * camera.transform;
 
         self.cascades.iter_mut().for_each(|cascade| {
-            cascade.update(&self.transform_transpose, &self.light_space_transform)
+            cascade.update(self.transform_transpose, &self.light_space_transform)
         });
     }
 

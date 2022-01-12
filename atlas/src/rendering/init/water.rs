@@ -45,7 +45,7 @@ pub fn init_refraction_pass<'a>(ctx: &'a mut Context) {
         load: wgpu::LoadOp::Clear(DEPTH_CLEAR),
         store: true,
     });
-    let depth_stencil_view_handle = Some(depth_texture_handle);
+    let depth_stencil_view = Some(ViewKind::Handle(depth_texture_handle));
     let push_constant_ranges = &[wgpu::PushConstantRange {
         stages: wgpu::ShaderStages::VERTEX,
         range: 0..16 * 4,
@@ -107,7 +107,7 @@ pub fn init_refraction_pass<'a>(ctx: &'a mut Context) {
         color_attachment_view_handle,
         depth_ops,
         stencil_ops: None,
-        depth_stencil_view_handle,
+        depth_stencil_view,
         pass_bind_group_handle,
         vertex_buffer_handle,
         index_buffer_handle,
@@ -150,12 +150,14 @@ pub fn init_reflection_pass<'a>(ctx: &'a mut Context) {
         load: wgpu::LoadOp::Clear(ctx.gfx_context.clear_color),
         store: true,
     });
+    let color_attachment_view_handle =
+        Some(ctx.wrangler.handle_to_texture(REFLECTION_TEXTURE).unwrap());
 
     let depth_ops = Some(wgpu::Operations {
         load: wgpu::LoadOp::Clear(DEPTH_CLEAR),
         store: true,
     });
-    let depth_stencil_view_handle = Some(depth_texture_handle);
+    let depth_stencil_view = Some(ViewKind::Handle(depth_texture_handle));
     let push_constant_ranges = &[wgpu::PushConstantRange {
         stages: wgpu::ShaderStages::VERTEX,
         range: 0..16 * 4,
@@ -206,9 +208,6 @@ pub fn init_reflection_pass<'a>(ctx: &'a mut Context) {
         &pipeline_ctx,
     );
 
-    let color_attachment_view_handle =
-        Some(ctx.wrangler.handle_to_texture(REFLECTION_TEXTURE).unwrap());
-
     let pass = Pass {
         label: pass_label,
         pipeline_ctx,
@@ -217,7 +216,7 @@ pub fn init_reflection_pass<'a>(ctx: &'a mut Context) {
         color_attachment_view_handle,
         depth_ops,
         stencil_ops: None,
-        depth_stencil_view_handle,
+        depth_stencil_view,
         pass_bind_group_handle,
         vertex_buffer_handle,
         index_buffer_handle,
@@ -359,7 +358,7 @@ pub fn init_water_pass<'a>(ctx: &mut Context<'a>) -> PassHandle<'a> {
         load: wgpu::LoadOp::Load,
         store: true,
     });
-    let depth_stencil_view_handle = Some(depth_texture_handle);
+    let depth_stencil_view = Some(ViewKind::Handle(depth_texture_handle));
     let push_constant_ranges = &[wgpu::PushConstantRange {
         stages: wgpu::ShaderStages::VERTEX,
         range: 0..16,
@@ -417,7 +416,7 @@ pub fn init_water_pass<'a>(ctx: &mut Context<'a>) -> PassHandle<'a> {
         color_attachment_view_handle: None,
         depth_ops,
         stencil_ops: None,
-        depth_stencil_view_handle,
+        depth_stencil_view,
         pass_bind_group_handle,
         vertex_buffer_handle,
         index_buffer_handle,

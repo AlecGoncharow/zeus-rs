@@ -1,3 +1,5 @@
+use atlas::entity::light::infinite::Infinite;
+use atlas::entity::light::infinite::CASCADE_COUNT;
 use pantheon::context::Context;
 use pantheon::event::EventHandler;
 
@@ -43,6 +45,7 @@ use pantheon::wgpu;
 // tracing
 use std::fs::File;
 use std::io::BufWriter;
+use std::mem::MaybeUninit;
 use std::path::Path;
 use tracing::{span, Level};
 use tracing_flame::FlameLayer;
@@ -76,6 +79,8 @@ struct State<'a> {
     camera_uniforms: CameraUniforms,
     reflected_camera_uniforms: CameraUniforms,
     handles: Handles<'a>,
+    infinite_light: Infinite,
+    global_shadow_uniforms: [ShadowBakeUniforms; CASCADE_COUNT],
 
     //passes: [Pass<'a>; NUM_PASSES],
     #[allow(dead_code)]
@@ -164,7 +169,17 @@ impl<'a> EventHandler<'a> for State<'a> {
             self.camera_uniforms
                 .push(ctx, &self.handles.camera_uniforms);
 
-            println!("[CAMERA UNIFORMS] {:#?}", self.camera_uniforms);
+            //println!("[CAMERA UNIFORMS] {:#?}", self.camera_uniforms);
+
+            self.infinite_light.update(&self.entity_manager.camera);
+            for i in 0..CASCADE_COUNT {
+                self.global_shadow_uniforms[i].view =
+                    self.infinite_light.cascades[i].cascade_space_transform;
+                self.global_shadow_uniforms[i].projection =
+                    self.infinite_light.cascades[i].projection;
+
+                self.global_shadow_uniforms[i].push(ctx, &self.handles.global_shadow_uniforms[i]);
+            }
 
             // @NOTE reflected camera uniform's position is not updated ever because
             // it is only used for the reflection pass, which doesn't care about the
@@ -292,6 +307,20 @@ impl<'a> EventHandler<'a> for State<'a> {
         self.entity_manager.camera.set_aspect((width, height));
 
         self.camera_uniforms.projection = self.entity_manager.camera.update_projection_matrix();
+
+        self.infinite_light.resize(&self.entity_manager.camera);
+        for i in 0..CASCADE_COUNT {
+            self.global_shadow_uniforms[i].view =
+                self.infinite_light.cascades[i].cascade_space_transform;
+            self.global_shadow_uniforms[i].projection = self.infinite_light.cascades[i].projection;
+
+            self.global_shadow_uniforms[i].push(ctx, &self.handles.global_shadow_uniforms[i]);
+            println!(
+                "[SHADOW_UNIFORMS] {:#?} {:#?}",
+                self.global_shadow_uniforms[i].projection, self.global_shadow_uniforms[i].view
+            );
+        }
+
         self.reflected_camera_uniforms.projection = self.entity_manager.camera.projection;
         self.reflected_camera_uniforms
             .push(ctx, &self.handles.reflected_camera_uniforms);
@@ -461,7 +490,7 @@ async fn main() {
     let water_height = 0.;
     let terrain_height = 3.;
     let world_scale = 2.0;
-    let direction = Vec3::new(0.3, -1, 0.5).make_unit_vector();
+    let direction = Vec3::new(1, -1, 1).make_unit_vector();
     let color = Vec3::new(1, 0.95, 0.95);
     let bias = Vec2::new(0.3, 0.8);
     let global_light = GlobalLightUniforms::new(direction, color, bias);
@@ -588,6 +617,45 @@ async fn main() {
     //"fixed" when orientation is updated
     entity_manager.camera.update_orientation();
 
+    let infinite = Infinite::new(
+        &entity_manager.camera,
+        global_light.direction,
+        global_light.color.into(),
+    );
+
+    let global_shadow_uniforms: [ShadowBakeUniforms; CASCADE_COUNT] = {
+        let mut arr: [MaybeUninit<ShadowBakeUniforms>; CASCADE_COUNT] =
+            unsafe { MaybeUninit::uninit().assume_init() };
+
+        for (i, cascade) in infinite.cascades.iter().enumerate() {
+            arr[i].write(ShadowBakeUniforms::new(
+                cascade.projection,
+                cascade.cascade_space_transform,
+            ));
+
+            println!(
+                "[INIT] [SHADOW_UNIFORMS] {:#?} {:#?}",
+                cascade.projection, cascade.cascade_space_transform
+            );
+        }
+
+        unsafe { std::mem::transmute(arr) }
+    };
+
+    let global_shadow_uniform_handles = {
+        let mut arr: [MaybeUninit<BufferHandle>; CASCADE_COUNT] =
+            unsafe { MaybeUninit::uninit().assume_init() };
+
+        for (i, uniform) in global_shadow_uniforms.iter().enumerate() {
+            let label = int_to_cascade(i);
+            let handle = ctx.wrangler.handle_to_uniform_buffer(label).unwrap();
+            uniform.push(&mut ctx, &handle);
+            arr[i].write(handle);
+        }
+
+        unsafe { std::mem::transmute(arr) }
+    };
+
     let camera_uniforms = CameraUniforms::new(
         entity_manager.camera.view,
         entity_manager.camera.projection,
@@ -623,6 +691,7 @@ async fn main() {
             .handle_to_texture(REFRACTION_TEXTURE)
             .expect(":)"),
         shaded_pass: ctx.wrangler.handle_to_pass("shaded").expect(":)"),
+        global_shadow_uniforms: global_shadow_uniform_handles,
     };
     camera_uniforms.push(&mut ctx, &handles.camera_uniforms);
     reflected_camera_uniforms.push(&mut ctx, &handles.reflected_camera_uniforms);
@@ -638,6 +707,9 @@ async fn main() {
         camera_uniforms,
         reflected_camera_uniforms,
         handles,
+
+        infinite_light: infinite,
+        global_shadow_uniforms,
 
         tracing_guard,
     };

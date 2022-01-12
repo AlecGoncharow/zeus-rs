@@ -74,9 +74,11 @@ impl GraphicsContext {
                     &[]
                 };
 
-            let depth_stencil_attachment = if let Some(handle) = &pass.depth_stencil_view_handle {
-                // @TODO @FIXME this should be it's own view, no fetching should be needed
-                let view = &wrangler.get_texture(handle).view;
+            let depth_stencil_attachment = if let Some(view_kind) = &pass.depth_stencil_view {
+                let view = match view_kind {
+                    ViewKind::Handle(handle) => &wrangler.get_texture(handle).view,
+                    ViewKind::View(view) => &view,
+                };
                 Some(wgpu::RenderPassDepthStencilAttachment {
                     view,
                     depth_ops: pass.depth_ops,

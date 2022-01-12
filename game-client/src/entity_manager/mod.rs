@@ -67,21 +67,17 @@ impl<'a> EntityManager<'a> {
         let ndc_x = (2.0 * mouse_pos.x) / ctx.gfx_context.window_dims.width - 1.0;
         let ndc_y = 1.0 - (2.0 * mouse_pos.y) / ctx.gfx_context.window_dims.height;
 
-        let clip = Vec4::new(ndc_x, ndc_y, 0.0, 1.0);
-        let mut eye = if let Some(inv_proj) = self.camera.projection.invert() {
-            inv_proj * clip
+        let device = Vec4::new(ndc_x, ndc_y, 0.0, 1.0);
+        let mut camera = if let Some(inv_proj) = self.camera.projection.invert() {
+            inv_proj * device
         } else {
             return None;
         };
 
-        eye.z = -1.0;
-        eye.w = 0.0;
+        camera.z = -1.0;
+        camera.w = 0.0;
 
-        let world = if let Some(inv_view) = self.camera.view.invert() {
-            inv_view * eye
-        } else {
-            return None;
-        };
+        let world = self.camera.transform * camera;
 
         Some(world.truncate(Dim::W).make_unit_vector())
     }

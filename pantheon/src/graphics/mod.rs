@@ -143,9 +143,9 @@ pub mod prelude {
     pub use super::color::Color;
     pub use super::mesh::Mesh;
     pub use super::mode::{PolygonMode, Topology};
-    pub use super::pass::Pass;
+    pub use super::pass::*;
     pub use super::pipeline::{ColorTarget, PipelineContext};
-    pub use super::texture::Texture;
+    pub use super::texture::*;
     pub use super::wrangler::RenderWrangler;
 }
 

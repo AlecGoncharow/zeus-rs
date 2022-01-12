@@ -176,7 +176,7 @@ pub fn init_shaded_pass<'a>(ctx: &'a mut Context) -> PassHandle<'a> {
         load: wgpu::LoadOp::Clear(DEPTH_CLEAR),
         store: true,
     });
-    let depth_stencil_view_handle = Some(depth_texture_handle);
+    let depth_stencil_view = Some(ViewKind::Handle(depth_texture_handle));
 
     let push_constant_ranges = &[wgpu::PushConstantRange {
         stages: wgpu::ShaderStages::VERTEX,
@@ -235,7 +235,7 @@ pub fn init_shaded_pass<'a>(ctx: &'a mut Context) -> PassHandle<'a> {
         color_attachment_view_handle: None,
         depth_ops,
         stencil_ops: None,
-        depth_stencil_view_handle,
+        depth_stencil_view,
         pass_bind_group_handle,
         vertex_buffer_handle,
         index_buffer_handle,

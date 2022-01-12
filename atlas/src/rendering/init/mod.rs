@@ -132,6 +132,7 @@ pub fn init<'a>(ctx: &mut Context<'a>, params: InitParams) {
     init::init_global_light(ctx, params.global_light_uniforms);
     init::init_camera_resources(ctx);
     init::init_shaded_resources(ctx, "shaded", params.water_height, params.refraction_offset);
+    init::init_global_shadow_pass(ctx);
     init::init_reflection_pass(ctx);
     init::init_refraction_pass(ctx);
     init::init_shaded_pass(ctx);

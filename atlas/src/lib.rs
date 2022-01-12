@@ -2,8 +2,8 @@ pub mod camera;
 pub mod entity;
 pub mod message;
 pub mod proc_gen;
-pub mod vertex;
 pub mod rendering;
+pub mod vertex;
 
 pub use rand;
 
@@ -18,6 +18,8 @@ pub mod prelude {
         pub reflection_texture: TextureHandle<'a>,
         pub refraction_texture: TextureHandle<'a>,
         pub shaded_pass: PassHandle<'a>,
+
+        pub global_shadow_uniforms: [BufferHandle<'a>; 4],
     }
 }
 

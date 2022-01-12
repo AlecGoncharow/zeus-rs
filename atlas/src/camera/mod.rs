@@ -96,8 +96,11 @@ impl Camera {
         let translation = Mat4::translation::<f32>(negative_from.into());
         let view = rotation * translation;
         // @TODO @MATH idk if this is correct
+        /*
         let mut transform = uvw.mat4();
         transform.w = origin.vec4_with(1.0);
+        */
+        let transform = view.invert().unwrap();
 
         let uvw_r = Mat3::new(u_r, v_r, w_r);
         let rotation = uvw_r.transpose().mat4();
@@ -148,13 +151,17 @@ impl Camera {
         let uvw = Mat3::new(self.u, self.v, self.w);
         let rotation = uvw.transpose().mat4();
 
+        /*
         self.transform = uvw.mat4();
         self.transform.w = self.origin.vec4_with(1.0);
+        */
 
         let negative_from = -1.0 * self.origin;
         let translation = Mat4::translation::<f32>(negative_from.into());
 
         self.view = rotation * translation;
+
+        self.transform = self.view.invert().unwrap();
 
         self.view
     }

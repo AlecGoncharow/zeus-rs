@@ -145,7 +145,7 @@ pub fn init_basic_textured_pass<'a>(ctx: &'a mut Context) {
         color_attachment_view_handle: None,
         depth_ops: None,
         stencil_ops: None,
-        depth_stencil_view_handle: None,
+        depth_stencil_view: None,
         pass_bind_group_handle: None,
         vertex_buffer_handle,
         index_buffer_handle,

@@ -78,7 +78,7 @@ pub fn init_global_light(ctx: &mut Context, global_light_uniforms: GlobalLightUn
     });
 
     // this is samplers for shaded pass
-    let _texture = Texture::create_depth_texture_with_size(
+    let texture = Texture::create_depth_texture_with_size(
         &ctx.device,
         GLOBAL_LIGHT_SHADOW_SIZE,
         &wgpu::TextureViewDescriptor {
@@ -91,8 +91,10 @@ pub fn init_global_light(ctx: &mut Context, global_light_uniforms: GlobalLightUn
             base_array_layer: 0 as u32,
             array_layer_count: std::num::NonZeroU32::new(4),
         },
+        Some(wgpu::CompareFunction::GreaterEqual),
         GLOBAL_LIGHT_SHADOW,
     );
+    ctx.wrangler.add_texture(texture, GLOBAL_LIGHT_SHADOW);
 
     let shadow_bgl = ctx
         .device
@@ -128,6 +130,14 @@ pub fn init_global_light(ctx: &mut Context, global_light_uniforms: GlobalLightUn
             label: Some(&s),
         });
 
+        let texture = Texture::create_surface_texture_size(
+            &ctx.device,
+            (MAP_SIZE as u32, MAP_SIZE as u32),
+            s,
+        );
+
+        ctx.wrangler.add_texture(texture, s);
+
         ctx.wrangler.add_uniform_buffer(buffer, s);
         ctx.wrangler.add_bind_group(bg, s);
     }
@@ -149,7 +159,7 @@ pub fn init_global_shadow_pass<'a>(ctx: &mut Context<'a>) {
     for i in 0..CASCADE_COUNT {
         let pass_label = int_to_cascade(i);
         // @TODO this needs to make it's own view per layer
-        let depth_texture_handle = ctx.wrangler.handle_to_texture(pass_label).unwrap();
+
         let vertex_buffer_handle = ctx.wrangler.handle_to_vertex_buffer(SHADED).unwrap();
         let index_buffer_handle = ctx.wrangler.handle_to_index_buffer(SHADED).unwrap();
 
@@ -161,13 +171,32 @@ pub fn init_global_shadow_pass<'a>(ctx: &mut Context<'a>) {
 
         let pass_bind_group_handle = Some(bind_group);
 
-        let color_attachment_ops = None;
+        let color_attachment_ops = Some(wgpu::Operations {
+            load: wgpu::LoadOp::Clear(ctx.gfx_context.clear_color),
+            store: true,
+        });
+        let color_attachment_view_handle =
+            Some(ctx.wrangler.handle_to_texture(pass_label).unwrap());
 
+        let depth_texture = ctx.wrangler.find_texture(GLOBAL_LIGHT_SHADOW);
         let depth_ops = Some(wgpu::Operations {
             load: wgpu::LoadOp::Clear(DEPTH_CLEAR),
             store: true,
         });
-        let depth_stencil_view_handle = Some(depth_texture_handle);
+        let depth_view = depth_texture
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor {
+                label: Some(pass_label),
+                format: None,
+                dimension: Some(wgpu::TextureViewDimension::D2),
+                aspect: wgpu::TextureAspect::All,
+                base_mip_level: 0,
+                mip_level_count: None,
+                base_array_layer: i as u32,
+                array_layer_count: std::num::NonZeroU32::new(1),
+            });
+        let depth_stencil_view = Some(ViewKind::View(depth_view));
+
         let push_constant_ranges = &[wgpu::PushConstantRange {
             stages: wgpu::ShaderStages::VERTEX,
             range: 0..16 * 4,
@@ -179,7 +208,7 @@ pub fn init_global_shadow_pass<'a>(ctx: &mut Context<'a>) {
 
             push_constant_ranges,
             vs_path: Some("bake_shadow.vert.spv"),
-            fs_path: Some("bake_shadow.frag.spv"),
+            fs_path: Some("basic.frag.spv"),
             vert_desc: crate::vertex::ShadedVertex::desc,
             label: Some(pass_label),
             fragment_targets: Some(vec![ColorTarget {
@@ -218,8 +247,6 @@ pub fn init_global_shadow_pass<'a>(ctx: &mut Context<'a>) {
             &pipeline_ctx,
         );
 
-        let color_attachment_view_handle = None;
-
         let pass = Pass {
             label: pass_label,
             pipeline_ctx,
@@ -228,7 +255,7 @@ pub fn init_global_shadow_pass<'a>(ctx: &mut Context<'a>) {
             color_attachment_view_handle,
             depth_ops,
             stencil_ops: None,
-            depth_stencil_view_handle,
+            depth_stencil_view,
             pass_bind_group_handle,
             vertex_buffer_handle,
             index_buffer_handle,
