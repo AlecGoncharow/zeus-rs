@@ -35,6 +35,16 @@ impl Vec4 {
         }
     }
     #[inline]
+    pub fn from_vec3_with(vec: Vec3, w: impl Into<f64>) -> Self {
+        Self {
+            x: vec.x,
+            y: vec.y,
+            z: vec.z,
+            w: w.into() as f32,
+        }
+    }
+
+    #[inline]
     pub fn gamma_two(&self) -> Self {
         Self {
             x: self.x.sqrt(),

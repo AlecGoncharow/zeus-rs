@@ -2,7 +2,6 @@ use bitflags::bitflags;
 
 const LAST_PASS: usize = 8;
 
-/* Soon TM
 bitflags! {
     #[rustfmt::skip]
     pub struct Passes: usize {
@@ -19,8 +18,8 @@ bitflags! {
         const SHADED_BUNDLE         = 0b0_0111_1111;
     }
 }
-*/
 
+/* Soon TM
 bitflags! {
     #[rustfmt::skip]
     pub struct Passes: usize {
@@ -33,3 +32,4 @@ bitflags! {
         const SHADED_BUNDLE         = 0b0_0111;
     }
 }
+*/

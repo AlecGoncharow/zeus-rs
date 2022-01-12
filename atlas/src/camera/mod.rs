@@ -1,7 +1,7 @@
+use pantheon::math::Mat3;
 use pantheon::math::Mat4;
 use pantheon::math::Vec2;
 use pantheon::math::Vec3;
-use pantheon::math::Vec4;
 use pantheon::winit::event::VirtualKeyCode;
 
 //const YAW_DEFAULT: f32 = -90.0;
@@ -36,6 +36,7 @@ pub struct Camera {
 
     pub projection: Mat4,
     pub view: Mat4,
+    pub transform: Mat4,
 
     pub reflected_view: Mat4,
     pub u_r: Vec3,
@@ -88,23 +89,18 @@ impl Camera {
             Mat4::reverse_infinite_perspective(vfov, aspect, near_plane, EPSILON)
         };
 
-        let rotation = Mat4::new(
-            Vec4::new(u.x, v.x, w.x, 0.),
-            Vec4::new(u.y, v.y, w.y, 0.),
-            Vec4::new(u.z, v.z, w.z, 0.),
-            (0, 0, 0, 1).into(),
-        );
+        let uvw = Mat3::new(u, v, w);
+        let rotation = uvw.transpose().mat4();
 
         let negative_from = -1.0 * origin;
         let translation = Mat4::translation::<f32>(negative_from.into());
         let view = rotation * translation;
+        // @TODO @MATH idk if this is correct
+        let mut transform = uvw.mat4();
+        transform.w = origin.vec4_with(1.0);
 
-        let rotation = Mat4::new(
-            Vec4::new(u_r.x, v_r.x, w_r.x, 0.),
-            Vec4::new(u_r.y, v_r.y, w_r.y, 0.),
-            Vec4::new(u_r.z, v_r.z, w_r.z, 0.),
-            (0, 0, 0, 1).into(),
-        );
+        let uvw_r = Mat3::new(u_r, v_r, w_r);
+        let rotation = uvw_r.transpose().mat4();
 
         let negative_from = -1.0 * reflected_look_from;
         let translation = Mat4::translation::<f32>(negative_from.into());
@@ -131,6 +127,7 @@ impl Camera {
 
             projection,
             view,
+            transform,
 
             reflected_view,
             u_r,
@@ -148,12 +145,11 @@ impl Camera {
     }
 
     pub fn update_view_matrix(&mut self) -> Mat4 {
-        let rotation = Mat4::new(
-            Vec4::new(self.u.x, self.v.x, self.w.x, 0.),
-            Vec4::new(self.u.y, self.v.y, self.w.y, 0.),
-            Vec4::new(self.u.z, self.v.z, self.w.z, 0.),
-            (0, 0, 0, 1).into(),
-        );
+        let uvw = Mat3::new(self.u, self.v, self.w);
+        let rotation = uvw.transpose().mat4();
+
+        self.transform = uvw.mat4();
+        self.transform.w = self.origin.vec4_with(1.0);
 
         let negative_from = -1.0 * self.origin;
         let translation = Mat4::translation::<f32>(negative_from.into());
@@ -164,12 +160,7 @@ impl Camera {
     }
 
     pub fn update_reflected_view_matrix(&mut self) -> Mat4 {
-        let rotation = Mat4::new(
-            Vec4::new(self.u_r.x, self.v_r.x, self.w_r.x, 0.),
-            Vec4::new(self.u_r.y, self.v_r.y, self.w_r.y, 0.),
-            Vec4::new(self.u_r.z, self.v_r.z, self.w_r.z, 0.),
-            (0, 0, 0, 1).into(),
-        );
+        let rotation = Mat3::new(self.u_r, self.v_r, self.w_r).transpose().mat4();
 
         //let negative_from: Vec3 = -1.0 * Vec3::new(self.origin.x, -5., self.origin.z);
         let negative_from: Vec3 = -1.0 * self.origin.make_comp_mul(&self.camera_flip);
