@@ -467,16 +467,15 @@ async fn main() {
     let global_light = GlobalLightUniforms::new(direction, color, bias);
 
     let init_span = span!(Level::INFO, "renderer init").entered();
-    init::init_shared(&mut ctx);
-    init::init_global_light(&mut ctx, global_light);
-    init::init_camera_resources(&mut ctx);
-    init::init_shaded_resources(&mut ctx, "shaded", water_height, 1.0);
-    init::init_reflection_pass(&mut ctx);
-    init::init_refraction_pass(&mut ctx);
-    init::init_shaded_pass(&mut ctx);
-    init::init_water_pass(&mut ctx);
-    init::init_basic_textured_pass(&mut ctx);
 
+    let init_params = InitParams {
+        global_light_uniforms: global_light,
+        water_height,
+        refraction_offset: 1.0,
+    };
+    init::init(&mut ctx, init_params);
+
+    init_span.exit();
     /*
     let passes = unsafe {
         let mut arr: [MaybeUninit<Pass>] = MaybeUninit::uninit().assume_init();
@@ -486,8 +485,6 @@ async fn main() {
         std::mem::transmute(arr)
     };
     */
-
-    init_span.exit();
 
     let depth_texture_handle = ctx.wrangler.handle_to_texture("depth").expect(":)");
 

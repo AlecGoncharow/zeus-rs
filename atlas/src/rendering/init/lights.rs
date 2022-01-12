@@ -1,8 +1,11 @@
-use super::prelude::*;
+use crate::entity::light::infinite::{CASCADE_COUNT, MAP_SIZE};
+
+use super::{prelude::*, DEPTH_CLEAR, SHADED};
 use pantheon::graphics::prelude::*;
 use pantheon::prelude::*;
 use wgpu::util::DeviceExt;
 
+/*
 const LIGHT_UNIFORM_BUFFER_SIZE: wgpu::BufferAddress = (16 + 3 + 1 + 4) * 4;
 const MAX_LIGHTS: usize = 1;
 const SHADOW_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth24Plus;
@@ -11,19 +14,33 @@ const SHADOW_SIZE: wgpu::Extent3d = wgpu::Extent3d {
     height: 4096,
     depth_or_array_layers: MAX_LIGHTS as u32,
 };
+*/
+
+const GLOBAL_SHADOW_BUFFER_SIZE: wgpu::BufferAddress = (16 + 16) * 4;
 
 const GLOBAL_LIGHT_SHADOW_SIZE: wgpu::Extent3d = wgpu::Extent3d {
-    width: 1024,
-    height: 1024,
-    depth_or_array_layers: 4,
+    width: MAP_SIZE as u32,
+    height: MAP_SIZE as u32,
+    depth_or_array_layers: CASCADE_COUNT as u32,
 };
 
 pub const GLOBAL_LIGHT: &'static str = "global_light";
 pub const GLOBAL_LIGHT_SHADOW: &'static str = "global_light_shadow";
+pub const GLOBAL_LIGHT_SHADOW_FMT: &'static str = "global_light_shadow_{}";
 pub const GLOBAL_LIGHT_SHADOW_0: &'static str = "global_light_shadow_0";
 pub const GLOBAL_LIGHT_SHADOW_1: &'static str = "global_light_shadow_1";
 pub const GLOBAL_LIGHT_SHADOW_2: &'static str = "global_light_shadow_2";
 pub const GLOBAL_LIGHT_SHADOW_3: &'static str = "global_light_shadow_3";
+
+pub const fn int_to_cascade(i: usize) -> &'static str {
+    match i {
+        0 => GLOBAL_LIGHT_SHADOW_0,
+        1 => GLOBAL_LIGHT_SHADOW_1,
+        2 => GLOBAL_LIGHT_SHADOW_2,
+        3 => GLOBAL_LIGHT_SHADOW_3,
+        _ => unreachable!(),
+    }
+}
 
 pub fn init_global_light(ctx: &mut Context, global_light_uniforms: GlobalLightUniforms) {
     let buffer_bgl = ctx
@@ -60,6 +77,7 @@ pub fn init_global_light(ctx: &mut Context, global_light_uniforms: GlobalLightUn
         label: Some(GLOBAL_LIGHT),
     });
 
+    // this is samplers for shaded pass
     let _texture = Texture::create_depth_texture_with_size(
         &ctx.device,
         GLOBAL_LIGHT_SHADOW_SIZE,
@@ -76,6 +94,47 @@ pub fn init_global_light(ctx: &mut Context, global_light_uniforms: GlobalLightUn
         GLOBAL_LIGHT_SHADOW,
     );
 
+    let shadow_bgl = ctx
+        .device
+        .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::VERTEX,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+
+                count: None,
+            }],
+            label: Some(GLOBAL_LIGHT_SHADOW),
+        });
+
+    for i in 0..CASCADE_COUNT {
+        let s = int_to_cascade(i);
+        let buffer = ctx.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some(&s),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+            size: GLOBAL_SHADOW_BUFFER_SIZE,
+        });
+        let bg = ctx.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &shadow_bgl,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: buffer.as_entire_binding(),
+            }],
+            label: Some(&s),
+        });
+
+        ctx.wrangler.add_uniform_buffer(buffer, s);
+        ctx.wrangler.add_bind_group(bg, s);
+    }
+
+    ctx.wrangler
+        .add_bind_group_layout(shadow_bgl, GLOBAL_LIGHT_SHADOW);
+
     let _handle = ctx
         .wrangler
         .add_uniform_buffer(light_uniform_buffer, GLOBAL_LIGHT);
@@ -86,122 +145,95 @@ pub fn init_global_light(ctx: &mut Context, global_light_uniforms: GlobalLightUn
     ctx.wrangler.frame_bind_group_handle = bg_handle;
 }
 
-pub fn init_light_resources(ctx: &mut Context) {
-    let shadow_sampler = ctx.device.create_sampler(&wgpu::SamplerDescriptor {
-        label: Some("shadow"),
-        address_mode_u: wgpu::AddressMode::ClampToEdge,
-        address_mode_v: wgpu::AddressMode::ClampToEdge,
-        address_mode_w: wgpu::AddressMode::ClampToEdge,
-        mag_filter: wgpu::FilterMode::Linear,
-        min_filter: wgpu::FilterMode::Linear,
-        mipmap_filter: wgpu::FilterMode::Nearest,
-        compare: None,
-        ..Default::default()
-    });
+pub fn init_global_shadow_pass<'a>(ctx: &mut Context<'a>) {
+    for i in 0..CASCADE_COUNT {
+        let pass_label = int_to_cascade(i);
+        // @TODO this needs to make it's own view per layer
+        let depth_texture_handle = ctx.wrangler.handle_to_texture(pass_label).unwrap();
+        let vertex_buffer_handle = ctx.wrangler.handle_to_vertex_buffer(SHADED).unwrap();
+        let index_buffer_handle = ctx.wrangler.handle_to_index_buffer(SHADED).unwrap();
 
-    let shadow_texture = ctx.device.create_texture(&wgpu::TextureDescriptor {
-        size: SHADOW_SIZE,
-        mip_level_count: 1,
-        sample_count: 1,
-        dimension: wgpu::TextureDimension::D2,
-        format: SHADOW_FORMAT,
-        usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
-        label: None,
-    });
-    let shadow_view = shadow_texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let bind_group_layout = ctx
+            .wrangler
+            .handle_to_bind_group_layout(GLOBAL_LIGHT_SHADOW)
+            .unwrap();
+        let bind_group = ctx.wrangler.handle_to_bind_group(pass_label).unwrap();
 
-    let shadow_texture = Texture {
-        texture: shadow_texture,
-        view: shadow_view,
-        sampler: shadow_sampler,
-        format: SHADOW_FORMAT,
-    };
+        let pass_bind_group_handle = Some(bind_group);
 
-    let lights_bind_group_layout =
-        ctx.device
-            .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::FRAGMENT | wgpu::ShaderStages::VERTEX,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
+        let color_attachment_ops = None;
 
-                    count: None,
-                }],
-                label: Some("lights bind group layout"),
-            });
+        let depth_ops = Some(wgpu::Operations {
+            load: wgpu::LoadOp::Clear(DEPTH_CLEAR),
+            store: true,
+        });
+        let depth_stencil_view_handle = Some(depth_texture_handle);
+        let push_constant_ranges = &[wgpu::PushConstantRange {
+            stages: wgpu::ShaderStages::VERTEX,
+            range: 0..16 * 4,
+        }];
 
-    let lights_uniform_buffer = ctx.device.create_buffer(&wgpu::BufferDescriptor {
-        label: Some("Light Uniform Buffer"),
-        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        mapped_at_creation: false,
-        size: LIGHT_UNIFORM_BUFFER_SIZE,
-    });
+        let pipeline_ctx = PipelineContext {
+            pass_bind_group_layout_handle: Some(bind_group_layout),
+            draw_call_bind_group_layout_handle: None,
 
-    let lights_bind_group = ctx.device.create_bind_group(&wgpu::BindGroupDescriptor {
-        layout: &lights_bind_group_layout,
-        entries: &[wgpu::BindGroupEntry {
-            binding: 0,
-            resource: lights_uniform_buffer.as_entire_binding(),
-        }],
-        label: None,
-    });
-
-    let shadow_bind_group_layout =
-        ctx.device
-            .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            multisampled: false,
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                ],
-                label: Some("uniform_bind_group_layout"),
-            });
-
-    let shadow_sampler_bind_group = ctx.device.create_bind_group(&wgpu::BindGroupDescriptor {
-        layout: &shadow_bind_group_layout,
-        entries: &[
-            wgpu::BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::TextureView(&shadow_texture.view),
+            push_constant_ranges,
+            vs_path: Some("bake_shadow.vert.spv"),
+            fs_path: Some("bake_shadow.frag.spv"),
+            vert_desc: crate::vertex::ShadedVertex::desc,
+            label: Some(pass_label),
+            fragment_targets: Some(vec![ColorTarget {
+                format_handle: None,
+                blend: Some(wgpu::BlendState::REPLACE),
+                write_mask: wgpu::ColorWrites::ALL,
+            }]),
+            primitive: wgpu::PrimitiveState {
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Cw,
+                cull_mode: Some(wgpu::Face::Back),
+                unclipped_depth: false,
+                conservative: false,
+                ..Default::default()
             },
-            wgpu::BindGroupEntry {
-                binding: 1,
-                resource: wgpu::BindingResource::Sampler(&shadow_texture.sampler),
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: pantheon::graphics::texture::Texture::DEPTH_FORMAT,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::Greater,
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+            }),
+            multisample: wgpu::MultisampleState {
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
             },
-        ],
-        label: Some("Shadow Sampler Bind Group"),
-    });
 
-    let _shadow_bind_group_layout_handle = ctx
-        .wrangler
-        .add_bind_group_layout(shadow_bind_group_layout, "shadow");
-    let _shadow_bind_group_handle = ctx
-        .wrangler
-        .add_bind_group(shadow_sampler_bind_group, "shadow");
-    let _shadow_texture_handle = ctx.wrangler.add_texture(shadow_texture, "shadow");
+            multiview: None,
+        };
 
-    let _lights_bind_group_layout_handle = ctx
-        .wrangler
-        .add_bind_group_layout(lights_bind_group_layout, "lights");
-    let _lights_bind_group_handle = ctx.wrangler.add_bind_group(lights_bind_group, "lights");
-    let _lights_uniform_buffer = ctx
-        .wrangler
-        .add_uniform_buffer(lights_uniform_buffer, "lights");
+        let pipelines = ctx.wrangler.create_pipelines(
+            &ctx.device,
+            &ctx.shader_context,
+            &ctx.surface_config,
+            &pipeline_ctx,
+        );
+
+        let color_attachment_view_handle = None;
+
+        let pass = Pass {
+            label: pass_label,
+            pipeline_ctx,
+            pipelines,
+            color_attachment_ops,
+            color_attachment_view_handle,
+            depth_ops,
+            stencil_ops: None,
+            depth_stencil_view_handle,
+            pass_bind_group_handle,
+            vertex_buffer_handle,
+            index_buffer_handle,
+        };
+
+        let _handle = ctx.wrangler.add_pass(pass, pass_label);
+    }
 }

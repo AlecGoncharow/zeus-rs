@@ -19,7 +19,7 @@ bitflags! {
     }
 }
 
-/* Soon TM
+/*
 bitflags! {
     #[rustfmt::skip]
     pub struct Passes: usize {

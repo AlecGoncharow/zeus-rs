@@ -15,7 +15,7 @@ pub fn init_shaded_resources<'a>(
     init_vert_index_buffers(ctx, label);
 
     let no_clip = Vec4::new_from_one(0);
-    // @NOTE this really out to just be `-water_height` but the small offset allows for the
+    // @NOTE this really ought to just be `-water_height` but the small offset allows for the
     // reflection to not have/not have as bad as a gap where it meets the terrain, this offset is
     // small enough that there should be minimal artifacting but still a bit of wiggle room for
     // lower waves

@@ -4,11 +4,6 @@ layout(location=0) in vec3 a_position;
 layout(location=1) in vec4 a_color;
 layout(location=2) in vec3 a_normal;
 
-//@TODO FIXME this should be passed in as uniform, shared with water
-//const vec3 LIGHT_DIR = vec3(20, -50, 20);
-
-//const float ambient = 0.2;
-
 layout(set=0, binding=0) uniform GlobalLight {
     vec3 direction;
     vec3 color;

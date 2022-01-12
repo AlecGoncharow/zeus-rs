@@ -59,6 +59,7 @@ impl GraphicsContext {
             let color_attachments: &[wgpu::RenderPassColorAttachment] =
                 if let Some(ops) = pass.color_attachment_ops {
                     let attach_view = if let Some(handle) = &pass.color_attachment_view_handle {
+                        // @TODO @FIXME this should be it's own view, no fetching should be needed
                         &wrangler.get_texture(handle).view
                     } else {
                         view
@@ -74,6 +75,7 @@ impl GraphicsContext {
                 };
 
             let depth_stencil_attachment = if let Some(handle) = &pass.depth_stencil_view_handle {
+                // @TODO @FIXME this should be it's own view, no fetching should be needed
                 let view = &wrangler.get_texture(handle).view;
                 Some(wgpu::RenderPassDepthStencilAttachment {
                     view,

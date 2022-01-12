@@ -55,6 +55,19 @@ pub fn init_camera_resources(ctx: &mut Context) {
         label: Some("Reflect Camera Bind Group"),
     });
 
+    /*
+    for i in 0..=CASCADE_COUNT {
+        let buffer =
+            ctx.device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some(format!(GLOBAL_LIGHT_SHADOW_FMT, i)),
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+                size: CAMERA_UNIFORM_BUFFER_SIZE,
+            });
+
+    }
+    */
+
     let _camera_bind_group_handle = ctx.wrangler.add_bind_group(camera_bind_group, CAMERA);
 
     let _camera_uniform_buffer = ctx

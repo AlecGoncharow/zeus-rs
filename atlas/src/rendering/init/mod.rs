@@ -4,6 +4,8 @@ pub mod shaded;
 pub mod texture;
 pub mod water;
 
+use self::prelude::GlobalLightUniforms;
+
 pub use super::*;
 pub use camera::*;
 pub use lights::*;
@@ -117,4 +119,22 @@ fn init_vert_index_buffers<'a>(ctx: &mut Context<'a>, label: &'a str) {
 
     let _vertex_buffer_handle = ctx.wrangler.add_vertex_buffer(shaded_vertex_buffer, label);
     let _index_buffer_handle = ctx.wrangler.add_index_buffer(shaded_index_buffer, label);
+}
+
+pub struct InitParams {
+    pub global_light_uniforms: GlobalLightUniforms,
+    pub water_height: f32,
+    pub refraction_offset: f32,
+}
+
+pub fn init<'a>(ctx: &mut Context<'a>, params: InitParams) {
+    init::init_shared(ctx);
+    init::init_global_light(ctx, params.global_light_uniforms);
+    init::init_camera_resources(ctx);
+    init::init_shaded_resources(ctx, "shaded", params.water_height, params.refraction_offset);
+    init::init_reflection_pass(ctx);
+    init::init_refraction_pass(ctx);
+    init::init_shaded_pass(ctx);
+    init::init_water_pass(ctx);
+    init::init_basic_textured_pass(ctx);
 }
