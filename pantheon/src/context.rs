@@ -63,6 +63,8 @@ impl<'a, 'winit> Context<'a> {
         #[cfg(not(target_os = "macos"))]
         features.set(wgpu::Features::POLYGON_MODE_POINT, true);
         features.set(wgpu::Features::PUSH_CONSTANTS, true);
+        features.set(wgpu::Features::ADDRESS_MODE_CLAMP_TO_BORDER, true);
+        features.set(wgpu::Features::DEPTH_CLIP_CONTROL, true);
 
         let (device, queue) = match block_on(adapter.request_device(
             &wgpu::DeviceDescriptor {

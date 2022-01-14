@@ -16,7 +16,10 @@ const SHADOW_SIZE: wgpu::Extent3d = wgpu::Extent3d {
 };
 */
 
-const GLOBAL_SHADOW_BUFFER_SIZE: wgpu::BufferAddress = (16 + 16) * 4;
+const GLOBAL_SHADOW_BAKE_BUFFER_SIZE: wgpu::BufferAddress =
+    std::mem::size_of::<ShadowBakeUniforms>() as u64;
+const GLOBAL_SHADOW_BUFFER_SIZE: wgpu::BufferAddress =
+    std::mem::size_of::<GlobalShadowUniforms>() as u64;
 
 const GLOBAL_LIGHT_SHADOW_SIZE: wgpu::Extent3d = wgpu::Extent3d {
     width: MAP_SIZE as u32,
@@ -26,6 +29,7 @@ const GLOBAL_LIGHT_SHADOW_SIZE: wgpu::Extent3d = wgpu::Extent3d {
 
 pub const GLOBAL_LIGHT: &'static str = "global_light";
 pub const GLOBAL_LIGHT_SHADOW: &'static str = "global_light_shadow";
+pub const GLOBAL_LIGHT_BAKE_SHADOW: &'static str = "global_light_shadow";
 pub const GLOBAL_LIGHT_SHADOW_FMT: &'static str = "global_light_shadow_{}";
 pub const GLOBAL_LIGHT_SHADOW_0: &'static str = "global_light_shadow_0";
 pub const GLOBAL_LIGHT_SHADOW_1: &'static str = "global_light_shadow_1";
@@ -64,7 +68,7 @@ pub fn init_global_light(ctx: &mut Context, global_light_uniforms: GlobalLightUn
         .device
         .create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some(GLOBAL_LIGHT),
-            usage: wgpu::BufferUsages::UNIFORM,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             contents: bytemuck::cast_slice(global_light_uniforms.as_bytes()),
         });
 
@@ -76,6 +80,15 @@ pub fn init_global_light(ctx: &mut Context, global_light_uniforms: GlobalLightUn
         }],
         label: Some(GLOBAL_LIGHT),
     });
+
+    let shadow_uniform_buffer = ctx.device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some(&GLOBAL_LIGHT_SHADOW),
+        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+        size: GLOBAL_SHADOW_BUFFER_SIZE,
+    });
+    ctx.wrangler
+        .add_uniform_buffer(shadow_uniform_buffer, GLOBAL_LIGHT_SHADOW);
 
     // this is samplers for shaded pass
     let texture = Texture::create_depth_texture_with_size(
@@ -119,7 +132,7 @@ pub fn init_global_light(ctx: &mut Context, global_light_uniforms: GlobalLightUn
             label: Some(&s),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
-            size: GLOBAL_SHADOW_BUFFER_SIZE,
+            size: GLOBAL_SHADOW_BAKE_BUFFER_SIZE,
         });
         let bg = ctx.device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &shadow_bgl,
@@ -143,7 +156,7 @@ pub fn init_global_light(ctx: &mut Context, global_light_uniforms: GlobalLightUn
     }
 
     ctx.wrangler
-        .add_bind_group_layout(shadow_bgl, GLOBAL_LIGHT_SHADOW);
+        .add_bind_group_layout(shadow_bgl, GLOBAL_LIGHT_BAKE_SHADOW);
 
     let _handle = ctx
         .wrangler
@@ -155,7 +168,7 @@ pub fn init_global_light(ctx: &mut Context, global_light_uniforms: GlobalLightUn
     ctx.wrangler.frame_bind_group_handle = bg_handle;
 }
 
-pub fn init_global_shadow_pass<'a>(ctx: &mut Context<'a>) {
+pub fn init_global_bake_shadow_pass<'a>(ctx: &mut Context<'a>) {
     for i in 0..CASCADE_COUNT {
         let pass_label = int_to_cascade(i);
         // @TODO this needs to make it's own view per layer
@@ -165,7 +178,7 @@ pub fn init_global_shadow_pass<'a>(ctx: &mut Context<'a>) {
 
         let bind_group_layout = ctx
             .wrangler
-            .handle_to_bind_group_layout(GLOBAL_LIGHT_SHADOW)
+            .handle_to_bind_group_layout(GLOBAL_LIGHT_BAKE_SHADOW)
             .unwrap();
         let bind_group = ctx.wrangler.handle_to_bind_group(pass_label).unwrap();
 
@@ -220,16 +233,20 @@ pub fn init_global_shadow_pass<'a>(ctx: &mut Context<'a>) {
                 strip_index_format: None,
                 front_face: wgpu::FrontFace::Cw,
                 cull_mode: Some(wgpu::Face::Back),
-                unclipped_depth: false,
+                unclipped_depth: true,
                 conservative: false,
                 ..Default::default()
             },
             depth_stencil: Some(wgpu::DepthStencilState {
                 format: pantheon::graphics::texture::Texture::DEPTH_FORMAT,
                 depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Greater,
+                depth_compare: wgpu::CompareFunction::GreaterEqual,
                 stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState::default(),
+                bias: wgpu::DepthBiasState {
+                    constant: 2, // https://github.com/gfx-rs/wgpu/blob/master/wgpu/examples/shadow/main.rs#L524
+                    slope_scale: 2.0,
+                    clamp: 0.0,
+                },
             }),
             multisample: wgpu::MultisampleState {
                 count: 1,

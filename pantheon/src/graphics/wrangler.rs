@@ -740,8 +740,6 @@ impl<'a> RenderWrangler<'a> {
                 );
             }
 
-            println!("[reload_shaders] {:#?} {:#?}", pass.label, layouts);
-
             pass.pipelines =
                 pipeline_ctx.create_pipelines(shader_context, &layouts, device, targets.as_ref());
         });

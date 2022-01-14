@@ -77,7 +77,7 @@ impl<'a> EntityManager<'a> {
         camera.z = -1.0;
         camera.w = 0.0;
 
-        let world = self.camera.transform * camera;
+        let world = self.camera.view.invert().unwrap() * camera;
 
         Some(world.truncate(Dim::W).make_unit_vector())
     }

@@ -304,7 +304,7 @@ impl Mat4 {
         let mut mat = Self::identity();
 
         mat.z.z = -0.5;
-        mat.w.z = -1.0;
+        mat.w.z = 0.5;
 
         mat
     }

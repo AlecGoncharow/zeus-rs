@@ -77,30 +77,38 @@ pub struct CameraUniforms {
     pub projection: Mat4,
     pub position: Vec3,
     _pad0: Padding32,
+    pub w: Vec3,
+    _pad1: Padding32,
     pub planes: Vec2,
+    _pad2: Padding64,
 }
 
 impl CameraUniforms {
-    pub fn new(view: Mat4, projection: Mat4, position: Vec3, planes: Vec2) -> Self {
+    pub fn new(view: Mat4, projection: Mat4, position: Vec3, w: Vec3, planes: Vec2) -> Self {
         Self {
             view,
             projection,
             position,
-            planes,
             _pad0: 0,
+            w,
+            _pad1: 0,
+            planes,
+            _pad2: 0,
         }
     }
 }
 impl AlignedGLSL for CameraUniforms {
     fn validate_alignment(&self) {
-        assert_eq!(64 + 64 + 12 + 4 + 8, std::mem::size_of::<Self>());
+        assert_eq!(
+            64 + 64 + 12 + 4 + 12 + 4 + 8 + 8,
+            std::mem::size_of::<Self>()
+        );
     }
 }
 
 impl Uniforms for GlobalLightUniforms {}
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
-
 pub struct GlobalLightUniforms {
     pub direction: Vec3,
     _pad0: Padding32,
@@ -111,7 +119,7 @@ pub struct GlobalLightUniforms {
 }
 impl AlignedGLSL for GlobalLightUniforms {
     fn validate_alignment(&self) {
-        assert_eq!(2 + 4 + 12 + 4 + 8 + 8, std::mem::size_of::<Self>());
+        assert_eq!(12 + 4 + 12 + 4 + 8 + 8, std::mem::size_of::<Self>());
     }
 }
 
@@ -124,6 +132,37 @@ impl GlobalLightUniforms {
             _pad0: 0,
             _pad1: 0,
             _pad2: 0,
+        }
+    }
+}
+
+impl Uniforms for GlobalShadowUniforms {}
+#[derive(Debug, Clone, Copy)]
+#[repr(C)]
+pub struct GlobalShadowUniforms {
+    pub shadow0: Mat4,
+    pub cascade_offsets: [Vec4; 3],
+    pub cascade_scales: [Vec4; 3],
+    pub cascade_planes: [Vec4; 3],
+}
+impl AlignedGLSL for GlobalShadowUniforms {
+    fn validate_alignment(&self) {
+        assert_eq!(16 + 12 + 12 + 12, std::mem::size_of::<Self>());
+    }
+}
+
+impl GlobalShadowUniforms {
+    pub fn new(
+        shadow0: Mat4,
+        cascade_offsets: [Vec4; 3],
+        cascade_scales: [Vec4; 3],
+        cascade_planes: [Vec4; 3],
+    ) -> Self {
+        Self {
+            shadow0,
+            cascade_offsets,
+            cascade_scales,
+            cascade_planes,
         }
     }
 }

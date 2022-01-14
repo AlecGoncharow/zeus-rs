@@ -210,6 +210,9 @@ pub fn recreate_water_sampler_bind_group(ctx: &mut Context) {
     let refraction = ctx.wrangler.find_texture(REFRACTION_TEXTURE);
     let refraction_depth = ctx.wrangler.find_texture(REFRACTION_DEPTH);
     let camera_buffer = ctx.wrangler.find_uniform_buffer(CAMERA);
+    let texture = ctx.wrangler.find_texture(GLOBAL_LIGHT_SHADOW);
+    let sampler = Texture::shadow_texture_sampler(&ctx.device);
+    let global_shadow_buffer = ctx.wrangler.find_uniform_buffer(GLOBAL_LIGHT_SHADOW);
 
     let texture_sampler_bind_group = ctx.device.create_bind_group(&wgpu::BindGroupDescriptor {
         layout: &texture_sampler_bind_group_layout,
@@ -235,6 +238,18 @@ pub fn recreate_water_sampler_bind_group(ctx: &mut Context) {
                 resource: wgpu::BindingResource::Sampler(&Texture::surface_texture_sampler(
                     &ctx.device,
                 )),
+            },
+            wgpu::BindGroupEntry {
+                binding: 5,
+                resource: global_shadow_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 6,
+                resource: wgpu::BindingResource::TextureView(&texture.view),
+            },
+            wgpu::BindGroupEntry {
+                binding: 7,
+                resource: wgpu::BindingResource::Sampler(&sampler),
             },
         ],
         label: Some(WATER),

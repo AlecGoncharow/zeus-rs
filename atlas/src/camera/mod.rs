@@ -36,7 +36,8 @@ pub struct Camera {
 
     pub projection: Mat4,
     pub view: Mat4,
-    pub transform: Mat4,
+    pub translation: Mat4,
+    pub translation_inv: Mat4,
 
     pub reflected_view: Mat4,
     pub u_r: Vec3,
@@ -100,13 +101,14 @@ impl Camera {
         let mut transform = uvw.mat4();
         transform.w = origin.vec4_with(1.0);
         */
-        let transform = view.invert().unwrap();
+        //let transform = view.invert().unwrap();
 
         let uvw_r = Mat3::new(u_r, v_r, w_r);
         let rotation = uvw_r.transpose().mat4();
 
         let negative_from = -1.0 * reflected_look_from;
-        let translation = Mat4::translation::<f32>(negative_from.into());
+        let translation = Mat4::translation::<f32>(origin.into());
+        let translation_inv = Mat4::translation::<f32>(negative_from.into());
         let reflected_view = rotation * translation;
 
         Self {
@@ -130,7 +132,8 @@ impl Camera {
 
             projection,
             view,
-            transform,
+            translation,
+            translation_inv,
 
             reflected_view,
             u_r,
@@ -157,11 +160,12 @@ impl Camera {
         */
 
         let negative_from = -1.0 * self.origin;
-        let translation = Mat4::translation::<f32>(negative_from.into());
+        self.translation_inv = Mat4::translation::<f32>(negative_from.into());
+        self.translation = Mat4::translation::<f32>(self.origin.into());
 
-        self.view = rotation * translation;
+        self.view = rotation * self.translation_inv;
 
-        self.transform = self.view.invert().unwrap();
+        //self.transform = self.view.invert().unwrap();
 
         self.view
     }

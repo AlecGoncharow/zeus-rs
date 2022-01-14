@@ -13,3 +13,4 @@ perf.data.old
 flamegraph/*.folded
 flamegraph/inferno-flamegraph
 *.svg
+*.link

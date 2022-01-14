@@ -80,7 +80,10 @@ struct State<'a> {
     reflected_camera_uniforms: CameraUniforms,
     handles: Handles<'a>,
     infinite_light: Infinite,
-    global_shadow_uniforms: [ShadowBakeUniforms; CASCADE_COUNT],
+    #[allow(dead_code)]
+    global_light_uniforms: GlobalLightUniforms,
+    global_shadow_uniforms: GlobalShadowUniforms,
+    global_shadow_bake_uniforms: [ShadowBakeUniforms; CASCADE_COUNT],
 
     //passes: [Pass<'a>; NUM_PASSES],
     #[allow(dead_code)]
@@ -166,6 +169,7 @@ impl<'a> EventHandler<'a> for State<'a> {
             let span = span!(Level::DEBUG, "dirty camera").entered();
             self.camera_uniforms.view = self.entity_manager.camera.update_view_matrix();
             self.camera_uniforms.position = self.entity_manager.camera.origin;
+            self.camera_uniforms.w = self.entity_manager.camera.w;
             self.camera_uniforms
                 .push(ctx, &self.handles.camera_uniforms);
 
@@ -173,13 +177,21 @@ impl<'a> EventHandler<'a> for State<'a> {
 
             self.infinite_light.update(&self.entity_manager.camera);
             for i in 0..CASCADE_COUNT {
-                self.global_shadow_uniforms[i].view =
+                self.global_shadow_bake_uniforms[i].view =
                     self.infinite_light.cascades[i].cascade_space_transform;
-                self.global_shadow_uniforms[i].projection =
+                self.global_shadow_bake_uniforms[i].projection =
                     self.infinite_light.cascades[i].projection;
 
-                self.global_shadow_uniforms[i].push(ctx, &self.handles.global_shadow_uniforms[i]);
+                self.global_shadow_bake_uniforms[i]
+                    .push(ctx, &self.handles.global_shadow_bake_uniforms[i]);
             }
+
+            self.global_shadow_uniforms.shadow0 = self.infinite_light.shadow0;
+            self.global_shadow_uniforms.cascade_offsets = self.infinite_light.cascade_offsets;
+            self.global_shadow_uniforms.cascade_scales = self.infinite_light.cascade_scales;
+            self.global_shadow_uniforms.cascade_planes = self.infinite_light.cascade_planes;
+            self.global_shadow_uniforms
+                .push(ctx, &self.handles.global_shadow_uniforms);
 
             // @NOTE reflected camera uniform's position is not updated ever because
             // it is only used for the reflection pass, which doesn't care about the
@@ -189,6 +201,7 @@ impl<'a> EventHandler<'a> for State<'a> {
             self.reflected_camera_uniforms.view =
                 self.entity_manager.camera.update_reflected_view_matrix();
             self.reflected_camera_uniforms.projection = self.entity_manager.camera.projection;
+            self.reflected_camera_uniforms.w = self.entity_manager.camera.w_r;
             self.reflected_camera_uniforms
                 .push(ctx, &self.handles.reflected_camera_uniforms);
 
@@ -310,15 +323,13 @@ impl<'a> EventHandler<'a> for State<'a> {
 
         self.infinite_light.resize(&self.entity_manager.camera);
         for i in 0..CASCADE_COUNT {
-            self.global_shadow_uniforms[i].view =
+            self.global_shadow_bake_uniforms[i].view =
                 self.infinite_light.cascades[i].cascade_space_transform;
-            self.global_shadow_uniforms[i].projection = self.infinite_light.cascades[i].projection;
+            self.global_shadow_bake_uniforms[i].projection =
+                self.infinite_light.cascades[i].projection;
 
-            self.global_shadow_uniforms[i].push(ctx, &self.handles.global_shadow_uniforms[i]);
-            println!(
-                "[SHADOW_UNIFORMS] {:#?} {:#?}",
-                self.global_shadow_uniforms[i].projection, self.global_shadow_uniforms[i].view
-            );
+            self.global_shadow_bake_uniforms[i]
+                .push(ctx, &self.handles.global_shadow_bake_uniforms[i]);
         }
 
         self.reflected_camera_uniforms.projection = self.entity_manager.camera.projection;
@@ -478,11 +489,35 @@ async fn main() {
     let ctx_span = span!(Level::INFO, "Context setup").entered();
     let shader_path = std::path::PathBuf::from("game-client/assets/shaders");
     let (mut ctx, event_loop) = Context::new(
-        wgpu::PresentMode::Immediate,
+        wgpu::PresentMode::Mailbox,
         Color::new(135, 206, 235).into(),
         shader_path,
     );
     ctx_span.exit();
+
+    let mut camera = Camera::new(
+        (20, 15, 0).into(),
+        Vec3::new_from_one(0),
+        (0, 1, 0).into(),
+        90.0,
+        (
+            ctx.gfx_context.window_dims.width,
+            ctx.gfx_context.window_dims.height,
+        ),
+        (0.8, 100.0),
+    );
+    let direction = Vec3::new(3, -1, 0).make_unit_vector();
+    let color = Vec3::new(1, 0.95, 0.95);
+    camera.update_orientation();
+
+    let infinite = Infinite::new(&camera, direction, color.into());
+
+    let global_shadow_uniforms = GlobalShadowUniforms::new(
+        infinite.shadow0,
+        infinite.cascade_offsets,
+        infinite.cascade_scales,
+        infinite.cascade_planes,
+    );
 
     // @NOTE this has to be 0 unless we want out camera to be paramertized against the water's
     // height which I think is a bit much, probably easier to just approach life as water == 0
@@ -490,34 +525,23 @@ async fn main() {
     let water_height = 0.;
     let terrain_height = 3.;
     let world_scale = 2.0;
-    let direction = Vec3::new(1, -1, 1).make_unit_vector();
-    let color = Vec3::new(1, 0.95, 0.95);
+
     let bias = Vec2::new(0.3, 0.8);
-    let global_light = GlobalLightUniforms::new(direction, color, bias);
+    let global_light_uniforms = GlobalLightUniforms::new(direction, color, bias);
 
     let init_span = span!(Level::INFO, "renderer init").entered();
 
     let init_params = InitParams {
-        global_light_uniforms: global_light,
+        global_light_uniforms,
         water_height,
         refraction_offset: 1.0,
     };
     init::init(&mut ctx, init_params);
 
     init_span.exit();
-    /*
-    let passes = unsafe {
-        let mut arr: [MaybeUninit<Pass>] = MaybeUninit::uninit().assume_init();
-
-        std::slice::bytes::copy_memory(&ctx.wrangler.passes, &mut arr);
-
-        std::mem::transmute(arr)
-    };
-    */
 
     let depth_texture_handle = ctx.wrangler.handle_to_texture("depth").expect(":)");
 
-    //populate_grid(&mut grid, 50, 15.);
     println!(
         "{:#?}",
         (
@@ -542,6 +566,8 @@ async fn main() {
     water.center = terrain.center - (0., terrain_height, 0.).into();
     water.scale = world_scale;
     water.register(&mut ctx);
+
+    let entity_manager = EntityManager::new(camera, terrain, water);
 
     /*
     let test_bytes = include_bytes!("../../dog.png");
@@ -597,33 +623,10 @@ async fn main() {
     */
     */
 
-    let mut entity_manager = EntityManager::new(
-        Camera::new(
-            (20, 20, 20).into(),
-            Vec3::new_from_one(0),
-            (0, 1, 0).into(),
-            90.0,
-            (
-                ctx.gfx_context.window_dims.width,
-                ctx.gfx_context.window_dims.height,
-            ),
-            (0.8, 100.0),
-        ),
-        terrain,
-        water,
-    );
-
     //@TODO FIXME currently the initial mirrored view matrix is wrong, don't care because it gets
     //"fixed" when orientation is updated
-    entity_manager.camera.update_orientation();
 
-    let infinite = Infinite::new(
-        &entity_manager.camera,
-        global_light.direction,
-        global_light.color.into(),
-    );
-
-    let global_shadow_uniforms: [ShadowBakeUniforms; CASCADE_COUNT] = {
+    let global_shadow_bake_uniforms: [ShadowBakeUniforms; CASCADE_COUNT] = {
         let mut arr: [MaybeUninit<ShadowBakeUniforms>; CASCADE_COUNT] =
             unsafe { MaybeUninit::uninit().assume_init() };
 
@@ -632,21 +635,16 @@ async fn main() {
                 cascade.projection,
                 cascade.cascade_space_transform,
             ));
-
-            println!(
-                "[INIT] [SHADOW_UNIFORMS] {:#?} {:#?}",
-                cascade.projection, cascade.cascade_space_transform
-            );
         }
 
         unsafe { std::mem::transmute(arr) }
     };
 
-    let global_shadow_uniform_handles = {
+    let global_shadow_bake_uniform_handles = {
         let mut arr: [MaybeUninit<BufferHandle>; CASCADE_COUNT] =
             unsafe { MaybeUninit::uninit().assume_init() };
 
-        for (i, uniform) in global_shadow_uniforms.iter().enumerate() {
+        for (i, uniform) in global_shadow_bake_uniforms.iter().enumerate() {
             let label = int_to_cascade(i);
             let handle = ctx.wrangler.handle_to_uniform_buffer(label).unwrap();
             uniform.push(&mut ctx, &handle);
@@ -660,6 +658,7 @@ async fn main() {
         entity_manager.camera.view,
         entity_manager.camera.projection,
         entity_manager.camera.origin,
+        entity_manager.camera.w,
         Vec2::new(
             entity_manager.camera.near_plane,
             entity_manager.camera.far_plane,
@@ -669,6 +668,7 @@ async fn main() {
         entity_manager.camera.reflected_view,
         entity_manager.camera.projection,
         entity_manager.camera.origin,
+        entity_manager.camera.w_r,
         Vec2::new(
             entity_manager.camera.near_plane,
             entity_manager.camera.far_plane,
@@ -691,10 +691,19 @@ async fn main() {
             .handle_to_texture(REFRACTION_TEXTURE)
             .expect(":)"),
         shaded_pass: ctx.wrangler.handle_to_pass("shaded").expect(":)"),
-        global_shadow_uniforms: global_shadow_uniform_handles,
+        global_light_uniform: ctx
+            .wrangler
+            .handle_to_uniform_buffer(GLOBAL_LIGHT)
+            .expect(":)"),
+        global_shadow_uniforms: ctx
+            .wrangler
+            .handle_to_uniform_buffer(GLOBAL_LIGHT_SHADOW)
+            .expect(":)"),
+        global_shadow_bake_uniforms: global_shadow_bake_uniform_handles,
     };
     camera_uniforms.push(&mut ctx, &handles.camera_uniforms);
     reflected_camera_uniforms.push(&mut ctx, &handles.reflected_camera_uniforms);
+    global_shadow_uniforms.push(&mut ctx, &handles.global_shadow_uniforms);
 
     let mut my_game = State {
         frame: 0,
@@ -709,7 +718,9 @@ async fn main() {
         handles,
 
         infinite_light: infinite,
+        global_light_uniforms,
         global_shadow_uniforms,
+        global_shadow_bake_uniforms,
 
         tracing_guard,
     };
@@ -719,7 +730,7 @@ async fn main() {
     ctx.set_projection(my_game.entity_manager.camera.projection);
     */
     let cube =
-        atlas::entity::cube::Cuboid::cube(5.0, (0, 10, 0).into(), None, VertexKind::Shaded, None);
+        atlas::entity::cube::Cuboid::cube(5.0, (0, 15, 0).into(), None, VertexKind::Shaded, None);
     my_game
         .entity_manager
         .push_entity(&mut ctx, EntityKind::from(cube));

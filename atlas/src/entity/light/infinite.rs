@@ -5,24 +5,13 @@ use pantheon::math::prelude::*;
 use pantheon::Color;
 
 pub const CASCADE_COUNT: usize = 4;
-pub const A_DISTS: [f32; CASCADE_COUNT] = [0., 10., 50., 200.];
-pub const B_DISTS: [f32; CASCADE_COUNT] = [25., 100., 300., 500.];
+//pub const A_DISTS: [f32; CASCADE_COUNT] = [0., 10., 40., 100.];
+//pub const B_DISTS: [f32; CASCADE_COUNT] = [15., 50., 120., 320.];
+pub const A_DISTS: [f32; CASCADE_COUNT] = [0., 40., 100., 280.];
+pub const B_DISTS: [f32; CASCADE_COUNT] = [50., 120., 320., 600.];
+//pub const A_DISTS: [f32; CASCADE_COUNT] = [0., 80., 200., 560.];
+//pub const B_DISTS: [f32; CASCADE_COUNT] = [100., 240., 640., 1200.];
 pub const MAP_SIZE: f32 = 1024.;
-
-/*
-* let d = (verts[0] - verts[6])
-           .magnitude()
-           .max((verts[4] - verts[6]).magnitude())
-           .ceil();
-   /// 8.73
-   pub fn pos(&self, t: f32) -> Vec3 {
-       Vec3::new(
-           ((self.x_max + self.x_min) / (2.0 * t)).floor() * t,
-           ((self.y_max + self.y_min) / (2.0 * t)).floor() * t,
-           self.z_min,
-       )
-   }
- */
 
 #[derive(Debug, Clone, Copy)]
 pub struct BoundingBox {
@@ -77,9 +66,10 @@ impl BoundingBox {
 
     #[inline]
     pub fn map_size(&self) -> f32 {
-        (self.verts[0] - self.verts[6])
+        //@NOTE per 8.13 the vert subbed from 0 and 4 should be flipped in both signs
+        (self.verts[0] - self.verts[7])
             .magnitude()
-            .max((self.verts[4] - self.verts[6]).magnitude())
+            .max((self.verts[4] - self.verts[7]).magnitude())
             .ceil()
     }
 }
@@ -199,10 +189,10 @@ impl Cascade {
         projection.y.y = 2.0 / d;
         projection.z.z = 1.0 / (min_max.z_max - min_max.z_min);
 
-        let translation = Mat4::translation::<f32>((-1.0f32 * s).into());
-        let cascade_space_transform = transpose_light_rotation * translation;
-        //let mut cascade_space_transform = transpose_light_rotation;
-        //cascade_space_transform.w = (-1.0f32 * s).vec4_with(1.0);
+        //let translation = Mat4::translation::<f32>((-1.0f32 * s).into());
+        //let cascade_space_transform = transpose_light_rotation * translation;
+        let mut cascade_space_transform = transpose_light_rotation;
+        cascade_space_transform.w = (-1.0f32 * s).vec4_with(1.0);
 
         Self {
             bounding_box,
@@ -228,10 +218,10 @@ impl Cascade {
         self.projection.y.y = 2.0 / self.d;
         self.projection.z.z = 1.0 / (self.min_max.z_max - self.min_max.z_min);
 
-        let translation = Mat4::translation::<f32>((-1.0f32 * self.s).into());
-        self.cascade_space_transform = transpose_light_rotation * translation
-        //self.cascade_space_transform = transpose_light_rotation;
-        //self.cascade_space_transform.w = (-1.0f32 * self.s).vec4_with(1.0);
+        //let translation = Mat4::translation::<f32>((-1.0f32 * self.s).into());
+        //self.cascade_space_transform = transpose_light_rotation * translation
+        self.cascade_space_transform = transpose_light_rotation;
+        self.cascade_space_transform.w = (-1.0f32 * self.s).vec4_with(1.0);
     }
 
     pub fn resize(&mut self, aspect_ratio: f32, fovy: f32) {
@@ -255,6 +245,15 @@ pub struct Infinite {
     pub uvw: Mat3,
     pub transform: Mat4,
     pub transform_transpose: Mat4,
+
+    /// 8.81
+    pub shadow0: Mat4,
+    /// 8.83
+    pub cascade_offsets: [Vec4; 3],
+    pub cascade_scales: [Vec4; 3],
+    /// 8.75 - 8.76
+    pub cascade_planes: [Vec4; 3],
+
     /// 8.62
     pub light_space_transform: Mat4,
 
@@ -265,22 +264,25 @@ pub struct Infinite {
 
 impl Infinite {
     pub fn new(camera: &Camera, direction: Vec3, color: Color) -> Self {
-        let mut w = direction.unit_vector();
-        w.y *= -1.0;
-
-        let u = w.cross(&camera.world_up).unit_vector();
+        let w = -1.0 * direction.unit_vector();
+        //w.y *= -1.0;
+        let u = if w.dot(&camera.world_up) == 1.0 {
+            (1, 0, 0).into()
+        } else {
+            w.cross(&camera.world_up).unit_vector()
+        };
         let v = u.cross(&w).unit_vector();
         let uvw = Mat3::new(u, v, w);
 
         let transform = uvw.mat4();
         let transform_transpose = uvw.transpose().mat4();
 
-        let light_space_transform = transform_transpose * camera.transform;
+        let light_space_transform = transform_transpose * camera.translation;
 
         let fovy = camera.vfov;
         let aspect_ratio = camera.aspect;
 
-        let cascades = {
+        let cascades: [Cascade; 4] = {
             let mut arr: [MaybeUninit<Cascade>; CASCADE_COUNT] =
                 unsafe { MaybeUninit::uninit().assume_init() };
 
@@ -294,6 +296,57 @@ impl Infinite {
             unsafe { std::mem::transmute(arr) }
         };
 
+        let shadow0 = {
+            let cascade0 = &cascades[0];
+            let mut project = Mat4::identity();
+            project.x.x = 1.0 / cascade0.d;
+            project.y.y = -1.0 / cascade0.d;
+            project.z.z = 1.0 / (cascade0.min_max.z_max - cascade0.min_max.z_min);
+            project.w.x = 0.5;
+            project.w.y = 0.5;
+
+            project * cascade0.cascade_space_transform
+        };
+
+        let (cascade_offsets, cascade_scales, cascade_planes) = {
+            let mut offsets: [MaybeUninit<Vec4>; CASCADE_COUNT - 1] =
+                unsafe { MaybeUninit::uninit().assume_init() };
+            let mut scales: [MaybeUninit<Vec4>; CASCADE_COUNT - 1] =
+                unsafe { MaybeUninit::uninit().assume_init() };
+            let mut planes: [MaybeUninit<Vec4>; CASCADE_COUNT - 1] =
+                unsafe { MaybeUninit::uninit().assume_init() };
+
+            let cascade0 = &cascades[0];
+            for (i, cascade) in cascades.iter().skip(1).enumerate() {
+                offsets[i].write(Vec4::new(
+                    ((cascade0.s.x - cascade.s.x) / cascade.d) - (cascade0.d / (2.0 * cascade.d))
+                        + 0.5,
+                    ((cascade0.s.y - cascade.s.y) / cascade.d) - (cascade0.d / (2.0 * cascade.d))
+                        + 0.5,
+                    (cascade0.s.z - cascade.s.z) / (cascade.min_max.z_max - cascade.min_max.z_min),
+                    0.0,
+                ));
+
+                scales[i].write(Vec4::new(
+                    cascade0.d / cascade.d,
+                    cascade0.d / cascade.d,
+                    (cascade0.min_max.z_max - cascade0.min_max.z_min)
+                        / (cascade.min_max.z_max - cascade.min_max.z_min),
+                    0.0,
+                ));
+
+                // @NOTE might need to be negative camera origin
+                let f = camera
+                    .w
+                    .vec4_with((-1.0 * camera.w).dot(&camera.origin) - A_DISTS[i + 1]);
+                // @NOTE this is uh wonky indexing cuz im lazy, should be i - 1 then i
+                let scalar = 1.0 / (B_DISTS[i] - A_DISTS[i + 1]);
+                planes[i].write(scalar * f);
+            }
+
+            unsafe { std::mem::transmute((offsets, scales, planes)) }
+        };
+
         Self {
             direction,
             world_up: camera.world_up,
@@ -305,17 +358,58 @@ impl Infinite {
             transform_transpose,
             light_space_transform,
 
+            shadow0,
+            cascade_offsets,
+            cascade_scales,
+            cascade_planes,
+
             cascades,
             color,
         }
     }
 
     pub fn update(&mut self, camera: &Camera) {
-        self.light_space_transform = self.transform_transpose * camera.transform;
+        self.light_space_transform = self.transform_transpose * camera.translation;
 
         self.cascades.iter_mut().for_each(|cascade| {
             cascade.update(self.transform_transpose, &self.light_space_transform)
         });
+
+        self.shadow0 = {
+            let cascade0 = &self.cascades[0];
+            let mut project = Mat4::identity();
+            project.x.x = 1.0 / cascade0.d;
+            project.y.y = -1.0 / cascade0.d;
+            project.z.z = 1.0 / (cascade0.min_max.z_max - cascade0.min_max.z_min);
+            project.w.x = 0.5;
+            project.w.y = 0.5;
+
+            project * cascade0.cascade_space_transform
+        };
+        let cascade0 = &self.cascades[0];
+        for (i, cascade) in self.cascades.iter().skip(1).enumerate() {
+            self.cascade_offsets[i] = Vec4::new(
+                ((cascade0.s.x - cascade.s.x) / cascade.d) - (cascade0.d / (2.0 * cascade.d)) + 0.5,
+                ((cascade0.s.y - cascade.s.y) / cascade.d) - (cascade0.d / (2.0 * cascade.d)) + 0.5,
+                (cascade0.s.z - cascade.s.z) / (cascade.min_max.z_max - cascade.min_max.z_min),
+                0.0,
+            );
+
+            self.cascade_scales[i] = Vec4::new(
+                cascade0.d / cascade.d,
+                cascade0.d / cascade.d,
+                (cascade0.min_max.z_max - cascade0.min_max.z_min)
+                    / (cascade.min_max.z_max - cascade.min_max.z_min),
+                0.0,
+            );
+
+            let f = camera
+                .w
+                .vec4_with((-1.0 * camera.w).dot(&camera.origin) - A_DISTS[i + 1]);
+            // @NOTE this is uh wonky indexing cuz im lazy, should be i - 1 then i
+            let scalar = 1.0 / (B_DISTS[i] - A_DISTS[i + 1]);
+            self.cascade_planes[i] = scalar * f;
+        }
     }
 
     pub fn resize(&mut self, camera: &Camera) {
