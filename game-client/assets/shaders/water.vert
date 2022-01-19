@@ -18,19 +18,19 @@ layout(set=0, binding=0) uniform GlobalLight {
     vec2 bias;
 } global_light;
 
+layout(set=0, binding=1) uniform GlobalShadow {
+    mat4 shadow0;
+    vec3[3] cascade_offsets;
+    vec3[3] cascade_scales;
+    vec4[3] cascade_planes;
+} global_shadow;
+
 layout(set=1, binding=0) uniform Camera {
     mat4 view;
     mat4 projection;
     vec3 position;
     vec2 planes;
 } camera;
-
-layout(set=1, binding=5) uniform GlobalShadow {
-    mat4 shadow0;
-    vec3[3] cascade_offsets;
-    vec3[3] cascade_scales;
-    vec3[3] cascade_planes;
-} global_shadow;
 
 layout(set=2, binding=0) uniform Model {
     mat4 model;
@@ -50,7 +50,6 @@ layout (location=6) out float texel_depth;
 layout (location=7) out vec4 v_cascade_coord_0;
 layout (location=8) out float v_shadow_bias;
 layout (location=9) out vec4 v_camera_space;
-
 
 const float min_bias = 0.005;
 

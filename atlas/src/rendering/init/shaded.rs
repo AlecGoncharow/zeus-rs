@@ -46,7 +46,6 @@ pub fn init_shaded_resources<'a>(
 
     let camera_buffer = ctx.wrangler.find_uniform_buffer(CAMERA);
     let camera_reflect_buffer = ctx.wrangler.find_uniform_buffer(CAMERA_REFLECT);
-    let global_shadow_buffer = ctx.wrangler.find_uniform_buffer(GLOBAL_LIGHT_SHADOW);
 
     let shaded_bind_group_layout =
         ctx.device
@@ -74,39 +73,9 @@ pub fn init_shaded_resources<'a>(
 
                         count: None,
                     },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 2,
-                        visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
-                        },
-
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 3,
-                        visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            multisampled: false,
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                            view_dimension: wgpu::TextureViewDimension::D2Array,
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 4,
-                        visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
-                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                        count: None,
-                    },
                 ],
                 label: Some(SHADED),
             });
-
-    let texture = ctx.wrangler.find_texture(GLOBAL_LIGHT_SHADOW);
-    let sampler = Texture::shadow_texture_sampler(&ctx.device);
 
     let shaded_clip_plane_bind_group = ctx.device.create_bind_group(&wgpu::BindGroupDescriptor {
         layout: &shaded_bind_group_layout,
@@ -118,18 +87,6 @@ pub fn init_shaded_resources<'a>(
             wgpu::BindGroupEntry {
                 binding: 1,
                 resource: shaded_clip_plane_uniform_buffer.as_entire_binding(),
-            },
-            wgpu::BindGroupEntry {
-                binding: 2,
-                resource: global_shadow_buffer.as_entire_binding(),
-            },
-            wgpu::BindGroupEntry {
-                binding: 3,
-                resource: wgpu::BindingResource::TextureView(&texture.view),
-            },
-            wgpu::BindGroupEntry {
-                binding: 4,
-                resource: wgpu::BindingResource::Sampler(&sampler),
             },
         ],
         label: Some("shaded Bind Group"),
@@ -147,18 +104,6 @@ pub fn init_shaded_resources<'a>(
                     binding: 1,
                     resource: reflection_clip_plane_uniform_buffer.as_entire_binding(),
                 },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: global_shadow_buffer.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 3,
-                    resource: wgpu::BindingResource::TextureView(&texture.view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 4,
-                    resource: wgpu::BindingResource::Sampler(&sampler),
-                },
             ],
             label: Some("reflect Bind Group"),
         });
@@ -174,18 +119,6 @@ pub fn init_shaded_resources<'a>(
                 wgpu::BindGroupEntry {
                     binding: 1,
                     resource: refraction_clip_plane_uniform_buffer.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: global_shadow_buffer.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 3,
-                    resource: wgpu::BindingResource::TextureView(&texture.view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 4,
-                    resource: wgpu::BindingResource::Sampler(&sampler),
                 },
             ],
             label: Some("refraction Bind Group"),
@@ -253,6 +186,7 @@ pub fn init_shaded_pass<'a>(ctx: &'a mut Context) -> PassHandle<'a> {
     let pipeline_ctx = PipelineContext {
         pass_bind_group_layout_handle: Some(clip_plane_bind_group_layout),
         draw_call_bind_group_layout_handle: None,
+        frame_bind_group_layout_handle_override: None,
         push_constant_ranges,
         vs_path: Some("shaded.vert.spv"),
         fs_path: Some("shaded.frag.spv"),
@@ -302,10 +236,12 @@ pub fn init_shaded_pass<'a>(ctx: &'a mut Context) -> PassHandle<'a> {
         color_attachment_view_handle: None,
         depth_ops,
         stencil_ops: None,
+        viewport: None,
         depth_stencil_view,
         pass_bind_group_handle,
         vertex_buffer_handle,
         index_buffer_handle,
+        frame_bind_group_handle_override: None,
     };
 
     let handle = ctx.wrangler.add_pass(pass, pass_label);

@@ -9,6 +9,7 @@ use self::prelude::GlobalLightUniforms;
 pub use super::*;
 pub use camera::*;
 pub use lights::*;
+use pantheon::wrangler::PASS_PADDING;
 pub use shaded::*;
 pub use texture::*;
 pub use water::*;
@@ -31,9 +32,16 @@ pub fn init_shared(ctx: &mut Context) {
             entries: &[],
             label: Some("padding for no pass bgl and some draw call bgl"),
         });
+    let padding_bg = ctx.device.create_bind_group(&wgpu::BindGroupDescriptor {
+        layout: &padding_bgl,
+        entries: &[],
+        label: Some("padding Bind Group"),
+    });
+
     let _handle = ctx
         .wrangler
-        .add_bind_group_layout(padding_bgl, "pass_padding");
+        .add_bind_group_layout(padding_bgl, PASS_PADDING);
+    let _handle = ctx.wrangler.add_bind_group(padding_bg, PASS_PADDING);
 
     let buffer_bgl = ctx
         .device

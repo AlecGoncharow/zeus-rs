@@ -24,6 +24,19 @@ layout(set=0, binding=0) uniform GlobalLight {
     vec2 bias;
 } global_light;
 
+layout(set=0, binding=1) uniform GlobalShadow {
+    mat4 shadow0;
+    vec3[3] cascade_offsets;
+    vec3[3] cascade_scales;
+    vec3[3] cascade_planes;
+} global_shadow;
+
+layout(set=0, binding=2)
+    uniform texture2D shadow_texture;
+
+layout(set=0, binding=3)
+    uniform sampler shadow_sampler;
+
 layout(set=1, binding=0) uniform Camera {
     mat4 view;
     mat4 projection;
@@ -42,19 +55,6 @@ layout(set=1, binding=3)
 
 layout(set=1, binding=4)
     uniform sampler color_sampler;
-
-layout(set=1, binding=5) uniform GlobalShadow {
-    mat4 shadow0;
-    vec3[3] cascade_offsets;
-    vec3[3] cascade_scales;
-    vec3[3] cascade_planes;
-} global_shadow;
-
-layout(set=1, binding=6)
-    uniform texture2DArray shadow_texture;
-
-layout(set=1, binding=7)
-    uniform sampler shadow_sampler;
 
 layout (location=0) out vec4 f_color;
 
@@ -108,11 +108,14 @@ const float[4] cascade_dist = float[4](50, 120, 320, 600);
 
 // 8.83
 float CalculateInfiniteShadow(vec4 homogenous_coords) {
-    vec3 p1, p2;
+    vec2 point;
     float shadow = 0;
     float pcf_depth;
     float projection_correction = 1.0 / homogenous_coords.w;
     vec3 cascade_coord_0 = homogenous_coords.xyz * projection_correction; //+ vec2(0.5, 0.5); 
+    float depth = cascade_coord_0.z;
+    vec2 shadow_coord = cascade_coord_0.xy;
+    /*
     vec3 cascade_coord_1 =  cascade_coord_0 * global_shadow.cascade_scales[0] + global_shadow.cascade_offsets[0];
     vec3 cascade_coord_2 =  cascade_coord_0 * global_shadow.cascade_scales[1] + global_shadow.cascade_offsets[1];
     vec3 cascade_coord_3 =  cascade_coord_0 * global_shadow.cascade_scales[2] + global_shadow.cascade_offsets[2];
@@ -127,8 +130,7 @@ float CalculateInfiniteShadow(vec4 homogenous_coords) {
         }
     }
     
-    float depth;
-    vec2 shadow_coord;
+
     switch (layer) {
         case 0:
             depth = cascade_coord_0.z;
@@ -150,28 +152,28 @@ float CalculateInfiniteShadow(vec4 homogenous_coords) {
             depth = cascade_coord_0.z;
             shadow_coord = cascade_coord_0.xy;
     }
+    */
 
-    vec3 point = vec3(shadow_coord, layer);
     float shadow_bias = v_shadow_bias;
 
     point.xy = shadow_coord;
-    pcf_depth = texture(sampler2DArray(shadow_texture, shadow_sampler), point).r;
+    pcf_depth = texture(sampler2D(shadow_texture, shadow_sampler), point).r;
     shadow += depth + shadow_bias > pcf_depth ? 1.0 : 0.0;
     
     point.xy = shadow_coord + shadow_offset_0.xy;
-    pcf_depth = texture(sampler2DArray(shadow_texture, shadow_sampler), point).r;
+    pcf_depth = texture(sampler2D(shadow_texture, shadow_sampler), point).r;
     shadow += depth + shadow_bias > pcf_depth ? 1.0 : 0.0;
 
     point.xy = shadow_coord + shadow_offset_0.zw;
-    pcf_depth = texture(sampler2DArray(shadow_texture, shadow_sampler), point).r;
+    pcf_depth = texture(sampler2D(shadow_texture, shadow_sampler), point).r;
     shadow += depth + shadow_bias > pcf_depth ? 1.0 : 0.0;
 
     point.xy = shadow_coord + shadow_offset_1.xy;
-    pcf_depth = texture(sampler2DArray(shadow_texture, shadow_sampler), point).r;
+    pcf_depth = texture(sampler2D(shadow_texture, shadow_sampler), point).r;
     shadow += depth + shadow_bias > pcf_depth ? 1.0 : 0.0;
 
     point.xy = shadow_coord + shadow_offset_1.zw;
-    pcf_depth = texture(sampler2DArray(shadow_texture, shadow_sampler), point).r;
+    pcf_depth = texture(sampler2D(shadow_texture, shadow_sampler), point).r;
     shadow += depth + shadow_bias > pcf_depth ? 1.0 : 0.0;
 
 

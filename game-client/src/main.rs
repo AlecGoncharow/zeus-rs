@@ -42,6 +42,8 @@ use hermes::tokio;
 
 use pantheon::wgpu;
 
+const PRESENT_MODE: wgpu::PresentMode = wgpu::PresentMode::Immediate;
+
 // tracing
 use std::fs::File;
 use std::io::BufWriter;
@@ -488,11 +490,8 @@ async fn main() {
 
     let ctx_span = span!(Level::INFO, "Context setup").entered();
     let shader_path = std::path::PathBuf::from("game-client/assets/shaders");
-    let (mut ctx, event_loop) = Context::new(
-        wgpu::PresentMode::Mailbox,
-        Color::new(135, 206, 235).into(),
-        shader_path,
-    );
+    let (mut ctx, event_loop) =
+        Context::new(PRESENT_MODE, Color::new(135, 206, 235).into(), shader_path);
     ctx_span.exit();
 
     let mut camera = Camera::new(

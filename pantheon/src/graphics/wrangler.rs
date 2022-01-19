@@ -699,8 +699,17 @@ impl<'a> RenderWrangler<'a> {
 
         self.passes.iter_mut().for_each(|pass| {
             let mut layouts = Vec::with_capacity(3);
-            layouts.push(frame_bgl);
             let pipeline_ctx = &pass.pipeline_ctx;
+
+            let frame_layout;
+            if let Some(handle) = pipeline_ctx.frame_bind_group_layout_handle_override {
+                frame_layout = &bind_group_layouts[handle.idx];
+                #[cfg(debug_assertions)]
+                assert_eq!(frame_layout.label, handle.label);
+                layouts.push(&frame_layout.entry);
+            } else {
+                layouts.push(frame_bgl);
+            }
 
             let pass_layout;
             if let Some(handle) = &pipeline_ctx.pass_bind_group_layout_handle {
@@ -762,7 +771,15 @@ impl<'a> RenderWrangler<'a> {
 
         let mut layouts = Vec::with_capacity(3);
 
-        layouts.push(frame_bgl);
+        let frame_layout;
+        if let Some(handle) = pipeline_ctx.frame_bind_group_layout_handle_override {
+            frame_layout = &bind_group_layouts[handle.idx];
+            #[cfg(debug_assertions)]
+            assert_eq!(frame_layout.label, handle.label);
+            layouts.push(&frame_layout.entry);
+        } else {
+            layouts.push(frame_bgl);
+        }
 
         let pass_layout;
         if let Some(handle) = &pipeline_ctx.pass_bind_group_layout_handle {

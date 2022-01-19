@@ -5,13 +5,17 @@ layout(location=1) in vec4 a_color;
 layout(location=2) in vec3 a_normal;
 
 layout(set=0, binding=0) uniform GlobalLight {
-
     vec3 direction;
     vec3 color;
     vec2 bias;
 } global_light;
 
-
+layout(set=0, binding=1) uniform GlobalShadow {
+    mat4 shadow0;
+    vec3[3] cascade_offsets;
+    vec3[3] cascade_scales;
+    vec4[3] cascade_planes;
+} global_shadow;
 
 layout(set=1, binding=0) uniform Camera {
     mat4 view;
@@ -23,19 +27,6 @@ layout(set=1, binding=0) uniform Camera {
 layout(set=1, binding=1) uniform ClipPlane {
     vec4 plane;
 } clip;
-
-layout(set=1, binding=2) uniform GlobalShadow {
-    mat4 shadow0;
-    vec3[3] cascade_offsets;
-    vec3[3] cascade_scales;
-    vec4[3] cascade_planes;
-} global_shadow;
-
-layout(set=1, binding=3)
-    uniform texture2DArray shadow_texture;
-
-layout(set=1, binding=4)
-    uniform sampler shadow_sampler;
 
 layout(push_constant) uniform Entity {
     mat4 model;  

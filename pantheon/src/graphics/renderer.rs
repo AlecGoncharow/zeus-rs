@@ -94,11 +94,28 @@ impl GraphicsContext {
                 depth_stencil_attachment,
             });
 
-            render_pass.set_bind_group(
-                0,
-                wrangler.get_bind_group(&wrangler.frame_bind_group_handle),
-                &[],
-            );
+            if let Some(viewport) = &pass.viewport {
+                let Viewport {
+                    x,
+                    y,
+                    w,
+                    h,
+                    min_depth,
+                    max_depth,
+                } = *viewport;
+                render_pass.set_viewport(x, y, w, h, min_depth, max_depth);
+            }
+
+            if let Some(handle) = &pass.frame_bind_group_handle_override {
+                render_pass.set_bind_group(0, wrangler.get_bind_group(&handle), &[]);
+            } else {
+                render_pass.set_bind_group(
+                    0,
+                    wrangler.get_bind_group(&wrangler.frame_bind_group_handle),
+                    &[],
+                );
+            }
+
             if let Some(pass_bind_group_handle) = &pass.pass_bind_group_handle {
                 render_pass.set_bind_group(1, wrangler.get_bind_group(pass_bind_group_handle), &[]);
             }

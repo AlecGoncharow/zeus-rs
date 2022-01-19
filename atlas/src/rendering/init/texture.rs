@@ -98,6 +98,7 @@ pub fn init_basic_textured_pass<'a>(ctx: &'a mut Context) {
         pass_bind_group_layout_handle: None,
         draw_call_bind_group_layout_handle: Some(bglh_basic_textured),
         push_constant_ranges,
+        frame_bind_group_layout_handle_override: None,
         vs_path: Some("basic_textured.vert.spv"),
         fs_path: Some("basic_textured.frag.spv"),
         vert_desc: crate::vertex::BasicTexturedVertex::desc,
@@ -146,9 +147,11 @@ pub fn init_basic_textured_pass<'a>(ctx: &'a mut Context) {
         depth_ops: None,
         stencil_ops: None,
         depth_stencil_view: None,
+        viewport: None,
         pass_bind_group_handle: None,
         vertex_buffer_handle,
         index_buffer_handle,
+        frame_bind_group_handle_override: None,
     };
 
     let _handle = ctx.wrangler.add_pass(pass, pass_label);
