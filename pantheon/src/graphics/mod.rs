@@ -5,7 +5,6 @@ pub mod pass;
 pub mod pipeline;
 pub mod renderer;
 pub mod texture;
-pub mod vertex;
 pub mod wrangler;
 
 mod common {
@@ -20,7 +19,7 @@ mod common {
         pub(crate) marker: PhantomData<T>,
     }
 
-    pub struct LabeledEntry<'a, T> {
+    pub struct LabeledEntry<'a, T: Sized> {
         pub label: &'a str,
         pub entry: T,
     }

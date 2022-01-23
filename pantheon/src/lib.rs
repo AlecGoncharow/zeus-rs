@@ -1,3 +1,5 @@
+#![feature(portable_simd)]
+
 pub use anyhow;
 pub use image;
 pub use tracing;

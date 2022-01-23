@@ -2,10 +2,10 @@ use super::component::*;
 use super::Camera;
 use crate::rendering;
 use crate::rendering::prelude::Passes;
+use crate::vertex::BasicVertex;
 use crate::vertex::ShadedVertex;
 use pantheon::graphics::mode::DrawMode;
 use pantheon::graphics::prelude::*;
-use pantheon::graphics::vertex::Vertex;
 use pantheon::graphics::Color;
 use pantheon::graphics::Drawable;
 use pantheon::graphics::PolygonMode;
@@ -18,7 +18,7 @@ pub struct Terrain<'a> {
     pub verts: Vec<ShadedVertex>,
     pub indices: Vec<u32>,
     pub center: Vec3,
-    norm_debug: Vec<Vertex>,
+    norm_debug: Vec<BasicVertex>,
     draw_call_handle: Option<DrawCallHandle<'a>>,
     topology: Topology,
     pub scale: f32,

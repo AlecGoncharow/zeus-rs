@@ -1,5 +1,8 @@
 use bitflags::bitflags;
 
+// @SPEED this prevents spilling our allocs onto heap, keep updated
+const_assert_eq!(9, pantheon::graphics::wrangler::PASS_COUNT);
+
 const LAST_PASS: usize = 8;
 
 bitflags! {
