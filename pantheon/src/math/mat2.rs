@@ -2,6 +2,7 @@ use super::Vec2;
 use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
 
 /// Column major
+#[derive(Clone, Copy)]
 pub struct Mat2 {
     pub x: Vec2,
     pub y: Vec2,
@@ -12,10 +13,30 @@ impl Mat2 {
     pub fn new(x: Vec2, y: Vec2) -> Self {
         Self { x, y }
     }
-
+    #[cfg(not(any(
+        target_feature = "sse",
+        target_feature = "sse2",
+        target_feature = "neon"
+    )))]
     #[inline]
     pub fn determinate(&self) -> f32 {
         (self.x.x * self.y.y) - (self.x.y * self.y.x)
+    }
+    #[cfg(any(
+        target_feature = "sse",
+        target_feature = "sse2",
+        target_feature = "neon"
+    ))]
+    #[inline]
+    pub fn determinate(&self) -> f32 {
+        use std::simd::f32x2;
+
+        unsafe {
+            let (s, o): (f32x2, f32x2) = std::mem::transmute(*self);
+            let o = o.reverse();
+            let s = (s * o).to_array();
+            s[0] - s[1]
+        }
     }
 }
 

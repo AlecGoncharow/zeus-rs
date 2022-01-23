@@ -1,7 +1,4 @@
-use pantheon::math::Mat3;
-use pantheon::math::Mat4;
-use pantheon::math::Vec2;
-use pantheon::math::Vec3;
+use pantheon::math::prelude::*;
 use pantheon::winit::event::VirtualKeyCode;
 
 //const YAW_DEFAULT: f32 = -90.0;

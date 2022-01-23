@@ -1,5 +1,6 @@
 use super::Vec3;
 
+use crate::math::prelude::*;
 use std::ops::{Add, Mul, Sub};
 
 #[derive(Debug, Copy, Clone)]
@@ -50,7 +51,7 @@ impl Quaternion {
         self.squared_mag().sqrt()
     }
 
-   pub fn approx_eq(&self, other: &Self) -> bool {
+    pub fn approx_eq(&self, other: &Self) -> bool {
         (*self - *other).magnitude() <= f32::EPSILON
     }
 
@@ -251,7 +252,7 @@ mod tests {
 
         assert!(lerp.approx_eq(&expected_lerp));
         let nlerp = from.nlerp(&to, 0.5);
-        let expected_nlerp =  Quaternion {
+        let expected_nlerp = Quaternion {
             vector: Vec3 {
                 x: 0.0,
                 y: 0.0,

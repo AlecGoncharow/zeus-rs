@@ -1,3 +1,6 @@
+#![feature(portable_simd)]
+#![feature(associated_type_defaults)]
+
 pub use anyhow;
 pub use image;
 pub use tracing;

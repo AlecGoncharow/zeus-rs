@@ -41,6 +41,7 @@ impl<'a> MousePick<'a> {
 pub trait MouseComponent {
     // TODO think about x/y/z and hover events
     fn click_start(&mut self, ctx: &mut Context);
+    fn clicked(&mut self, ctx: &mut Context, _camera: &Camera);
     fn click_end(&mut self, ctx: &mut Context);
     fn mouse_over(&mut self, ctx: &mut Context, pos: Vec3, cam: &Camera);
     fn check_collision(

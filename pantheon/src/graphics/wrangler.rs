@@ -5,24 +5,40 @@ use crate::graphics::pass::*;
 use crate::mode::MAX_PIPELINES;
 use crate::shader::ShaderContext;
 
+use smallvec::SmallVec;
+
 // :)
 pub const PASS_PADDING: &'static str = "pass_padding";
 
+pub const PASS_COUNT: usize = 9;
+pub const VERTEX_KIND_COUNT: usize = 4;
+
+pub type Passes<'a> = SmallVec<[Pass<'a>; PASS_COUNT]>;
+pub type BindGroupLayouts<'a> = SmallVec<[LabeledEntry<'a, wgpu::BindGroupLayout>; 20]>;
+pub type BindGroups<'a> = SmallVec<[LabeledEntry<'a, wgpu::BindGroup>; 20]>;
+pub type VertexBuffers<'a> = SmallVec<[LabeledEntry<'a, wgpu::Buffer>; VERTEX_KIND_COUNT]>;
+pub type VertexBufferCursors<'a> =
+    SmallVec<[LabeledEntry<'a, wgpu::BufferAddress>; VERTEX_KIND_COUNT]>;
+pub type IndexBuffers<'a> = SmallVec<[LabeledEntry<'a, wgpu::Buffer>; VERTEX_KIND_COUNT]>;
+pub type IndexBufferCursors<'a> =
+    SmallVec<[LabeledEntry<'a, wgpu::BufferAddress>; VERTEX_KIND_COUNT]>;
+pub type UniformBuffers<'a> = SmallVec<[LabeledEntry<'a, wgpu::Buffer>; 32]>;
+pub type Textures<'a> = SmallVec<[LabeledEntry<'a, Texture>; 32]>;
+pub type DrawCalls<'a> = SmallVec<[LabeledEntry<'a, DrawCall<'a>>; 32]>;
+
 pub struct RenderWrangler<'a> {
     //pub passes: [MaybeUninit<Pass<'a>>; N_PASSES],
-    pub passes: Vec<Pass<'a>>,
+    pub passes: Passes<'a>,
 
-    pub bind_group_layouts: Vec<LabeledEntry<'a, wgpu::BindGroupLayout>>,
-    pub bind_groups: Vec<LabeledEntry<'a, wgpu::BindGroup>>,
-    pub vertex_buffers: Vec<LabeledEntry<'a, wgpu::Buffer>>,
-    pub vertex_buffer_cursors: Vec<LabeledEntry<'a, wgpu::BufferAddress>>,
-    pub index_buffers: Vec<LabeledEntry<'a, wgpu::Buffer>>,
-    pub index_buffer_cursors: Vec<LabeledEntry<'a, wgpu::BufferAddress>>,
-    // @TODO @SPEED this should probably just be broken down as per
-    // https://github.com/gfx-rs/wgpu/wiki/Do%27s-and-Dont%27s#do-group-resource-bindings-by-the-change-frequency-start-from-the-lowest
-    pub uniform_buffers: Vec<LabeledEntry<'a, wgpu::Buffer>>,
-    pub textures: Vec<LabeledEntry<'a, Texture>>,
-    pub draw_calls: Vec<LabeledEntry<'a, DrawCall<'a>>>,
+    pub bind_group_layouts: BindGroupLayouts<'a>,
+    pub bind_groups: BindGroups<'a>,
+    pub vertex_buffers: VertexBuffers<'a>,
+    pub vertex_buffer_cursors: VertexBufferCursors<'a>,
+    pub index_buffers: IndexBuffers<'a>,
+    pub index_buffer_cursors: IndexBufferCursors<'a>,
+    pub uniform_buffers: UniformBuffers<'a>,
+    pub textures: Textures<'a>,
+    pub draw_calls: DrawCalls<'a>,
 
     /// per https://github.com/gfx-rs/wgpu/wiki/Do%27s-and-Dont%27s#do-group-resource-bindings-by-the-change-frequency-start-from-the-lowest
     /// these make it possible to enforce a global frame bind group without the init code for each
@@ -37,16 +53,16 @@ pub struct RenderWrangler<'a> {
 impl<'a> RenderWrangler<'a> {
     pub fn new() -> Self {
         Self {
-            passes: Vec::new(),
-            bind_group_layouts: Vec::new(),
-            bind_groups: Vec::new(),
-            vertex_buffers: Vec::new(),
-            vertex_buffer_cursors: Vec::new(),
-            index_buffers: Vec::new(),
-            index_buffer_cursors: Vec::new(),
-            uniform_buffers: Vec::new(),
-            textures: Vec::new(),
-            draw_calls: Vec::new(),
+            passes: Passes::new(),
+            bind_group_layouts: BindGroupLayouts::new(),
+            bind_groups: BindGroups::new(),
+            vertex_buffers: VertexBuffers::new(),
+            vertex_buffer_cursors: VertexBufferCursors::new(),
+            index_buffers: IndexBuffers::new(),
+            index_buffer_cursors: IndexBufferCursors::new(),
+            uniform_buffers: UniformBuffers::new(),
+            textures: Textures::new(),
+            draw_calls: DrawCalls::new(),
             surface_bound_bind_group_count: 0,
             surface_bound_bind_group_cursor: 0,
 
@@ -65,7 +81,7 @@ impl<'a> RenderWrangler<'a> {
         }
     }
 
-    /**
+    /*
      * Bind Group Layouts
      */
 

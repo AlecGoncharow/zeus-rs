@@ -505,7 +505,7 @@ async fn main() {
         ),
         (0.8, 100.0),
     );
-    let direction = Vec3::new(3, -1, 0).make_unit_vector();
+    let direction = Vec3::new(3, -1, 0).unit_vector();
     let color = Vec3::new(1, 0.95, 0.95);
     camera.update_orientation();
 

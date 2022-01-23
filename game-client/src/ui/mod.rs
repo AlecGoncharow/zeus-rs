@@ -3,7 +3,7 @@ use atlas::rendering::prelude::Passes;
 use atlas::vertex::BasicTexturedVertex;
 use pantheon::graphics::prelude::*;
 use pantheon::prelude::*;
-use pantheon::Vec2;
+use pantheon::vec2::*;
 
 pub struct TexturedQuad<'a> {
     pub quad: TexturableQuad,

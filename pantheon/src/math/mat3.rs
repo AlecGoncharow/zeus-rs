@@ -1,3 +1,5 @@
+use std::simd::Simd;
+
 use crate::Mat4;
 
 use super::Mat2;
@@ -32,7 +34,27 @@ impl Mat3 {
         let b = Mat2::new((self.x.y, self.x.z).into(), (self.z.y, self.z.z).into());
         let c = Mat2::new((self.x.y, self.x.z).into(), (self.y.y, self.y.z).into());
 
-        self.x.x * a.determinate() - self.y.x * b.determinate() + self.z.x * c.determinate()
+        #[cfg(not(any(
+            target_feature = "sse",
+            target_feature = "sse2",
+            target_feature = "neon"
+        )))]
+        {
+            self.x.x * a.determinate() - self.y.x * b.determinate() + self.z.x * c.determinate()
+        }
+        #[cfg(any(
+            target_feature = "sse",
+            target_feature = "sse2",
+            target_feature = "neon"
+        ))]
+        {
+            let mut s = Simd::from_array([self.x.x, self.y.x, self.z.x, 0.0]);
+            let o = Simd::from_array([a.determinate(), b.determinate(), c.determinate(), 0.0]);
+
+            s *= o;
+            let s = s.as_array();
+            s[0] - s[1] + s[2]
+        }
     }
 
     #[inline]
