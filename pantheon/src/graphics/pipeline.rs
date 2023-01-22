@@ -36,7 +36,7 @@ impl<'a> PipelineContext<'a> {
         shader_ctx: &ShaderContext,
         layouts: &[&wgpu::BindGroupLayout],
         device: &wgpu::Device,
-        targets: Option<&Vec<wgpu::ColorTargetState>>,
+        targets: &[Option<wgpu::ColorTargetState>],
     ) -> [wgpu::RenderPipeline; 15] {
         let mut pipelines: [MaybeUninit<wgpu::RenderPipeline>; MAX_PIPELINES] =
             unsafe { MaybeUninit::uninit().assume_init() };
@@ -68,7 +68,7 @@ impl<'a> PipelineContext<'a> {
                         // 2.
                         module: &fs_module,
                         entry_point: "main",
-                        targets: &targets.expect("nice one"),
+                        targets,
                     })
                 } else {
                     None

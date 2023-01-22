@@ -6,6 +6,7 @@ members = [
     "game-client",
     "atlas",
     "server",
+    "mostly-harmless",
 ]
 
 [profile.release]

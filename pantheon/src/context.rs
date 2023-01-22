@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::error::Error;
 
 use crate::graphics;
 use crate::graphics::mode::PolygonMode;
@@ -53,8 +54,13 @@ impl<'a, 'winit> Context<'a> {
         }))
         .unwrap();
 
+
+        // @TODO lets write some checks here to validate the adapter supports the requested feature
+        // and limits, and if not, let's use those.
+
         println!("[adapter.backend] {:#?}", adapter.get_info().backend);
         println!("[adapter.features] {:#?}", adapter.features());
+        println!("[adapter.limits] {:#?}", adapter.limits());
 
         let mut features = wgpu::Features::empty();
         // @TODO need to wrap this so that non Vulkan/DX12 don't offer multiple pipelines
@@ -72,7 +78,7 @@ impl<'a, 'winit> Context<'a> {
                 features,
                 limits: wgpu::Limits {
                     /// AMD pls https://www.khronos.org/registry/vulkan/specs/1.1/html/vkspec.html#limits-minmax
-                    max_push_constant_size: 256,
+                    max_push_constant_size: 128,
                     ..wgpu::Limits::default()
                 },
             },
@@ -80,7 +86,8 @@ impl<'a, 'winit> Context<'a> {
         )) {
             Ok(stuff) => stuff,
             Err(e) => {
-                eprintln!("[request_device] {:#?}", e);
+                eprintln!("[request_device_error] requesting fallback device");
+                eprintln!("[request_device_error] WARNING: running with no additional features");
                 block_on(adapter.request_device(
                     &wgpu::DeviceDescriptor {
                         label: Some("Fallback Device"),
@@ -96,7 +103,8 @@ impl<'a, 'winit> Context<'a> {
 
         let surface_config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: surface.get_preferred_format(&adapter).unwrap(),
+            format: surface.get_supported_formats(&adapter)[0],
+            alpha_mode: surface.get_supported_alpha_modes(&adapter)[0],
             width: size.width,
             height: size.height,
             present_mode,
@@ -198,7 +206,8 @@ impl<'a, 'winit> Context<'a> {
         let size = self.window.inner_size();
         self.surface_config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: self.surface.get_preferred_format(&self.adapter).unwrap(),
+            format: self.surface.get_supported_formats(&self.adapter)[0],
+            alpha_mode: self.surface.get_supported_alpha_modes(&self.adapter)[0],
             width: size.width,
             height: size.height,
             present_mode: self.surface_config.present_mode,

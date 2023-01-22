@@ -39,13 +39,21 @@ layout(location=3) out vec4 v_camera_space;
 layout(location=4) out vec3 v_cascade_blend;
 layout(location=5) out vec4 v_cascade_coord_0;
 
+
+// out gl_PerVertex {
+  //vec4 gl_Position;
+  //float gl_PointSize;
+  //float gl_ClipDistance[1];
+//};
+
 const float min_bias = 0.005;
 
 void main() {
     vec4 world_pos = entity.model * vec4(a_position, 1.0);
     // this is used so reflection passes only draw above water and 
     // refraction passes only draw below the water
-    gl_ClipDistance[0] = dot(world_pos, clip.plane);
+    // gl_ClipDistance[0] = dot(world_pos, clip.plane);
+
 
     //
     // compute Lambertian diffuse term

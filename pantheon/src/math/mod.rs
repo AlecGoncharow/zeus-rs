@@ -94,11 +94,13 @@ pub trait Vector:
 macro_rules! simd_vector {
     ($vec:ty, $simd:ty) => {
         use std::simd::Simd;
+        use std::simd::SimdFloat;
+
         impl Vector for $vec {
             #[inline]
             fn dot(&self, other: &Self) -> f32 {
                 let (s, o): ($simd, $simd) = unsafe { std::mem::transmute((*self, *other)) };
-                (s * o).horizontal_sum()
+                (s * o).reduce_sum()
             }
             #[inline]
             fn make_comp_mul(&self, other: &Self) -> Self {
@@ -138,7 +140,7 @@ macro_rules! simd_vector {
                 unsafe {
                     let s: $simd = std::mem::transmute(*self);
 
-                    std::mem::transmute(s.clamp(Simd::splat(min), Simd::splat(max)))
+                    std::mem::transmute(s.simd_clamp(Simd::splat(min), Simd::splat(max)))
                 }
             }
         }

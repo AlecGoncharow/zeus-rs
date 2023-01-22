@@ -56,7 +56,7 @@ impl ShaderContext {
     pub fn make_module(&self, device: &wgpu::Device, path: &str) -> wgpu::ShaderModule {
         let fq_path = self.shader_spirv_path.join(path);
         let spirv_source = std::fs::read(fq_path).unwrap();
-        device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+        device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some(&path),
             source: wgpu::util::make_spirv(&spirv_source),
         })

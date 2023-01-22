@@ -106,11 +106,11 @@ where
     #[cfg(target_os = "macos")]
     let mut wait = false;
 
+    println!("[pantheon] entering main event loop");
     events_loop.run(move |event, _, control_flow| {
         let _event_span = span!(Level::DEBUG, "event").entered();
         *control_flow = ControlFlow::Poll;
         ctx.process_event(&event);
-
         match event {
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::Resized(logical_size) => {

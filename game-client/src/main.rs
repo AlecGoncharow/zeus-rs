@@ -42,7 +42,7 @@ use hermes::tokio;
 
 use pantheon::wgpu;
 
-const PRESENT_MODE: wgpu::PresentMode = wgpu::PresentMode::Immediate;
+const PRESENT_MODE: wgpu::PresentMode = wgpu::PresentMode::AutoNoVsync;
 
 // tracing
 use std::fs::File;

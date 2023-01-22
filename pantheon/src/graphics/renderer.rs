@@ -56,7 +56,8 @@ impl GraphicsContext {
             encoder.push_debug_group(pass.label);
 
             let attachment;
-            let color_attachments: &[wgpu::RenderPassColorAttachment] =
+
+            let color_attachments: &[Option<wgpu::RenderPassColorAttachment>] =
                 if let Some(ops) = pass.color_attachment_ops {
                     let attach_view = if let Some(handle) = &pass.color_attachment_view_handle {
                         // @TODO @FIXME this should be it's own view, no fetching should be needed
@@ -64,11 +65,11 @@ impl GraphicsContext {
                     } else {
                         view
                     };
-                    attachment = [wgpu::RenderPassColorAttachment {
+                    attachment = [Some(wgpu::RenderPassColorAttachment {
                         view: attach_view,
                         resolve_target: None,
                         ops,
-                    }];
+                    })];
                     &attachment
                 } else {
                     &[]

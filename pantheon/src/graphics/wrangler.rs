@@ -711,7 +711,7 @@ impl<'a> RenderWrangler<'a> {
         let handle = self.handle_to_bind_group_layout(PASS_PADDING).unwrap();
         let padding_bgl = &bind_group_layouts[handle.idx].entry;
         let textures = &self.textures;
-        let mut targets = None;
+        let mut targets = vec![];
 
         self.passes.iter_mut().for_each(|pass| {
             let mut layouts = Vec::with_capacity(3);
@@ -745,11 +745,10 @@ impl<'a> RenderWrangler<'a> {
                 layouts.push(&draw_layout.entry);
             }
 
-            if let Some(fragment_targets) = &pipeline_ctx.fragment_targets {
-                targets = Some(
+            targets = if let Some(fragment_targets) = &pipeline_ctx.fragment_targets {
                     fragment_targets
                         .iter()
-                        .map(|target| wgpu::ColorTargetState {
+                        .map(|target| Some(wgpu::ColorTargetState {
                             format: if let Some(handle) = target.format_handle {
                                 let texture = &textures[handle.idx];
                                 #[cfg(debug_assertions)]
@@ -760,10 +759,11 @@ impl<'a> RenderWrangler<'a> {
                             },
                             blend: target.blend,
                             write_mask: target.write_mask,
-                        })
-                        .collect(),
-                );
-            }
+                        }))
+                        .collect()
+            } else {
+                vec![]
+            };
 
             pass.pipelines =
                 pipeline_ctx.create_pipelines(shader_context, &layouts, device, targets.as_ref());
@@ -783,7 +783,6 @@ impl<'a> RenderWrangler<'a> {
         let handle = self.handle_to_bind_group_layout(PASS_PADDING).unwrap();
         let padding_bgl = &bind_group_layouts[handle.idx].entry;
         let textures = &self.textures;
-        let mut targets = None;
 
         let mut layouts = Vec::with_capacity(3);
 
@@ -815,25 +814,28 @@ impl<'a> RenderWrangler<'a> {
             layouts.push(&draw_layout.entry);
         }
 
-        if let Some(fragment_targets) = &pipeline_ctx.fragment_targets {
-            targets = Some(
-                fragment_targets
-                    .iter()
-                    .map(|target| wgpu::ColorTargetState {
-                        format: if let Some(handle) = target.format_handle {
-                            let texture = &textures[handle.idx];
-                            #[cfg(debug_assertions)]
-                            assert_eq!(handle.label, texture.label);
-                            texture.entry.format.clone()
-                        } else {
-                            surface_config.format
-                        },
-                        blend: target.blend,
-                        write_mask: target.write_mask,
-                    })
-                    .collect(),
-            );
-        }
+            
+        let targets = if let Some(fragment_targets) = &pipeline_ctx.fragment_targets {
+                    fragment_targets
+                        .iter()
+                        .map(|target| Some(wgpu::ColorTargetState {
+                            format: if let Some(handle) = target.format_handle {
+                                let texture = &textures[handle.idx];
+                                #[cfg(debug_assertions)]
+                                assert_eq!(handle.label, texture.label);
+                                texture.entry.format.clone()
+                            } else {
+                                surface_config.format
+                            },
+                            blend: target.blend,
+                            write_mask: target.write_mask,
+                        }))
+                        .collect()
+            } else {
+                vec![]
+            };
+
+
 
         pipeline_ctx.create_pipelines(shader_context, &layouts, device, targets.as_ref())
     }
