@@ -53,7 +53,7 @@ impl GraphicsContext {
             device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
         let mut pass_mask = 1;
         for pass in &wrangler.passes {
-            encoder.push_debug_group(pass.label);
+            // encoder.push_debug_group(pass.label);
 
             let attachment;
 
@@ -163,7 +163,7 @@ impl GraphicsContext {
                 }
             }
             drop(render_pass);
-            encoder.pop_debug_group();
+            //encoder.pop_debug_group();
 
             pass_mask <<= 1;
         }

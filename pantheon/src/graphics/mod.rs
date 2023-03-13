@@ -110,6 +110,7 @@ pub mod handles {
     pub type BufferAddressHandle<'a> = LabeledEntryHandle<'a, &'a wgpu::BufferAddress>;
     pub type BindGroupHandle<'a> = LabeledEntryHandle<'a, &'a wgpu::BindGroup>;
     pub type BindGroupLayoutHandle<'a> = LabeledEntryHandle<'a, &'a wgpu::BindGroupLayout>;
+    pub type ShaderModuleHandle<'a> = LabeledEntryHandle<'a, wgpu::ShaderModule>;
     pub type TextureHandle<'a> = LabeledEntryHandle<'a, &'a Texture>;
     pub type PassHandle<'a> = LabeledEntryHandle<'a, &'a Pass<'a>>;
     pub type PassBundleHandle<'a> = LabeledEntryHandle<'a, PassBundle<'a>>;

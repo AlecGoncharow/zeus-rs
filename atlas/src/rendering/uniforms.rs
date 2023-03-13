@@ -1,6 +1,7 @@
 use pantheon::graphics::prelude::*;
 use pantheon::math::prelude::*;
-use wgpu::util::DeviceExt;
+use pantheon::wgpu;
+use pantheon::wgpu::util::DeviceExt;
 
 pub trait AlignedGLSL {
     /// This doesn't do any enforcment of alignment because I have no idea how to do that that

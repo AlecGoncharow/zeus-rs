@@ -2,6 +2,7 @@ use super::*;
 use crate::vertex;
 use pantheon::graphics::prelude::*;
 use pantheon::prelude::*;
+use pantheon::wgpu;
 
 pub const WATER: &'static str = "water";
 pub const REFRACTION_DEPTH: &'static str = "refraction_depth";
@@ -57,8 +58,10 @@ pub fn init_refraction_pass<'a>(ctx: &'a mut Context) {
         draw_call_bind_group_layout_handle: None,
 
         push_constant_ranges,
-        vs_path: Some("shaded.vert.spv"),
-        fs_path: Some("shaded.frag.spv"),
+        vs_module_name: Some(SHADED_WGSL),
+        vs_entry_point: Some(VS_MAIN),
+        fs_module_name: Some(SHADED_WGSL),
+        fs_entry_point: Some(FS_MAIN),
         frame_bind_group_layout_handle_override: None,
         vert_desc: crate::vertex::ShadedVertex::desc,
         label: Some(pass_label),
@@ -130,11 +133,11 @@ pub fn init_reflection_resources<'a>(ctx: &mut Context<'a>) {
 pub fn init_reflection_pass<'a>(ctx: &'a mut Context) {
     let pass_label = "reflection";
     let shaded_label = "shaded";
-    let depth_texture_handle = match ctx.wrangler.handle_to_texture("depth") {
+    let depth_texture_handle = match ctx.wrangler.handle_to_texture(DEPTH) {
         Some(handle) => handle,
         None => {
             init_entity_resources(ctx);
-            ctx.wrangler.handle_to_texture("depth").unwrap()
+            ctx.wrangler.handle_to_texture(DEPTH).unwrap()
         }
     };
 
@@ -172,8 +175,10 @@ pub fn init_reflection_pass<'a>(ctx: &'a mut Context) {
         draw_call_bind_group_layout_handle: None,
 
         push_constant_ranges,
-        vs_path: Some("shaded.vert.spv"),
-        fs_path: Some("shaded.frag.spv"),
+        vs_module_name: Some(SHADED_WGSL),
+        vs_entry_point: Some(VS_MAIN),
+        fs_module_name: Some(SHADED_WGSL),
+        fs_entry_point: Some(FS_MAIN),
         frame_bind_group_layout_handle_override: None,
         vert_desc: vertex::ShadedVertex::desc,
         label: Some(pass_label),
@@ -275,7 +280,7 @@ pub fn init_water_resources<'a>(ctx: &mut Context<'a>, label: &'a str) {
                         visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Texture {
                             multisampled: false,
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            sample_type: wgpu::TextureSampleType::Float { filterable: false },
                             view_dimension: wgpu::TextureViewDimension::D2,
                         },
                         count: None,
@@ -284,6 +289,12 @@ pub fn init_water_resources<'a>(ctx: &mut Context<'a>, label: &'a str) {
                         binding: 4,
                         visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 5,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Comparison),
                         count: None,
                     },
                 ],
@@ -320,6 +331,10 @@ pub fn init_water_resources<'a>(ctx: &mut Context<'a>, label: &'a str) {
                     &ctx.device,
                 )),
             },
+            wgpu::BindGroupEntry {
+                binding: 5,
+                resource: wgpu::BindingResource::Sampler(&refraction_depth.sampler),
+            },
         ],
         label: Some(WATER),
     });
@@ -334,11 +349,11 @@ pub fn init_water_resources<'a>(ctx: &mut Context<'a>, label: &'a str) {
 
 pub fn init_water_pass<'a>(ctx: &mut Context<'a>) -> PassHandle<'a> {
     let pass_label = "water";
-    let depth_texture_handle = match ctx.wrangler.handle_to_texture("depth") {
+    let depth_texture_handle = match ctx.wrangler.handle_to_texture(DEPTH) {
         Some(handle) => handle,
         None => {
             init_entity_resources(ctx);
-            ctx.wrangler.handle_to_texture("depth").unwrap()
+            ctx.wrangler.handle_to_texture(DEPTH).unwrap()
         }
     };
 
@@ -376,8 +391,10 @@ pub fn init_water_pass<'a>(ctx: &mut Context<'a>) -> PassHandle<'a> {
         draw_call_bind_group_layout_handle: Some(static_entity_bind_group_layout_handle),
         push_constant_ranges,
         frame_bind_group_layout_handle_override: None,
-        vs_path: Some("water.vert.spv"),
-        fs_path: Some("water.frag.spv"),
+        vs_module_name: Some(WATER_WGSL),
+        vs_entry_point: Some(VS_MAIN),
+        fs_module_name: Some(WATER_WGSL),
+        fs_entry_point: Some(FS_MAIN),
         vert_desc: crate::vertex::WaterVertex::desc,
         label: Some(pass_label),
         fragment_targets: Some(vec![ColorTarget {

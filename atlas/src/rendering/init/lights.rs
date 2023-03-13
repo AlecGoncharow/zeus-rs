@@ -1,10 +1,12 @@
 use crate::entity::light::infinite::{CASCADE_COUNT, MAP_SIZE};
 
-use super::{prelude::*, DEPTH_CLEAR, SHADED};
+use super::SHADED_WGSL;
+use super::{prelude::*, DEPTH_CLEAR, SHADED, VS_BAKE};
 use pantheon::graphics::prelude::*;
 use pantheon::prelude::*;
+use pantheon::wgpu;
+use pantheon::wgpu::util::DeviceExt;
 use pantheon::wrangler::PASS_PADDING;
-use wgpu::util::DeviceExt;
 
 /*
 const LIGHT_UNIFORM_BUFFER_SIZE: wgpu::BufferAddress = (16 + 3 + 1 + 4) * 4;
@@ -30,7 +32,6 @@ const GLOBAL_LIGHT_SHADOW_SIZE: wgpu::Extent3d = wgpu::Extent3d {
 
 pub const GLOBAL_LIGHT: &'static str = "global_light";
 pub const GLOBAL_LIGHT_SHADOW: &'static str = "global_light_shadow";
-pub const GLOBAL_LIGHT_SHADOW_COLOR: &'static str = "global_light_shadow_color";
 pub const GLOBAL_LIGHT_BAKE_SHADOW: &'static str = "global_light_shadow";
 pub const GLOBAL_LIGHT_SHADOW_FMT: &'static str = "global_light_shadow_{}";
 pub const GLOBAL_LIGHT_SHADOW_0: &'static str = "global_light_shadow_0";
@@ -80,7 +81,7 @@ pub fn init_global_light(ctx: &mut Context, global_light_uniforms: GlobalLightUn
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Texture {
                         multisampled: false,
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
                         view_dimension: wgpu::TextureViewDimension::D2,
                     },
                     count: None,
@@ -88,7 +89,7 @@ pub fn init_global_light(ctx: &mut Context, global_light_uniforms: GlobalLightUn
                 wgpu::BindGroupLayoutEntry {
                     binding: 3,
                     visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Comparison),
                     count: None,
                 },
             ],
@@ -117,7 +118,6 @@ pub fn init_global_light(ctx: &mut Context, global_light_uniforms: GlobalLightUn
             base_array_layer: 0 as u32,
             array_layer_count: std::num::NonZeroU32::new(1),
         },
-        Some(wgpu::CompareFunction::GreaterEqual),
         GLOBAL_LIGHT_SHADOW,
     );
     let shadow_uniform_buffer = ctx.device.create_buffer(&wgpu::BufferDescriptor {
@@ -173,6 +173,8 @@ pub fn init_global_light(ctx: &mut Context, global_light_uniforms: GlobalLightUn
             }],
             label: Some(GLOBAL_LIGHT_SHADOW),
         });
+    /*
+     * bad vibes
     let texture = Texture::create_surface_texture_size(
         &ctx.device,
         (
@@ -182,6 +184,7 @@ pub fn init_global_light(ctx: &mut Context, global_light_uniforms: GlobalLightUn
         GLOBAL_LIGHT_SHADOW_COLOR,
     );
     ctx.wrangler.add_texture(texture, GLOBAL_LIGHT_SHADOW_COLOR);
+    */
 
     for i in 0..CASCADE_COUNT {
         let s = int_to_cascade(i);
@@ -233,22 +236,9 @@ pub fn init_global_bake_shadow_pass<'a>(ctx: &mut Context<'a>) {
 
         let pass_bind_group_handle = Some(bind_group);
 
-        let color_attachment_ops = if i == 0 {
-            Some(wgpu::Operations {
-                load: wgpu::LoadOp::Clear(ctx.gfx_context.clear_color),
-                store: true,
-            })
-        } else {
-            Some(wgpu::Operations {
-                load: wgpu::LoadOp::Load,
-                store: true,
-            })
-        };
-        let color_attachment_view_handle = Some(
-            ctx.wrangler
-                .handle_to_texture(GLOBAL_LIGHT_SHADOW_COLOR)
-                .unwrap(),
-        );
+        // Bad vibes
+        let color_attachment_ops = None;
+        let color_attachment_view_handle = None;
 
         let depth_ops = if i == 0 {
             Some(wgpu::Operations {
@@ -300,8 +290,10 @@ pub fn init_global_bake_shadow_pass<'a>(ctx: &mut Context<'a>) {
             frame_bind_group_layout_handle_override,
 
             push_constant_ranges,
-            vs_path: Some("bake_shadow.vert.spv"),
-            fs_path: Some("basic.frag.spv"),
+            vs_module_name: Some(SHADED_WGSL),
+            vs_entry_point: Some(VS_BAKE),
+            fs_module_name: None,
+            fs_entry_point: None,
             vert_desc: crate::vertex::ShadedVertex::desc,
             label: Some(pass_label),
             fragment_targets: Some(vec![ColorTarget {

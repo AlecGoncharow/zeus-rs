@@ -1,64 +1,71 @@
-use anyhow::*;
+use crate::graphics::prelude::LabeledEntry;
 use core::result::Result::Ok;
+use naga::front::wgsl;
 use notify::{DebouncedEvent, RecursiveMode, Watcher};
-use std::fs::read_to_string;
-use std::path::PathBuf;
+use smallvec::SmallVec;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-pub struct ShaderData {
-    pub src: String,
-    pub src_path: PathBuf,
-    pub spv_path: PathBuf,
-    pub kind: shaderc::ShaderKind,
+pub type ShaderModules<'a> = SmallVec<[LabeledEntry<'a, wgpu::ShaderModule>; 4]>;
+
+pub struct WgslShaderContext<'a> {
+    /// All shaders are expected to use this path as their base dir, any any label associated with
+    /// the shaders are the relative path
+    pub shader_src_path: std::path::PathBuf,
+    pub shader_modules: ShaderModules<'a>,
 }
 
-impl ShaderData {
-    pub fn load(src_path: PathBuf) -> Result<Self> {
-        let extension = src_path
-            .extension()
-            .context("File has no extension")?
-            .to_str()
-            .context("Extension cannot be converted to &str")?;
-        let kind = match extension {
-            "vert" => shaderc::ShaderKind::Vertex,
-            "frag" => shaderc::ShaderKind::Fragment,
-            "comp" => shaderc::ShaderKind::Compute,
-            _ => bail!("Unsupported shader: {}", src_path.display()),
+impl<'a> WgslShaderContext<'a> {
+    pub fn new(shader_src_path: std::path::PathBuf) -> Self {
+        Self {
+            shader_src_path,
+            shader_modules: ShaderModules::new(),
+        }
+    }
+
+    pub fn register_module(&mut self, device: &wgpu::Device, path: &'a str) {
+        let new_module = Self::make_module(device, &self.shader_src_path, path);
+        self.shader_modules.push(LabeledEntry {
+            label: path,
+            entry: new_module,
+        });
+    }
+
+    pub fn find_module(&self, label: &str) -> Option<&wgpu::ShaderModule> {
+        if let Some(module) = &self
+            .shader_modules
+            .iter()
+            .find(|entry| entry.label == label)
+        {
+            return Some(&module.entry);
         };
 
-        let src = read_to_string(src_path.clone())?;
-
-        let mut build_path = src_path.parent().unwrap().to_path_buf();
-        build_path.push("build/");
-        if !build_path.exists() {
-            std::fs::create_dir(build_path.clone()).expect("Failed to mkdir");
-        }
-        build_path.push(src_path.file_name().unwrap());
-
-        let spv_path = build_path.with_extension(format!("{}.spv", extension));
-
-        Ok(Self {
-            src,
-            src_path,
-            spv_path,
-            kind,
-        })
+        None
     }
-}
 
-pub struct ShaderContext {
-    pub shader_src_path: std::path::PathBuf,
-    pub shader_spirv_path: std::path::PathBuf,
-}
+    // @TODO @HACK, this only needs to really refresh specific shaders
+    pub fn refresh_modules(&mut self, device: &wgpu::Device) {
+        for module in self.shader_modules.iter_mut() {
+            let new_module = Self::make_module(device, &self.shader_src_path, module.label);
+            module.entry = new_module;
+        }
+    }
 
-impl ShaderContext {
-    pub fn make_module(&self, device: &wgpu::Device, path: &str) -> wgpu::ShaderModule {
-        let fq_path = self.shader_spirv_path.join(path);
-        let spirv_source = std::fs::read(fq_path).unwrap();
+    pub fn make_module(
+        device: &wgpu::Device,
+        base_dir: &std::path::Path,
+        path: &str,
+    ) -> wgpu::ShaderModule {
+        use std::borrow::Cow;
+        let fq_path = base_dir.join(path);
+        let src = std::fs::read_to_string(fq_path).unwrap();
+
+        // parse it
+        let _ = wgsl::parse_str(&src).unwrap();
+
         device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some(&path),
-            source: wgpu::util::make_spirv(&spirv_source),
+            source: wgpu::ShaderSource::Wgsl(Cow::from(src)),
         })
     }
 }
@@ -68,7 +75,7 @@ pub fn start_hotloader(dirty_flag: Arc<AtomicBool>, shader_path: std::path::Path
         let (tx, rx) = std::sync::mpsc::channel();
 
         let mut watcher =
-            notify::watcher(tx, std::time::Duration::from_millis(500)).expect("water broke");
+            notify::watcher(tx, std::time::Duration::from_millis(500)).expect("hotloader broke");
 
         let path = std::env::current_dir().unwrap();
         // @TODO possibly rethink how we set the parent path of the shader_path
@@ -91,30 +98,19 @@ pub fn start_hotloader(dirty_flag: Arc<AtomicBool>, shader_path: std::path::Path
             .watch(shader_path, RecursiveMode::NonRecursive)
             .unwrap();
 
-        let mut compiler = shaderc::Compiler::new().expect("unable to create shader compiler");
         loop {
             match rx.recv() {
                 Ok(event) => match event {
                     DebouncedEvent::Create(path) | DebouncedEvent::Write(path) => {
-                        println!("[Pantheon][SHADER HOTLOAD] recompiling {:?}", path);
-                        let shader = ShaderData::load(path).unwrap();
-                        let compiled = compiler.compile_into_spirv(
-                            &shader.src,
-                            shader.kind,
-                            &shader.src_path.to_str().unwrap(),
-                            "main",
-                            None,
-                        );
-
-                        match compiled {
-                            Ok(compiled) => {
-                                std::fs::write(shader.spv_path, compiled.as_binary_u8()).unwrap();
-                                dirty_flag.store(true, Ordering::Release);
-                            }
-                            Err(e) => {
-                                eprintln!("[Pantheon][SHADER HOTLOAD][ERROR] {:#?}", e);
-                            }
+                        // @TODO maybe pass it to naga for validation here?
+                        println!("[Pantheon][SHADER HOTLOAD] reloading {:?}", path);
+                        let src = std::fs::read_to_string(&path).unwrap();
+                        if let Err(e) = wgsl::parse_str(&src) {
+                            eprintln!("Pantheon][SHADER HOTLOAD] shader parse error: \n{:?}", e);
+                            continue;
                         }
+
+                        dirty_flag.store(true, Ordering::Release);
                     }
                     // nvim triggers this on write
                     DebouncedEvent::NoticeRemove(_) => (),

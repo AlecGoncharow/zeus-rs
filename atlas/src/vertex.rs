@@ -1,3 +1,4 @@
+use pantheon::wgpu;
 use pantheon::math::Vec2;
 use pantheon::math::Vec3;
 use pantheon::Color;

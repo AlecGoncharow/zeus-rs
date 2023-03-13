@@ -1,6 +1,6 @@
 use pantheon::graphics::prelude::*;
 use pantheon::prelude::*;
-use pantheon::*;
+use pantheon::wgpu;
 
 /// here be dragons
 pub mod init;
@@ -142,7 +142,6 @@ fn texture_bind_group<'a>(
     texture: &Texture,
     label: &'a str,
     layout_label: &'a str,
-    sampler_override: Option<&wgpu::Sampler>,
 ) -> wgpu::BindGroup {
     let bglh = ctx
         .wrangler
@@ -162,9 +161,7 @@ fn texture_bind_group<'a>(
             },
             wgpu::BindGroupEntry {
                 binding: 1,
-                resource: wgpu::BindingResource::Sampler(
-                    sampler_override.unwrap_or(&texture.sampler),
-                ),
+                resource: wgpu::BindingResource::Sampler(&texture.sampler),
             },
         ],
         label: Some(&format!("{} Sampler Bind Group", label)),
@@ -177,9 +174,8 @@ pub fn register_texture<'a>(
     texture: Texture,
     label: &'a str,
     layout_label: &'a str,
-    sampler_override: Option<&wgpu::Sampler>,
 ) -> (BindGroupHandle<'a>, TextureHandle<'a>) {
-    let bind_group = texture_bind_group(ctx, &texture, label, layout_label, sampler_override);
+    let bind_group = texture_bind_group(ctx, &texture, label, layout_label);
 
     (
         ctx.wrangler.add_or_swap_bind_group(bind_group, label),
@@ -192,9 +188,8 @@ pub fn register_surface_bound_texture<'a>(
     texture: Texture,
     label: &'a str,
     layout_label: &'a str,
-    sampler_override: Option<&wgpu::Sampler>,
 ) -> (BindGroupHandle<'a>, TextureHandle<'a>) {
-    let bind_group = texture_bind_group(ctx, &texture, label, layout_label, sampler_override);
+    let bind_group = texture_bind_group(ctx, &texture, label, layout_label);
 
     (
         ctx.wrangler
@@ -210,6 +205,7 @@ pub fn recreate_water_sampler_bind_group(ctx: &mut Context) {
     let refraction = ctx.wrangler.find_texture(REFRACTION_TEXTURE);
     let refraction_depth = ctx.wrangler.find_texture(REFRACTION_DEPTH);
     let camera_buffer = ctx.wrangler.find_uniform_buffer(CAMERA);
+    println!("RECREATNG SAMPLERS");
 
     let texture_sampler_bind_group = ctx.device.create_bind_group(&wgpu::BindGroupDescriptor {
         layout: &texture_sampler_bind_group_layout,
@@ -235,6 +231,10 @@ pub fn recreate_water_sampler_bind_group(ctx: &mut Context) {
                 resource: wgpu::BindingResource::Sampler(&Texture::surface_texture_sampler(
                     &ctx.device,
                 )),
+            },
+            wgpu::BindGroupEntry {
+                binding: 5,
+                resource: wgpu::BindingResource::Sampler(&refraction_depth.sampler),
             },
         ],
         label: Some(WATER),

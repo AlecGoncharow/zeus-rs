@@ -1,6 +1,10 @@
 use super::*;
 use pantheon::graphics::prelude::*;
 use pantheon::prelude::*;
+use pantheon::wgpu;
+
+pub const BASIC_TEXTURED: &str = "basic_textured";
+pub const DEPTH: &str = "depth";
 
 /// @NOTE @DEBUG are you trying to reverse engineer how the textures are sampled because the
 /// texture you are trying to sample is outputting garbage? Have you remembered to recreate the
@@ -41,7 +45,7 @@ pub fn init_textured_resources<'a>(ctx: &mut Context<'a>, label: &'a str) {
                         visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Texture {
                             multisampled: false,
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            sample_type: wgpu::TextureSampleType::Depth,
                             view_dimension: wgpu::TextureViewDimension::D2,
                         },
                         count: None,
@@ -70,21 +74,21 @@ pub fn init_textured_resources<'a>(ctx: &mut Context<'a>, label: &'a str) {
     );
     init_bind_group_for_textured_pass(
         ctx,
-        &basic_textured_bind_group_layout,
-        "refraction_depth",
-        Some(&Texture::surface_texture_sampler(&ctx.device)),
+        &depth_texture_bind_group_layout,
+        REFRACTION_DEPTH,
+        None,
     );
 
     let _basic_texured_bgl_handle = ctx
         .wrangler
-        .add_bind_group_layout(basic_textured_bind_group_layout, label);
+        .add_bind_group_layout(basic_textured_bind_group_layout, BASIC_TEXTURED);
     let _handle = ctx
         .wrangler
-        .add_bind_group_layout(depth_texture_bind_group_layout, "depth_sampler");
+        .add_bind_group_layout(depth_texture_bind_group_layout, DEPTH);
 }
 
 pub fn init_basic_textured_pass<'a>(ctx: &'a mut Context) {
-    let pass_label = "basic_textured";
+    let pass_label = BASIC_TEXTURED;
     init_textured_resources(ctx, pass_label);
     let bglh_basic_textured = ctx
         .wrangler
@@ -99,8 +103,10 @@ pub fn init_basic_textured_pass<'a>(ctx: &'a mut Context) {
         draw_call_bind_group_layout_handle: Some(bglh_basic_textured),
         push_constant_ranges,
         frame_bind_group_layout_handle_override: None,
-        vs_path: Some("basic_textured.vert.spv"),
-        fs_path: Some("basic_textured.frag.spv"),
+        vs_module_name: Some(BASIC_TEXTURED_WGSL),
+        vs_entry_point: Some(VS_MAIN),
+        fs_module_name: Some(BASIC_TEXTURED_WGSL),
+        fs_entry_point: Some(FS_MAIN),
         vert_desc: crate::vertex::BasicTexturedVertex::desc,
         label: Some(pass_label),
         fragment_targets: Some(vec![ColorTarget {

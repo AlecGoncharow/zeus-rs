@@ -1,3 +1,4 @@
+#![feature(never_type)]
 use atlas::entity::light::infinite::Infinite;
 use atlas::entity::light::infinite::CASCADE_COUNT;
 use pantheon::context::Context;
@@ -360,20 +361,13 @@ impl<'a> EventHandler<'a> for State<'a> {
 
         ctx.wrangler.start_resize();
 
-        rendering::register_surface_bound_texture(
-            ctx,
-            depth_texture,
-            "depth",
-            "basic_textured",
-            Some(&Texture::surface_texture_sampler(&ctx.device)),
-        );
+        rendering::register_surface_bound_texture(ctx, depth_texture, "depth", "depth");
 
         rendering::register_surface_bound_texture(
             ctx,
             refraction_depth_texture,
             "refraction_depth",
-            "basic_textured",
-            Some(&Texture::surface_texture_sampler(&ctx.device)),
+            "depth",
         );
 
         rendering::register_surface_bound_texture(
@@ -381,14 +375,12 @@ impl<'a> EventHandler<'a> for State<'a> {
             reflection_texture,
             self.handles.reflection_texture.label,
             "basic_textured",
-            None,
         );
         rendering::register_surface_bound_texture(
             ctx,
             refraction_texture,
             self.handles.refraction_texture.label,
             "basic_textured",
-            None,
         );
 
         rendering::recreate_water_sampler_bind_group(ctx);
@@ -489,7 +481,7 @@ async fn main() {
     netup.exit();
 
     let ctx_span = span!(Level::INFO, "Context setup").entered();
-    let shader_path = std::path::PathBuf::from("game-client/assets/shaders");
+    let shader_path = std::path::PathBuf::from("game-client/assets/shaders/wgsl/");
     let (mut ctx, event_loop) =
         Context::new(PRESENT_MODE, Color::new(135, 206, 235).into(), shader_path);
     ctx_span.exit();

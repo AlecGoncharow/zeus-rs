@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use super::prelude::*;
 use crate::graphics::pass::*;
 use crate::mode::MAX_PIPELINES;
-use crate::shader::ShaderContext;
+use crate::shader::WgslShaderContext;
 
 use smallvec::SmallVec;
 
@@ -702,7 +702,7 @@ impl<'a> RenderWrangler<'a> {
     pub fn reload_shaders(
         &mut self,
         device: &wgpu::Device,
-        shader_context: &ShaderContext,
+        shader_context: &WgslShaderContext,
         surface_config: &wgpu::SurfaceConfiguration,
     ) {
         // @TODO FIXME? :)
@@ -746,9 +746,10 @@ impl<'a> RenderWrangler<'a> {
             }
 
             targets = if let Some(fragment_targets) = &pipeline_ctx.fragment_targets {
-                    fragment_targets
-                        .iter()
-                        .map(|target| Some(wgpu::ColorTargetState {
+                fragment_targets
+                    .iter()
+                    .map(|target| {
+                        Some(wgpu::ColorTargetState {
                             format: if let Some(handle) = target.format_handle {
                                 let texture = &textures[handle.idx];
                                 #[cfg(debug_assertions)]
@@ -759,8 +760,9 @@ impl<'a> RenderWrangler<'a> {
                             },
                             blend: target.blend,
                             write_mask: target.write_mask,
-                        }))
-                        .collect()
+                        })
+                    })
+                    .collect()
             } else {
                 vec![]
             };
@@ -773,7 +775,7 @@ impl<'a> RenderWrangler<'a> {
     pub fn create_pipelines(
         &mut self,
         device: &wgpu::Device,
-        shader_context: &ShaderContext,
+        shader_context: &WgslShaderContext,
         surface_config: &wgpu::SurfaceConfiguration,
         pipeline_ctx: &PipelineContext,
     ) -> [wgpu::RenderPipeline; MAX_PIPELINES] {
@@ -814,28 +816,27 @@ impl<'a> RenderWrangler<'a> {
             layouts.push(&draw_layout.entry);
         }
 
-            
         let targets = if let Some(fragment_targets) = &pipeline_ctx.fragment_targets {
-                    fragment_targets
-                        .iter()
-                        .map(|target| Some(wgpu::ColorTargetState {
-                            format: if let Some(handle) = target.format_handle {
-                                let texture = &textures[handle.idx];
-                                #[cfg(debug_assertions)]
-                                assert_eq!(handle.label, texture.label);
-                                texture.entry.format.clone()
-                            } else {
-                                surface_config.format
-                            },
-                            blend: target.blend,
-                            write_mask: target.write_mask,
-                        }))
-                        .collect()
-            } else {
-                vec![]
-            };
-
-
+            fragment_targets
+                .iter()
+                .map(|target| {
+                    Some(wgpu::ColorTargetState {
+                        format: if let Some(handle) = target.format_handle {
+                            let texture = &textures[handle.idx];
+                            #[cfg(debug_assertions)]
+                            assert_eq!(handle.label, texture.label);
+                            texture.entry.format.clone()
+                        } else {
+                            surface_config.format
+                        },
+                        blend: target.blend,
+                        write_mask: target.write_mask,
+                    })
+                })
+                .collect()
+        } else {
+            vec![]
+        };
 
         pipeline_ctx.create_pipelines(shader_context, &layouts, device, targets.as_ref())
     }

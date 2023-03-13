@@ -3,7 +3,8 @@ use crate::vertex;
 use pantheon::graphics::prelude::*;
 use pantheon::math::prelude::*;
 use pantheon::prelude::*;
-use wgpu::util::DeviceExt;
+use pantheon::wgpu;
+use pantheon::wgpu::util::DeviceExt;
 
 pub const SHADED: &'static str = "shaded";
 
@@ -65,7 +66,7 @@ pub fn init_shaded_resources<'a>(
                     },
                     wgpu::BindGroupLayoutEntry {
                         binding: 1,
-                        visibility: wgpu::ShaderStages::VERTEX,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Buffer {
                             ty: wgpu::BufferBindingType::Uniform,
                             has_dynamic_offset: false,
@@ -152,11 +153,11 @@ pub fn init_shaded_resources<'a>(
 
 pub fn init_shaded_pass<'a>(ctx: &'a mut Context) -> PassHandle<'a> {
     let pass_label = "shaded";
-    let depth_texture_handle = match ctx.wrangler.handle_to_texture("depth") {
+    let depth_texture_handle = match ctx.wrangler.handle_to_texture(DEPTH) {
         Some(handle) => handle,
         None => {
             init_entity_resources(ctx);
-            ctx.wrangler.handle_to_texture("depth").unwrap()
+            ctx.wrangler.handle_to_texture(DEPTH).unwrap()
         }
     };
 
@@ -189,8 +190,10 @@ pub fn init_shaded_pass<'a>(ctx: &'a mut Context) -> PassHandle<'a> {
         draw_call_bind_group_layout_handle: None,
         frame_bind_group_layout_handle_override: None,
         push_constant_ranges,
-        vs_path: Some("shaded.vert.spv"),
-        fs_path: Some("shaded.frag.spv"),
+        vs_module_name: Some(SHADED_WGSL),
+        vs_entry_point: Some(VS_MAIN),
+        fs_module_name: Some(SHADED_WGSL),
+        fs_entry_point: Some(FS_MAIN),
         vert_desc: vertex::ShadedVertex::desc,
         label: Some(pass_label),
         fragment_targets: Some(vec![ColorTarget {

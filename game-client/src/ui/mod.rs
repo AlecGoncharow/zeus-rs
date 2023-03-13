@@ -24,7 +24,7 @@ impl<'a> TexturedQuad<'a> {
         label: &'a str,
     ) -> Self {
         let (bind_group_handle, texture_handle) =
-            rendering::register_texture(ctx, texture, label, "basic_textured", None);
+            rendering::register_texture(ctx, texture, label, "basic_textured");
 
         Self {
             quad,

@@ -2,7 +2,7 @@ use super::mode::MAX_PIPELINES;
 use std::mem::MaybeUninit;
 
 use crate::graphics::prelude::*;
-use crate::shader::ShaderContext;
+use crate::shader::WgslShaderContext;
 
 #[derive(Debug)]
 pub struct ColorTarget<'a> {
@@ -16,10 +16,12 @@ pub struct PipelineContext<'a> {
     pub pass_bind_group_layout_handle: Option<BindGroupLayoutHandle<'a>>,
     pub draw_call_bind_group_layout_handle: Option<BindGroupLayoutHandle<'a>>,
     pub frame_bind_group_layout_handle_override: Option<BindGroupLayoutHandle<'a>>,
-    pub push_constant_ranges: &'a [wgpu::PushConstantRange],
+    pub vs_module_name: Option<&'a str>,
+    pub vs_entry_point: Option<&'a str>,
+    pub fs_module_name: Option<&'a str>,
+    pub fs_entry_point: Option<&'a str>,
 
-    pub vs_path: Option<&'a str>,
-    pub fs_path: Option<&'a str>,
+    pub push_constant_ranges: &'a [wgpu::PushConstantRange],
     pub vert_desc: fn() -> wgpu::VertexBufferLayout<'a>,
     pub label: Option<&'a str>,
 
@@ -33,7 +35,7 @@ pub struct PipelineContext<'a> {
 impl<'a> PipelineContext<'a> {
     pub fn create_pipelines(
         &self,
-        shader_ctx: &ShaderContext,
+        shader_ctx: &WgslShaderContext,
         layouts: &[&wgpu::BindGroupLayout],
         device: &wgpu::Device,
         targets: &[Option<wgpu::ColorTargetState>],
@@ -57,17 +59,19 @@ impl<'a> PipelineContext<'a> {
                 label: self.label,
                 layout: Some(&render_pipeline_layout),
                 vertex: wgpu::VertexState {
-                    module: &shader_ctx.make_module(device, &self.vs_path.unwrap()),
-                    entry_point: "main",
+                    module: &shader_ctx
+                        .find_module(&self.vs_module_name.unwrap())
+                        .unwrap(),
+                    entry_point: &self.vs_entry_point.unwrap(),
                     buffers: &[(self.vert_desc)()],
                 },
-                fragment: if let Some(fs_path) = self.fs_path {
-                    fs_module = shader_ctx.make_module(device, &fs_path);
+                fragment: if let Some(fs_name) = self.fs_module_name {
+                    fs_module = shader_ctx.find_module(&fs_name).unwrap();
 
                     Some(wgpu::FragmentState {
                         // 2.
                         module: &fs_module,
-                        entry_point: "main",
+                        entry_point: &self.fs_entry_point.unwrap(),
                         targets,
                     })
                 } else {
