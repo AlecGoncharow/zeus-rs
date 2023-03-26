@@ -4,6 +4,7 @@ use super::triangle::Triangle;
 use super::Camera;
 use super::Entity;
 use crate::rendering;
+use crate::rendering::prelude::Passes;
 use crate::vertex::*;
 use pantheon::context::Context;
 use pantheon::graphics::prelude::*;
@@ -283,7 +284,7 @@ impl<'a> DrawComponent<'a> for Cuboid<'a> {
         self.draw_call_handle = Some(match self.vertices {
             CubioidVertMode::Basic(verts) => rendering::register_indexed(
                 ctx,
-                &["reflection", "refraction", "shaded"],
+                Passes::SHADED_BUNDLE,
                 "basic",
                 self.topology,
                 &verts,
@@ -294,7 +295,7 @@ impl<'a> DrawComponent<'a> for Cuboid<'a> {
             ),
             CubioidVertMode::Shaded(verts) => rendering::register_indexed(
                 ctx,
-                &["reflection", "refraction", "shaded"],
+                Passes::SHADED_BUNDLE,
                 "shaded",
                 self.topology,
                 &verts,
@@ -369,6 +370,21 @@ impl<'a> DrawComponent<'a> for Cuboid<'a> {
 
 impl<'a> MouseComponent for Cuboid<'a> {
     fn click_start(&mut self, _ctx: &mut Context) {}
+    fn clicked(&mut self, ctx: &mut Context, camera: &Camera) {
+        //@TODO this is impossible in 3D space dont @ me
+        // fix to be in relation to a ground plane
+        let delta = mouse::delta(ctx);
+        //println!("delta: {:#?}", delta);
+
+        let ndc_x = delta.x / ctx.gfx_context.window_dims.width;
+        let ndc_y = -delta.y / ctx.gfx_context.window_dims.height;
+
+        let delta_x = 2.0 * (self.position - camera.origin).magnitude() * ndc_x * camera.u;
+        let delta_y = 2.0 * (self.position - camera.origin).magnitude() * ndc_y * camera.v;
+        let trans = delta_x + delta_y;
+
+        self.translate(trans.into());
+    }
     fn click_end(&mut self, _ctx: &mut Context) {}
 
     fn mouse_over(&mut self, ctx: &mut Context, pos: Vec3, camera: &Camera) {

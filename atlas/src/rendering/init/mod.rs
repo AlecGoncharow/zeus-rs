@@ -4,9 +4,13 @@ pub mod shaded;
 pub mod texture;
 pub mod water;
 
+use self::prelude::GlobalLightUniforms;
+
 pub use super::*;
 pub use camera::*;
 pub use lights::*;
+use pantheon::context::Context;
+use pantheon::wrangler::PASS_PADDING;
 pub use shaded::*;
 pub use texture::*;
 pub use water::*;
@@ -22,6 +26,25 @@ pub const UNIFORM_BUFFER_VERTEX: &'static str = "uniform_buffer_vertex";
 pub const UNIFORM_BUFFER_FRAGMENT: &'static str = "uniform_buffer_fragment";
 pub const UNIFORM_BUFFER_VERTEX_FRAGMENT: &'static str = "uniform_buffer_vertex_fragment";
 
+pub const BASIC_WGSL: &'static str = "basic.wgsl";
+pub const BASIC_TEXTURED_WGSL: &'static str = "basic_textured.wgsl";
+pub const SHADED_WGSL: &'static str = "shaded.wgsl";
+pub const WATER_WGSL: &'static str = "water.wgsl";
+
+pub const VS_MAIN: &'static str = "vs_main";
+pub const FS_MAIN: &'static str = "fs_main";
+pub const VS_BAKE: &'static str = "vs_bake";
+
+pub const DEPTH: &'static str = "depth";
+
+fn init_shaders(ctx: &mut Context) {
+    ctx.shader_context.register_module(&ctx.device, BASIC_WGSL);
+    ctx.shader_context
+        .register_module(&ctx.device, BASIC_TEXTURED_WGSL);
+    ctx.shader_context.register_module(&ctx.device, SHADED_WGSL);
+    ctx.shader_context.register_module(&ctx.device, WATER_WGSL);
+}
+
 pub fn init_shared(ctx: &mut Context) {
     let padding_bgl = ctx
         .device
@@ -29,9 +52,16 @@ pub fn init_shared(ctx: &mut Context) {
             entries: &[],
             label: Some("padding for no pass bgl and some draw call bgl"),
         });
+    let padding_bg = ctx.device.create_bind_group(&wgpu::BindGroupDescriptor {
+        layout: &padding_bgl,
+        entries: &[],
+        label: Some("padding Bind Group"),
+    });
+
     let _handle = ctx
         .wrangler
-        .add_bind_group_layout(padding_bgl, "pass_padding");
+        .add_bind_group_layout(padding_bgl, PASS_PADDING);
+    let _handle = ctx.wrangler.add_bind_group(padding_bg, PASS_PADDING);
 
     let buffer_bgl = ctx
         .device
@@ -95,9 +125,9 @@ pub fn init_shared(ctx: &mut Context) {
 }
 
 pub fn init_entity_resources(ctx: &mut Context) {
-    let depth_texture = Texture::create_depth_texture(&ctx.device, &ctx.surface_config, "depth");
+    let depth_texture = Texture::create_depth_texture(&ctx.device, &ctx.surface_config, DEPTH);
 
-    let _depth_texture_handle = ctx.wrangler.add_texture(depth_texture, "depth");
+    let _depth_texture_handle = ctx.wrangler.add_texture(depth_texture, DEPTH);
 }
 
 fn init_vert_index_buffers<'a>(ctx: &mut Context<'a>, label: &'a str) {
@@ -117,4 +147,24 @@ fn init_vert_index_buffers<'a>(ctx: &mut Context<'a>, label: &'a str) {
 
     let _vertex_buffer_handle = ctx.wrangler.add_vertex_buffer(shaded_vertex_buffer, label);
     let _index_buffer_handle = ctx.wrangler.add_index_buffer(shaded_index_buffer, label);
+}
+
+pub struct InitParams {
+    pub global_light_uniforms: GlobalLightUniforms,
+    pub water_height: f32,
+    pub refraction_offset: f32,
+}
+
+pub fn init<'a>(ctx: &mut Context<'a>, params: InitParams) {
+    init::init_shaders(ctx);
+    init::init_shared(ctx);
+    init::init_global_light(ctx, params.global_light_uniforms);
+    init::init_camera_resources(ctx);
+    init::init_shaded_resources(ctx, "shaded", params.water_height, params.refraction_offset);
+    init::init_global_bake_shadow_pass(ctx);
+    init::init_reflection_pass(ctx);
+    init::init_refraction_pass(ctx);
+    init::init_shaded_pass(ctx);
+    init::init_water_pass(ctx);
+    init::init_basic_textured_pass(ctx);
 }

@@ -52,7 +52,7 @@ impl<'a> Water<'a> {
 
         self.draw_call_handle = Some(rendering::register(
             ctx,
-            &["water"],
+            Passes::WATER,
             "water",
             self.topology,
             &self.verts,

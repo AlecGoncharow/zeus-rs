@@ -2,6 +2,7 @@ use super::Cuboid;
 use super::DrawComponent;
 use super::Entity;
 use super::MouseComponent;
+use crate::camera::Camera;
 use crate::vertex::*;
 use pantheon::Vec3;
 use pantheon::{Color, Mat4, PolygonMode, Topology};
@@ -116,6 +117,8 @@ impl<'a> MouseComponent for Sun<'a> {
     fn click_start(&mut self, ctx: &mut pantheon::context::Context) {
         self.cube.click_start(ctx);
     }
+
+    fn clicked(&mut self, _ctx: &mut pantheon::context::Context, _camera: &Camera) {}
 
     fn click_end(&mut self, ctx: &mut pantheon::context::Context) {
         self.cube.click_end(ctx);

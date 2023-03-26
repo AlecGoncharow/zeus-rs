@@ -18,6 +18,13 @@ layout(set=0, binding=0) uniform GlobalLight {
     vec2 bias;
 } global_light;
 
+layout(set=0, binding=1) uniform GlobalShadow {
+    mat4 shadow0;
+    vec3[3] cascade_offsets;
+    vec3[3] cascade_scales;
+    vec4[3] cascade_planes;
+} global_shadow;
+
 layout(set=1, binding=0) uniform Camera {
     mat4 view;
     mat4 projection;
@@ -40,6 +47,11 @@ layout (location=3) out vec4 pass_clip_space_grid;
 layout (location=4) out vec3 pass_specular;
 layout (location=5) out vec3 pass_diffuse;
 layout (location=6) out float texel_depth;
+layout (location=7) out vec4 v_cascade_coord_0;
+layout (location=8) out float v_shadow_bias;
+layout (location=9) out vec4 v_camera_space;
+
+const float min_bias = 0.005;
 
 vec3 SpecularLighting(vec3 to_cam_vec, vec3 to_light_vec, vec3 normal) {
     vec3 reflected_light_dir = reflect(-to_light_vec, normal);
@@ -93,6 +105,7 @@ void main() {
     vec3 vert_1 = vert_0 + vec3(a_indicators.x, 0, a_indicators.y);
     vec3 vert_2 = vert_0 + vec3(a_indicators.z, 0, a_indicators.w);
 
+
     pass_clip_space_grid = camera.projection * camera.view * model.model * vec4(vert_0, 1.0); 
 
     vert_0 = Distortion(vert_0);
@@ -101,7 +114,9 @@ void main() {
 
     pass_normal = CalcNormal(vert_0, vert_1, vert_2);
 
-    pass_clip_space_real = camera.projection * camera.view * model.model * vec4(vert_0, 1.0);
+    vec4 distorted_world_pos = model.model * vec4(vert_0, 1.0);
+    v_camera_space = camera.view * distorted_world_pos;
+    pass_clip_space_real = camera.projection * v_camera_space;
     gl_Position = pass_clip_space_real;
     texel_depth = gl_Position.w;
 
@@ -112,4 +127,7 @@ void main() {
     vec3 to_light_vec = -global_light.direction;
     pass_specular = SpecularLighting(pass_vert_to_camera, to_light_vec, pass_normal);
     pass_diffuse = DiffuseLighting(to_light_vec, pass_normal);
+
+    v_cascade_coord_0 = global_shadow.shadow0 * distorted_world_pos;
+    v_shadow_bias = max(0.05 * (1.0 - dot(pass_normal, global_light.direction)), min_bias);
 }

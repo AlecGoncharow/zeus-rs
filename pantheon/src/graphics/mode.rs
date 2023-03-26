@@ -1,7 +1,7 @@
 use std::slice::Iter;
 use wgpu::PrimitiveTopology;
 
-pub const MODE_COUNT: usize = 2 * 5 * 3;
+pub const MAX_PIPELINES: usize = 5 * 3;
 
 #[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
 pub enum DrawMode {

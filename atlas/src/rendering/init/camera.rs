@@ -1,7 +1,9 @@
-use super::*;
+use crate::rendering::uniforms::CameraUniforms;
 use pantheon::prelude::*;
+use pantheon::wgpu;
 
-const CAMERA_UNIFORM_BUFFER_SIZE: wgpu::BufferAddress = 2 * 16 * 4 + 4 * 3 + 4 * 2 + 12;
+const CAMERA_UNIFORM_BUFFER_SIZE: wgpu::BufferAddress =
+    std::mem::size_of::<CameraUniforms>() as u64;
 pub const CAMERA_REFLECT: &'static str = "camera_reflect";
 pub const CAMERA: &'static str = "camera";
 

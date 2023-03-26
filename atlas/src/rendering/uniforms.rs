@@ -1,6 +1,7 @@
 use pantheon::graphics::prelude::*;
 use pantheon::math::prelude::*;
-use wgpu::util::DeviceExt;
+use pantheon::wgpu;
+use pantheon::wgpu::util::DeviceExt;
 
 pub trait AlignedGLSL {
     /// This doesn't do any enforcment of alignment because I have no idea how to do that that
@@ -46,7 +47,7 @@ pub trait Uniforms: 'static + Sized + Send + Sync + std::fmt::Debug + AlignedGLS
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some(label),
-                usage: wgpu::BufferUsages::UNIFORM,
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
                 contents: bytemuck::cast_slice(self.as_bytes()),
             });
 
@@ -77,30 +78,38 @@ pub struct CameraUniforms {
     pub projection: Mat4,
     pub position: Vec3,
     _pad0: Padding32,
+    pub w: Vec3,
+    _pad1: Padding32,
     pub planes: Vec2,
+    _pad2: Padding64,
 }
 
 impl CameraUniforms {
-    pub fn new(view: Mat4, projection: Mat4, position: Vec3, planes: Vec2) -> Self {
+    pub fn new(view: Mat4, projection: Mat4, position: Vec3, w: Vec3, planes: Vec2) -> Self {
         Self {
             view,
             projection,
             position,
-            planes,
             _pad0: 0,
+            w,
+            _pad1: 0,
+            planes,
+            _pad2: 0,
         }
     }
 }
 impl AlignedGLSL for CameraUniforms {
     fn validate_alignment(&self) {
-        assert_eq!(64 + 64 + 12 + 4 + 8, std::mem::size_of::<Self>());
+        const_assert_eq!(
+            64 + 64 + 12 + 4 + 12 + 4 + 8 + 8,
+            std::mem::size_of::<CameraUniforms>()
+        );
     }
 }
 
 impl Uniforms for GlobalLightUniforms {}
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
-
 pub struct GlobalLightUniforms {
     pub direction: Vec3,
     _pad0: Padding32,
@@ -111,7 +120,10 @@ pub struct GlobalLightUniforms {
 }
 impl AlignedGLSL for GlobalLightUniforms {
     fn validate_alignment(&self) {
-        assert_eq!(2 + 4 + 12 + 4 + 8 + 8, std::mem::size_of::<Self>());
+        const_assert_eq!(
+            12 + 4 + 12 + 4 + 8 + 8,
+            std::mem::size_of::<GlobalLightUniforms>()
+        );
     }
 }
 
@@ -119,11 +131,45 @@ impl GlobalLightUniforms {
     pub fn new(direction: Vec3, color: Vec3, bias: Vec2) -> Self {
         Self {
             direction,
-            color,
-            bias,
             _pad0: 0,
+            color,
             _pad1: 0,
+            bias,
             _pad2: 0,
+        }
+    }
+}
+
+impl Uniforms for GlobalShadowUniforms {}
+#[derive(Debug, Clone, Copy)]
+#[repr(C)]
+pub struct GlobalShadowUniforms {
+    pub shadow0: Mat4,
+    pub cascade_offsets: [Vec4; 3],
+    pub cascade_scales: [Vec4; 3],
+    pub cascade_planes: [Vec4; 3],
+}
+impl AlignedGLSL for GlobalShadowUniforms {
+    fn validate_alignment(&self) {
+        const_assert_eq!(
+            64 + 48 + 48 + 48,
+            std::mem::size_of::<GlobalShadowUniforms>()
+        );
+    }
+}
+
+impl GlobalShadowUniforms {
+    pub fn new(
+        shadow0: Mat4,
+        cascade_offsets: [Vec4; 3],
+        cascade_scales: [Vec4; 3],
+        cascade_planes: [Vec4; 3],
+    ) -> Self {
+        Self {
+            shadow0,
+            cascade_offsets,
+            cascade_scales,
+            cascade_planes,
         }
     }
 }
@@ -136,12 +182,31 @@ pub struct StaticEntityUniforms {
 }
 impl AlignedGLSL for StaticEntityUniforms {
     fn validate_alignment(&self) {
-        assert_eq!(64, std::mem::size_of::<Self>());
+        const_assert_eq!(64, std::mem::size_of::<StaticEntityUniforms>());
     }
 }
 
 impl StaticEntityUniforms {
     pub fn new(model_matrix: Mat4) -> Self {
         Self { model_matrix }
+    }
+}
+
+impl Uniforms for ShadowBakeUniforms {}
+#[derive(Debug, Clone, Copy)]
+#[repr(C)]
+pub struct ShadowBakeUniforms {
+    pub projection: Mat4,
+    pub view: Mat4,
+}
+impl AlignedGLSL for ShadowBakeUniforms {
+    fn validate_alignment(&self) {
+        const_assert_eq!(64 + 64, std::mem::size_of::<ShadowBakeUniforms>());
+    }
+}
+
+impl ShadowBakeUniforms {
+    pub fn new(projection: Mat4, view: Mat4) -> Self {
+        Self { projection, view }
     }
 }

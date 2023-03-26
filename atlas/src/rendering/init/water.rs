@@ -1,6 +1,8 @@
 use super::*;
+use crate::vertex;
 use pantheon::graphics::prelude::*;
 use pantheon::prelude::*;
+use pantheon::wgpu;
 
 pub const WATER: &'static str = "water";
 pub const REFRACTION_DEPTH: &'static str = "refraction_depth";
@@ -45,19 +47,22 @@ pub fn init_refraction_pass<'a>(ctx: &'a mut Context) {
         load: wgpu::LoadOp::Clear(DEPTH_CLEAR),
         store: true,
     });
-    let depth_stencil_view_handle = Some(depth_texture_handle);
+    let depth_stencil_view = Some(ViewKind::Handle(depth_texture_handle));
     let push_constant_ranges = &[wgpu::PushConstantRange {
         stages: wgpu::ShaderStages::VERTEX,
         range: 0..16 * 4,
     }];
 
-    let pipeline_ctx = Some(PipelineContext {
+    let pipeline_ctx = PipelineContext {
         pass_bind_group_layout_handle: Some(clip_plane_bind_group_layout),
         draw_call_bind_group_layout_handle: None,
 
         push_constant_ranges,
-        vs_path: Some("shaded.vert.spv"),
-        fs_path: Some("shaded.frag.spv"),
+        vs_module_name: Some(SHADED_WGSL),
+        vs_entry_point: Some(VS_MAIN),
+        fs_module_name: Some(SHADED_WGSL),
+        fs_entry_point: Some(FS_MAIN),
+        frame_bind_group_layout_handle_override: None,
         vert_desc: crate::vertex::ShadedVertex::desc,
         label: Some(pass_label),
         fragment_targets: Some(vec![ColorTarget {
@@ -87,9 +92,14 @@ pub fn init_refraction_pass<'a>(ctx: &'a mut Context) {
         },
 
         multiview: None,
-    });
+    };
 
-    let pipelines = Vec::new();
+    let pipelines = ctx.wrangler.create_pipelines(
+        &ctx.device,
+        &ctx.shader_context,
+        &ctx.surface_config,
+        &pipeline_ctx,
+    );
 
     let color_attachment_view_handle =
         Some(ctx.wrangler.handle_to_texture(REFRACTION_TEXTURE).unwrap());
@@ -102,11 +112,12 @@ pub fn init_refraction_pass<'a>(ctx: &'a mut Context) {
         color_attachment_view_handle,
         depth_ops,
         stencil_ops: None,
-        depth_stencil_view_handle,
-        draw_call_handles: Vec::new(),
+        viewport: None,
+        depth_stencil_view,
         pass_bind_group_handle,
         vertex_buffer_handle,
         index_buffer_handle,
+        frame_bind_group_handle_override: None,
     };
 
     let _handle = ctx.wrangler.add_pass(pass, pass_label);
@@ -122,11 +133,11 @@ pub fn init_reflection_resources<'a>(ctx: &mut Context<'a>) {
 pub fn init_reflection_pass<'a>(ctx: &'a mut Context) {
     let pass_label = "reflection";
     let shaded_label = "shaded";
-    let depth_texture_handle = match ctx.wrangler.handle_to_texture("depth") {
+    let depth_texture_handle = match ctx.wrangler.handle_to_texture(DEPTH) {
         Some(handle) => handle,
         None => {
             init_entity_resources(ctx);
-            ctx.wrangler.handle_to_texture("depth").unwrap()
+            ctx.wrangler.handle_to_texture(DEPTH).unwrap()
         }
     };
 
@@ -146,24 +157,29 @@ pub fn init_reflection_pass<'a>(ctx: &'a mut Context) {
         load: wgpu::LoadOp::Clear(ctx.gfx_context.clear_color),
         store: true,
     });
+    let color_attachment_view_handle =
+        Some(ctx.wrangler.handle_to_texture(REFLECTION_TEXTURE).unwrap());
 
     let depth_ops = Some(wgpu::Operations {
         load: wgpu::LoadOp::Clear(DEPTH_CLEAR),
         store: true,
     });
-    let depth_stencil_view_handle = Some(depth_texture_handle);
+    let depth_stencil_view = Some(ViewKind::Handle(depth_texture_handle));
     let push_constant_ranges = &[wgpu::PushConstantRange {
         stages: wgpu::ShaderStages::VERTEX,
         range: 0..16 * 4,
     }];
 
-    let pipeline_ctx = Some(PipelineContext {
+    let pipeline_ctx = PipelineContext {
         pass_bind_group_layout_handle: Some(clip_plane_bind_group_layout),
         draw_call_bind_group_layout_handle: None,
 
         push_constant_ranges,
-        vs_path: Some("shaded.vert.spv"),
-        fs_path: Some("shaded.frag.spv"),
+        vs_module_name: Some(SHADED_WGSL),
+        vs_entry_point: Some(VS_MAIN),
+        fs_module_name: Some(SHADED_WGSL),
+        fs_entry_point: Some(FS_MAIN),
+        frame_bind_group_layout_handle_override: None,
         vert_desc: vertex::ShadedVertex::desc,
         label: Some(pass_label),
         fragment_targets: Some(vec![ColorTarget {
@@ -193,12 +209,14 @@ pub fn init_reflection_pass<'a>(ctx: &'a mut Context) {
         },
 
         multiview: None,
-    });
+    };
 
-    let pipelines = Vec::new();
-
-    let color_attachment_view_handle =
-        Some(ctx.wrangler.handle_to_texture(REFLECTION_TEXTURE).unwrap());
+    let pipelines = ctx.wrangler.create_pipelines(
+        &ctx.device,
+        &ctx.shader_context,
+        &ctx.surface_config,
+        &pipeline_ctx,
+    );
 
     let pass = Pass {
         label: pass_label,
@@ -208,11 +226,12 @@ pub fn init_reflection_pass<'a>(ctx: &'a mut Context) {
         color_attachment_view_handle,
         depth_ops,
         stencil_ops: None,
-        depth_stencil_view_handle,
-        draw_call_handles: Vec::new(),
+        viewport: None,
+        depth_stencil_view,
         pass_bind_group_handle,
         vertex_buffer_handle,
         index_buffer_handle,
+        frame_bind_group_handle_override: None,
     };
 
     let _handle = ctx.wrangler.add_pass(pass, pass_label);
@@ -261,7 +280,7 @@ pub fn init_water_resources<'a>(ctx: &mut Context<'a>, label: &'a str) {
                         visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Texture {
                             multisampled: false,
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            sample_type: wgpu::TextureSampleType::Float { filterable: false },
                             view_dimension: wgpu::TextureViewDimension::D2,
                         },
                         count: None,
@@ -270,6 +289,12 @@ pub fn init_water_resources<'a>(ctx: &mut Context<'a>, label: &'a str) {
                         binding: 4,
                         visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 5,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Comparison),
                         count: None,
                     },
                 ],
@@ -306,6 +331,10 @@ pub fn init_water_resources<'a>(ctx: &mut Context<'a>, label: &'a str) {
                     &ctx.device,
                 )),
             },
+            wgpu::BindGroupEntry {
+                binding: 5,
+                resource: wgpu::BindingResource::Sampler(&refraction_depth.sampler),
+            },
         ],
         label: Some(WATER),
     });
@@ -320,11 +349,11 @@ pub fn init_water_resources<'a>(ctx: &mut Context<'a>, label: &'a str) {
 
 pub fn init_water_pass<'a>(ctx: &mut Context<'a>) -> PassHandle<'a> {
     let pass_label = "water";
-    let depth_texture_handle = match ctx.wrangler.handle_to_texture("depth") {
+    let depth_texture_handle = match ctx.wrangler.handle_to_texture(DEPTH) {
         Some(handle) => handle,
         None => {
             init_entity_resources(ctx);
-            ctx.wrangler.handle_to_texture("depth").unwrap()
+            ctx.wrangler.handle_to_texture(DEPTH).unwrap()
         }
     };
 
@@ -351,18 +380,21 @@ pub fn init_water_pass<'a>(ctx: &mut Context<'a>) -> PassHandle<'a> {
         load: wgpu::LoadOp::Load,
         store: true,
     });
-    let depth_stencil_view_handle = Some(depth_texture_handle);
+    let depth_stencil_view = Some(ViewKind::Handle(depth_texture_handle));
     let push_constant_ranges = &[wgpu::PushConstantRange {
         stages: wgpu::ShaderStages::VERTEX,
         range: 0..16,
     }];
 
-    let pipeline_ctx = Some(PipelineContext {
+    let pipeline_ctx = PipelineContext {
         pass_bind_group_layout_handle: Some(texture_sampler_bind_group_layout_handle),
         draw_call_bind_group_layout_handle: Some(static_entity_bind_group_layout_handle),
         push_constant_ranges,
-        vs_path: Some("water.vert.spv"),
-        fs_path: Some("water.frag.spv"),
+        frame_bind_group_layout_handle_override: None,
+        vs_module_name: Some(WATER_WGSL),
+        vs_entry_point: Some(VS_MAIN),
+        fs_module_name: Some(WATER_WGSL),
+        fs_entry_point: Some(FS_MAIN),
         vert_desc: crate::vertex::WaterVertex::desc,
         label: Some(pass_label),
         fragment_targets: Some(vec![ColorTarget {
@@ -392,9 +424,14 @@ pub fn init_water_pass<'a>(ctx: &mut Context<'a>) -> PassHandle<'a> {
         },
 
         multiview: None,
-    });
+    };
 
-    let pipelines = Vec::new();
+    let pipelines = ctx.wrangler.create_pipelines(
+        &ctx.device,
+        &ctx.shader_context,
+        &ctx.surface_config,
+        &pipeline_ctx,
+    );
 
     let pass = Pass {
         label: pass_label,
@@ -404,11 +441,12 @@ pub fn init_water_pass<'a>(ctx: &mut Context<'a>) -> PassHandle<'a> {
         color_attachment_view_handle: None,
         depth_ops,
         stencil_ops: None,
-        depth_stencil_view_handle,
-        draw_call_handles: Vec::new(),
+        depth_stencil_view,
+        viewport: None,
         pass_bind_group_handle,
         vertex_buffer_handle,
         index_buffer_handle,
+        frame_bind_group_handle_override: None,
     };
 
     let handle = ctx.wrangler.add_pass(pass, pass_label);

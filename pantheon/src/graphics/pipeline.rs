@@ -1,5 +1,8 @@
+use super::mode::MAX_PIPELINES;
+use std::mem::MaybeUninit;
+
 use crate::graphics::prelude::*;
-use crate::shader::ShaderContext;
+use crate::shader::WgslShaderContext;
 
 #[derive(Debug)]
 pub struct ColorTarget<'a> {
@@ -12,10 +15,13 @@ pub struct ColorTarget<'a> {
 pub struct PipelineContext<'a> {
     pub pass_bind_group_layout_handle: Option<BindGroupLayoutHandle<'a>>,
     pub draw_call_bind_group_layout_handle: Option<BindGroupLayoutHandle<'a>>,
-    pub push_constant_ranges: &'a [wgpu::PushConstantRange],
+    pub frame_bind_group_layout_handle_override: Option<BindGroupLayoutHandle<'a>>,
+    pub vs_module_name: Option<&'a str>,
+    pub vs_entry_point: Option<&'a str>,
+    pub fs_module_name: Option<&'a str>,
+    pub fs_entry_point: Option<&'a str>,
 
-    pub vs_path: Option<&'a str>,
-    pub fs_path: Option<&'a str>,
+    pub push_constant_ranges: &'a [wgpu::PushConstantRange],
     pub vert_desc: fn() -> wgpu::VertexBufferLayout<'a>,
     pub label: Option<&'a str>,
 
@@ -27,15 +33,16 @@ pub struct PipelineContext<'a> {
 }
 
 impl<'a> PipelineContext<'a> {
-    pub fn recreate_pipelines(
+    pub fn create_pipelines(
         &self,
-        pipelines: &mut Vec<wgpu::RenderPipeline>,
-        shader_ctx: &ShaderContext,
+        shader_ctx: &WgslShaderContext,
         layouts: &[&wgpu::BindGroupLayout],
         device: &wgpu::Device,
-        targets: Option<&Vec<wgpu::ColorTargetState>>,
-    ) {
-        pipelines.clear();
+        targets: &[Option<wgpu::ColorTargetState>],
+    ) -> [wgpu::RenderPipeline; 15] {
+        let mut pipelines: [MaybeUninit<wgpu::RenderPipeline>; MAX_PIPELINES] =
+            unsafe { MaybeUninit::uninit().assume_init() };
+        let mut pipeline_cursor = 0;
         let non_fill_polygon_modes = device
             .features()
             .contains(wgpu::Features::POLYGON_MODE_LINE | wgpu::Features::POLYGON_MODE_POINT);
@@ -52,18 +59,20 @@ impl<'a> PipelineContext<'a> {
                 label: self.label,
                 layout: Some(&render_pipeline_layout),
                 vertex: wgpu::VertexState {
-                    module: &shader_ctx.make_module(device, &self.vs_path.unwrap()),
-                    entry_point: "main",
+                    module: &shader_ctx
+                        .find_module(&self.vs_module_name.unwrap())
+                        .unwrap(),
+                    entry_point: &self.vs_entry_point.unwrap(),
                     buffers: &[(self.vert_desc)()],
                 },
-                fragment: if let Some(fs_path) = self.fs_path {
-                    fs_module = shader_ctx.make_module(device, &fs_path);
+                fragment: if let Some(fs_name) = self.fs_module_name {
+                    fs_module = shader_ctx.find_module(&fs_name).unwrap();
 
                     Some(wgpu::FragmentState {
                         // 2.
                         module: &fs_module,
-                        entry_point: "main",
-                        targets: &targets.expect("nice one"),
+                        entry_point: &self.fs_entry_point.unwrap(),
+                        targets,
                     })
                 } else {
                     None
@@ -81,7 +90,7 @@ impl<'a> PipelineContext<'a> {
                 multiview: self.multiview,
             });
 
-            if usize::from(*mode) != pipelines.len()
+            if usize::from(*mode) != pipeline_cursor
                 && device.features().contains(
                     wgpu::Features::POLYGON_MODE_LINE | wgpu::Features::POLYGON_MODE_POINT,
                 )
@@ -92,7 +101,10 @@ impl<'a> PipelineContext<'a> {
                     pipelines.len()
                 );
             }
-            pipelines.push(pipeline);
+            pipelines[pipeline_cursor].write(pipeline);
+            pipeline_cursor += 1;
         });
+
+        unsafe { std::mem::transmute(pipelines) }
     }
 }

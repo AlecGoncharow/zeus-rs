@@ -12,11 +12,11 @@ impl<T: 'static + Copy + Sized + Send + Sync + std::fmt::Debug> Pod for T {}
 
 pub trait Messageable: Pod {}
 
-/// T represents an Enum which tells both sides what kind of message is being
+/// T represents should probably be a Enum which tells both sides what kind of message is being
 /// passed in the body of the message
 #[derive(Debug, Clone, Copy)]
 pub struct MessageHeader<T: Messageable> {
-    /// The kind of invariant in the message body, used as an identifier
+    /// Type of message`
     pub id: T,
     /// the length of the message in bytes
     pub size: u32,
@@ -55,18 +55,13 @@ impl<T: Messageable> Message<T> {
             let data_ptr: *const V = &data;
             let byte_ptr: *const u8 = data_ptr as *const _;
             // SAFETY:
-            // We are just reinterpetting the type as a slice of bytes and since the type is
-            // constrained by the Pod trait we know everything on the type is actually on the type
-            let byte_slice: &[u8] = std::slice::from_raw_parts(byte_ptr, std::mem::size_of::<V>());
-
-            // SAFETY:
             // Since we resized the Vec to fit the existing data along with the number of bytes in
             // the incoming type, we can be sure that there is enough space to copy the actual
             // data
             // The source is known to be aligned since it is just a reinterpetation of an existing
             // valid Pod type
             std::ptr::copy(
-                &byte_slice[0],
+                byte_ptr,
                 self.body.as_mut_ptr().add(i),
                 std::mem::size_of::<V>(),
             );
@@ -75,7 +70,7 @@ impl<T: Messageable> Message<T> {
         self.header.size = self.size();
     }
 
-    /// This will reinterpet the end of the message body's bytes as the type yo urequest,
+    /// This will reinterpet the end of the message body's bytes as the type you request,
     /// there is no built in validation at the moment.
     pub fn pull<V: Pod>(&mut self) -> Result<V, MessageError> {
         let bytes = std::mem::size_of::<V>();
@@ -90,12 +85,6 @@ impl<T: Messageable> Message<T> {
 
         let out: V = unsafe {
             // SAFETY:
-            // We know the message has enough bytes to pull an instance of V out based on the
-            // checks done above
-            let data_ptr = self.body.as_ptr().add(new_len);
-            let byte_slice: &[u8] = std::slice::from_raw_parts(data_ptr, bytes);
-
-            // SAFETY:
             // We know that the slice of bytes has the proper number of bytes to transmute into an
             // instance of `V` due to the above code deriving the values based on the `size_of` calls
             // on `V`
@@ -104,7 +93,11 @@ impl<T: Messageable> Message<T> {
             // This call will reinterpet the bytes as an instance of `V`, there is currently not
             // parity check on the result of this reinterpetation, the burden of doing some
             // validation is currently on the caller
-            std::mem::transmute_copy(&byte_slice[0])
+            self.body
+                .as_ptr()
+                .offset(new_len as isize)
+                .cast::<V>()
+                .read_unaligned()
         };
 
         self.body.resize(new_len, 0);
@@ -150,7 +143,8 @@ impl<T: Messageable> From<&[u8]> for Message<T> {
             panic!("no, this is not header");
         }
 
-        let header: MessageHeader<T> = unsafe { std::mem::transmute_copy(&bytes[0]) };
+        let header: MessageHeader<T> =
+            unsafe { bytes.as_ptr().cast::<MessageHeader<T>>().read_unaligned() };
 
         if header.size != bytes_len as u32 {
             panic!(

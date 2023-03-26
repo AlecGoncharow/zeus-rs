@@ -2,25 +2,43 @@ use std::marker::PhantomData;
 
 use super::prelude::*;
 use crate::graphics::pass::*;
-use crate::shader::ShaderContext;
+use crate::mode::MAX_PIPELINES;
+use crate::shader::WgslShaderContext;
+
+use smallvec::SmallVec;
 
 // :)
 pub const PASS_PADDING: &'static str = "pass_padding";
 
-pub struct RenderWrangler<'a> {
-    pub passes: Vec<Pass<'a>>,
+pub const PASS_COUNT: usize = 9;
+pub const VERTEX_KIND_COUNT: usize = 4;
 
-    pub bind_group_layouts: Vec<LabeledEntry<'a, wgpu::BindGroupLayout>>,
-    pub bind_groups: Vec<LabeledEntry<'a, wgpu::BindGroup>>,
-    pub vertex_buffers: Vec<LabeledEntry<'a, wgpu::Buffer>>,
-    pub vertex_buffer_cursors: Vec<LabeledEntry<'a, wgpu::BufferAddress>>,
-    pub index_buffers: Vec<LabeledEntry<'a, wgpu::Buffer>>,
-    pub index_buffer_cursors: Vec<LabeledEntry<'a, wgpu::BufferAddress>>,
-    // @TODO @SPEED this should probably just be broken down as per
-    // https://github.com/gfx-rs/wgpu/wiki/Do%27s-and-Dont%27s#do-group-resource-bindings-by-the-change-frequency-start-from-the-lowest
-    pub uniform_buffers: Vec<LabeledEntry<'a, wgpu::Buffer>>,
-    pub textures: Vec<LabeledEntry<'a, Texture>>,
-    pub draw_calls: Vec<LabeledEntry<'a, DrawCall<'a>>>,
+pub type Passes<'a> = SmallVec<[Pass<'a>; PASS_COUNT]>;
+pub type BindGroupLayouts<'a> = SmallVec<[LabeledEntry<'a, wgpu::BindGroupLayout>; 20]>;
+pub type BindGroups<'a> = SmallVec<[LabeledEntry<'a, wgpu::BindGroup>; 20]>;
+pub type VertexBuffers<'a> = SmallVec<[LabeledEntry<'a, wgpu::Buffer>; VERTEX_KIND_COUNT]>;
+pub type VertexBufferCursors<'a> =
+    SmallVec<[LabeledEntry<'a, wgpu::BufferAddress>; VERTEX_KIND_COUNT]>;
+pub type IndexBuffers<'a> = SmallVec<[LabeledEntry<'a, wgpu::Buffer>; VERTEX_KIND_COUNT]>;
+pub type IndexBufferCursors<'a> =
+    SmallVec<[LabeledEntry<'a, wgpu::BufferAddress>; VERTEX_KIND_COUNT]>;
+pub type UniformBuffers<'a> = SmallVec<[LabeledEntry<'a, wgpu::Buffer>; 32]>;
+pub type Textures<'a> = SmallVec<[LabeledEntry<'a, Texture>; 32]>;
+pub type DrawCalls<'a> = SmallVec<[LabeledEntry<'a, DrawCall<'a>>; 32]>;
+
+pub struct RenderWrangler<'a> {
+    //pub passes: [MaybeUninit<Pass<'a>>; N_PASSES],
+    pub passes: Passes<'a>,
+
+    pub bind_group_layouts: BindGroupLayouts<'a>,
+    pub bind_groups: BindGroups<'a>,
+    pub vertex_buffers: VertexBuffers<'a>,
+    pub vertex_buffer_cursors: VertexBufferCursors<'a>,
+    pub index_buffers: IndexBuffers<'a>,
+    pub index_buffer_cursors: IndexBufferCursors<'a>,
+    pub uniform_buffers: UniformBuffers<'a>,
+    pub textures: Textures<'a>,
+    pub draw_calls: DrawCalls<'a>,
 
     /// per https://github.com/gfx-rs/wgpu/wiki/Do%27s-and-Dont%27s#do-group-resource-bindings-by-the-change-frequency-start-from-the-lowest
     /// these make it possible to enforce a global frame bind group without the init code for each
@@ -35,16 +53,16 @@ pub struct RenderWrangler<'a> {
 impl<'a> RenderWrangler<'a> {
     pub fn new() -> Self {
         Self {
-            passes: Vec::new(),
-            bind_group_layouts: Vec::new(),
-            bind_groups: Vec::new(),
-            vertex_buffers: Vec::new(),
-            vertex_buffer_cursors: Vec::new(),
-            index_buffers: Vec::new(),
-            index_buffer_cursors: Vec::new(),
-            uniform_buffers: Vec::new(),
-            textures: Vec::new(),
-            draw_calls: Vec::new(),
+            passes: Passes::new(),
+            bind_group_layouts: BindGroupLayouts::new(),
+            bind_groups: BindGroups::new(),
+            vertex_buffers: VertexBuffers::new(),
+            vertex_buffer_cursors: VertexBufferCursors::new(),
+            index_buffers: IndexBuffers::new(),
+            index_buffer_cursors: IndexBufferCursors::new(),
+            uniform_buffers: UniformBuffers::new(),
+            textures: Textures::new(),
+            draw_calls: DrawCalls::new(),
             surface_bound_bind_group_count: 0,
             surface_bound_bind_group_cursor: 0,
 
@@ -63,7 +81,7 @@ impl<'a> RenderWrangler<'a> {
         }
     }
 
-    /**
+    /*
      * Bind Group Layouts
      */
 
@@ -602,65 +620,6 @@ impl<'a> RenderWrangler<'a> {
         })
     }
 
-    /**
-     *Push Constants
-
-    pub fn get_push_constant(&self, handle: &PushConstantHandle<'a>) -> &PushConstant {
-        let push_constant = &self.push_constants[handle.idx];
-        #[cfg(debug_assertions)]
-        assert_eq!(handle.label, push_constant.label);
-        &push_constant.entry
-    }
-
-    pub fn get_push_constant_mut(&mut self, handle: &PushConstantHandle<'a>) -> &mut PushConstant {
-        let push_constant = &mut self.push_constants[handle.idx];
-        #[cfg(debug_assertions)]
-        assert_eq!(handle.label, push_constant.label);
-        &mut push_constant.entry
-    }
-
-    /// This is an unchecked add, you should keep this handle as there is no guarentee the label
-    /// is unique
-    pub fn add_push_constant(
-        &mut self,
-        push_constant: PushConstant,
-        label: &'a str,
-    ) -> PushConstantHandle<'a> {
-        //@TODO think about if this ought to be unique
-        let idx = self.push_constants.len();
-        self.push_constants.push(LabeledEntry {
-            label,
-            entry: push_constant,
-        });
-        println!("[add_push_constant] idx: {}, label {}", idx, label);
-        PushConstantHandle {
-            label,
-            idx,
-            marker: PhantomData,
-        }
-    }
-
-    pub fn swap_push_constant(&mut self, handle: &PushConstantHandle, push_constant: PushConstant) {
-        let entry = &mut self.push_constants[handle.idx];
-        #[cfg(debug_assertions)]
-        assert_eq!(handle.label, entry.label);
-        entry.entry = push_constant;
-    }
-
-    pub fn handle_to_push_constant(&self, label: &'a str) -> Option<PushConstantHandle<'a>> {
-        let idx = self
-            .push_constants
-            .iter()
-            .position(|entry| entry.label == label)?;
-
-        Some(PushConstantHandle {
-            idx,
-            label,
-            marker: PhantomData,
-        })
-    }
-     */
-
     /// sugar functions, inefficient and should only be used if i know what im doing :)
 
     pub fn find_vertex_buffer(&self, label: &'a str) -> &wgpu::Buffer {
@@ -739,10 +698,11 @@ impl<'a> RenderWrangler<'a> {
 
     /// Reconfigure stuff to support resizing and hotloading resources
 
+    //@TODO this should take &mut pipelines
     pub fn reload_shaders(
         &mut self,
         device: &wgpu::Device,
-        shader_context: &ShaderContext,
+        shader_context: &WgslShaderContext,
         surface_config: &wgpu::SurfaceConfiguration,
     ) {
         // @TODO FIXME? :)
@@ -751,62 +711,133 @@ impl<'a> RenderWrangler<'a> {
         let handle = self.handle_to_bind_group_layout(PASS_PADDING).unwrap();
         let padding_bgl = &bind_group_layouts[handle.idx].entry;
         let textures = &self.textures;
-        let mut targets = None;
+        let mut targets = vec![];
 
         self.passes.iter_mut().for_each(|pass| {
-            if let Some(pipeline_ctx) = &pass.pipeline_ctx {
-                let mut layouts = Vec::with_capacity(3);
+            let mut layouts = Vec::with_capacity(3);
+            let pipeline_ctx = &pass.pipeline_ctx;
 
+            let frame_layout;
+            if let Some(handle) = pipeline_ctx.frame_bind_group_layout_handle_override {
+                frame_layout = &bind_group_layouts[handle.idx];
+                #[cfg(debug_assertions)]
+                assert_eq!(frame_layout.label, handle.label);
+                layouts.push(&frame_layout.entry);
+            } else {
                 layouts.push(frame_bgl);
-
-                let pass_layout;
-                if let Some(handle) = &pipeline_ctx.pass_bind_group_layout_handle {
-                    pass_layout = &bind_group_layouts[handle.idx];
-                    #[cfg(debug_assertions)]
-                    assert_eq!(pass_layout.label, handle.label);
-                    layouts.push(&pass_layout.entry);
-                } else {
-                    layouts.push(padding_bgl);
-                }
-
-                let draw_layout;
-                if let Some(handle) = &pipeline_ctx.draw_call_bind_group_layout_handle {
-                    draw_layout = &bind_group_layouts[handle.idx];
-                    #[cfg(debug_assertions)]
-                    assert_eq!(draw_layout.label, handle.label);
-                    layouts.push(&draw_layout.entry);
-                }
-
-                if let Some(fragment_targets) = &pipeline_ctx.fragment_targets {
-                    targets = Some(
-                        fragment_targets
-                            .iter()
-                            .map(|target| wgpu::ColorTargetState {
-                                format: if let Some(handle) = target.format_handle {
-                                    let texture = &textures[handle.idx];
-                                    #[cfg(debug_assertions)]
-                                    assert_eq!(handle.label, texture.label);
-                                    texture.entry.format.clone()
-                                } else {
-                                    surface_config.format
-                                },
-                                blend: target.blend,
-                                write_mask: target.write_mask,
-                            })
-                            .collect(),
-                    );
-                }
-
-                println!("[reload_shaders] {:#?} {:#?}", pass.label, layouts);
-
-                pipeline_ctx.recreate_pipelines(
-                    &mut pass.pipelines,
-                    shader_context,
-                    &layouts,
-                    device,
-                    targets.as_ref(),
-                );
             }
+
+            let pass_layout;
+            if let Some(handle) = &pipeline_ctx.pass_bind_group_layout_handle {
+                pass_layout = &bind_group_layouts[handle.idx];
+                #[cfg(debug_assertions)]
+                assert_eq!(pass_layout.label, handle.label);
+                layouts.push(&pass_layout.entry);
+            } else {
+                layouts.push(padding_bgl);
+            }
+
+            let draw_layout;
+            if let Some(handle) = &pipeline_ctx.draw_call_bind_group_layout_handle {
+                draw_layout = &bind_group_layouts[handle.idx];
+                #[cfg(debug_assertions)]
+                assert_eq!(draw_layout.label, handle.label);
+                layouts.push(&draw_layout.entry);
+            }
+
+            targets = if let Some(fragment_targets) = &pipeline_ctx.fragment_targets {
+                fragment_targets
+                    .iter()
+                    .map(|target| {
+                        Some(wgpu::ColorTargetState {
+                            format: if let Some(handle) = target.format_handle {
+                                let texture = &textures[handle.idx];
+                                #[cfg(debug_assertions)]
+                                assert_eq!(handle.label, texture.label);
+                                texture.entry.format.clone()
+                            } else {
+                                surface_config.format
+                            },
+                            blend: target.blend,
+                            write_mask: target.write_mask,
+                        })
+                    })
+                    .collect()
+            } else {
+                vec![]
+            };
+
+            pass.pipelines =
+                pipeline_ctx.create_pipelines(shader_context, &layouts, device, targets.as_ref());
         });
+    }
+
+    pub fn create_pipelines(
+        &mut self,
+        device: &wgpu::Device,
+        shader_context: &WgslShaderContext,
+        surface_config: &wgpu::SurfaceConfiguration,
+        pipeline_ctx: &PipelineContext,
+    ) -> [wgpu::RenderPipeline; MAX_PIPELINES] {
+        // @TODO FIXME? :)
+        let bind_group_layouts = &self.bind_group_layouts;
+        let frame_bgl = &bind_group_layouts[self.frame_bind_group_layout_handle.idx].entry;
+        let handle = self.handle_to_bind_group_layout(PASS_PADDING).unwrap();
+        let padding_bgl = &bind_group_layouts[handle.idx].entry;
+        let textures = &self.textures;
+
+        let mut layouts = Vec::with_capacity(3);
+
+        let frame_layout;
+        if let Some(handle) = pipeline_ctx.frame_bind_group_layout_handle_override {
+            frame_layout = &bind_group_layouts[handle.idx];
+            #[cfg(debug_assertions)]
+            assert_eq!(frame_layout.label, handle.label);
+            layouts.push(&frame_layout.entry);
+        } else {
+            layouts.push(frame_bgl);
+        }
+
+        let pass_layout;
+        if let Some(handle) = &pipeline_ctx.pass_bind_group_layout_handle {
+            pass_layout = &bind_group_layouts[handle.idx];
+            #[cfg(debug_assertions)]
+            assert_eq!(pass_layout.label, handle.label);
+            layouts.push(&pass_layout.entry);
+        } else {
+            layouts.push(padding_bgl);
+        }
+
+        let draw_layout;
+        if let Some(handle) = &pipeline_ctx.draw_call_bind_group_layout_handle {
+            draw_layout = &bind_group_layouts[handle.idx];
+            #[cfg(debug_assertions)]
+            assert_eq!(draw_layout.label, handle.label);
+            layouts.push(&draw_layout.entry);
+        }
+
+        let targets = if let Some(fragment_targets) = &pipeline_ctx.fragment_targets {
+            fragment_targets
+                .iter()
+                .map(|target| {
+                    Some(wgpu::ColorTargetState {
+                        format: if let Some(handle) = target.format_handle {
+                            let texture = &textures[handle.idx];
+                            #[cfg(debug_assertions)]
+                            assert_eq!(handle.label, texture.label);
+                            texture.entry.format.clone()
+                        } else {
+                            surface_config.format
+                        },
+                        blend: target.blend,
+                        write_mask: target.write_mask,
+                    })
+                })
+                .collect()
+        } else {
+            vec![]
+        };
+
+        pipeline_ctx.create_pipelines(shader_context, &layouts, device, targets.as_ref())
     }
 }

@@ -14,12 +14,28 @@ layout(location=3) in vec4 pass_clip_space_grid;
 layout (location=4) in vec3 pass_specular;
 layout (location=5) in vec3 pass_diffuse;
 layout (location=6) in float texel_depth;
+layout (location=7) in vec4 v_cascade_coord_0;
+layout (location=8) in float v_shadow_bias;
+layout (location=9) in vec4 v_camera_space;
 
 layout(set=0, binding=0) uniform GlobalLight {
     vec3 direction;
     vec3 color;
     vec2 bias;
 } global_light;
+
+layout(set=0, binding=1) uniform GlobalShadow {
+    mat4 shadow0;
+    vec3[3] cascade_offsets;
+    vec3[3] cascade_scales;
+    vec3[3] cascade_planes;
+} global_shadow;
+
+layout(set=0, binding=2)
+    uniform texture2D shadow_texture;
+
+layout(set=0, binding=3)
+    uniform sampler shadow_sampler;
 
 layout(set=1, binding=0) uniform Camera {
     mat4 view;
@@ -84,6 +100,86 @@ vec2 ClipSpaceToTexCoords(vec4 homogeneous_coords){
 	return clamp(tex_coords, 0.002, 0.998);
 }
 
+const float r = 1 / 1024;
+const float delta = r;
+const vec4 shadow_offset_0 = vec4(-delta, -3 * delta, 3 * delta, - delta);
+const vec4 shadow_offset_1 = vec4(delta, 3 * delta, -3 * delta, delta);
+const float[4] cascade_dist = float[4](50, 120, 320, 600); 
+
+// 8.83
+float CalculateInfiniteShadow(vec4 homogenous_coords) {
+    vec2 point;
+    float shadow = 0;
+    float pcf_depth;
+    float projection_correction = 1.0 / homogenous_coords.w;
+    vec3 cascade_coord_0 = homogenous_coords.xyz * projection_correction; //+ vec2(0.5, 0.5); 
+    float depth = cascade_coord_0.z;
+    vec2 shadow_coord = cascade_coord_0.xy;
+    /*
+    vec3 cascade_coord_1 =  cascade_coord_0 * global_shadow.cascade_scales[0] + global_shadow.cascade_offsets[0];
+    vec3 cascade_coord_2 =  cascade_coord_0 * global_shadow.cascade_scales[1] + global_shadow.cascade_offsets[1];
+    vec3 cascade_coord_3 =  cascade_coord_0 * global_shadow.cascade_scales[2] + global_shadow.cascade_offsets[2];
+
+    float world_depth = abs(v_camera_space.z);
+
+    int layer = -1;
+    for (int i = 0; i < 4; ++i) {
+        if (world_depth < cascade_dist[i]) {
+            layer = i;
+            break;
+        }
+    }
+    
+
+    switch (layer) {
+        case 0:
+            depth = cascade_coord_0.z;
+            shadow_coord = cascade_coord_0.xy;
+            break;
+        case 1: 
+            depth = cascade_coord_1.z;
+            shadow_coord = cascade_coord_1.xy;
+            break;
+        case 2: 
+            depth = cascade_coord_2.z;
+            shadow_coord = cascade_coord_2.xy;
+            break;
+        case 3: 
+            depth = cascade_coord_3.z;
+            shadow_coord = cascade_coord_3.xy;
+            break;
+        default:
+            depth = cascade_coord_0.z;
+            shadow_coord = cascade_coord_0.xy;
+    }
+    */
+
+    float shadow_bias = v_shadow_bias;
+
+    point.xy = shadow_coord;
+    pcf_depth = texture(sampler2D(shadow_texture, shadow_sampler), point).r;
+    shadow += depth + shadow_bias > pcf_depth ? 1.0 : 0.0;
+    
+    point.xy = shadow_coord + shadow_offset_0.xy;
+    pcf_depth = texture(sampler2D(shadow_texture, shadow_sampler), point).r;
+    shadow += depth + shadow_bias > pcf_depth ? 1.0 : 0.0;
+
+    point.xy = shadow_coord + shadow_offset_0.zw;
+    pcf_depth = texture(sampler2D(shadow_texture, shadow_sampler), point).r;
+    shadow += depth + shadow_bias > pcf_depth ? 1.0 : 0.0;
+
+    point.xy = shadow_coord + shadow_offset_1.xy;
+    pcf_depth = texture(sampler2D(shadow_texture, shadow_sampler), point).r;
+    shadow += depth + shadow_bias > pcf_depth ? 1.0 : 0.0;
+
+    point.xy = shadow_coord + shadow_offset_1.zw;
+    pcf_depth = texture(sampler2D(shadow_texture, shadow_sampler), point).r;
+    shadow += depth + shadow_bias > pcf_depth ? 1.0 : 0.0;
+
+
+    return shadow / 5;
+}
+
 void main() {
     vec2 tex_coords_real = ClipSpaceToTexCoords(pass_clip_space_real);
     vec2 tex_coords_grid = ClipSpaceToTexCoords(pass_clip_space_grid);
@@ -102,9 +198,20 @@ void main() {
     vec3 final_color = mix(reflect_color, refract_color, CalculateFresnel());
     //vec3 final_color = mix(reflect_color, refract_color, 0.5);
 
-    final_color = final_color * pass_diffuse + pass_specular;
+
+
+    float light;
+    if (v_cascade_coord_0.w <= 0.0) {
+        light = 1.0;
+    } else {
+        light = CalculateInfiniteShadow(v_cascade_coord_0);
+    }
+    const float ambient = 0.15;
+    const float ambient_inv = 1 - ambient;
+    final_color = (ambient + (ambient_inv * light)) * (pass_diffuse + pass_specular) * final_color;
 
     f_color = vec4(final_color, 1.0);
+
     //f_color.a = clamp(water_depth / EDGE_SOFTNESS, 0.0, 1.0);
 }
 

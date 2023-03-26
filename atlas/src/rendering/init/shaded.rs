@@ -1,8 +1,10 @@
 use super::*;
+use crate::vertex;
 use pantheon::graphics::prelude::*;
 use pantheon::math::prelude::*;
 use pantheon::prelude::*;
-use wgpu::util::DeviceExt;
+use pantheon::wgpu;
+use pantheon::wgpu::util::DeviceExt;
 
 pub const SHADED: &'static str = "shaded";
 
@@ -15,7 +17,7 @@ pub fn init_shaded_resources<'a>(
     init_vert_index_buffers(ctx, label);
 
     let no_clip = Vec4::new_from_one(0);
-    // @NOTE this really out to just be `-water_height` but the small offset allows for the
+    // @NOTE this really ought to just be `-water_height` but the small offset allows for the
     // reflection to not have/not have as bad as a gap where it meets the terrain, this offset is
     // small enough that there should be minimal artifacting but still a bit of wiggle room for
     // lower waves
@@ -64,7 +66,7 @@ pub fn init_shaded_resources<'a>(
                     },
                     wgpu::BindGroupLayoutEntry {
                         binding: 1,
-                        visibility: wgpu::ShaderStages::VERTEX,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Buffer {
                             ty: wgpu::BufferBindingType::Uniform,
                             has_dynamic_offset: false,
@@ -151,11 +153,11 @@ pub fn init_shaded_resources<'a>(
 
 pub fn init_shaded_pass<'a>(ctx: &'a mut Context) -> PassHandle<'a> {
     let pass_label = "shaded";
-    let depth_texture_handle = match ctx.wrangler.handle_to_texture("depth") {
+    let depth_texture_handle = match ctx.wrangler.handle_to_texture(DEPTH) {
         Some(handle) => handle,
         None => {
             init_entity_resources(ctx);
-            ctx.wrangler.handle_to_texture("depth").unwrap()
+            ctx.wrangler.handle_to_texture(DEPTH).unwrap()
         }
     };
 
@@ -176,19 +178,22 @@ pub fn init_shaded_pass<'a>(ctx: &'a mut Context) -> PassHandle<'a> {
         load: wgpu::LoadOp::Clear(DEPTH_CLEAR),
         store: true,
     });
-    let depth_stencil_view_handle = Some(depth_texture_handle);
+    let depth_stencil_view = Some(ViewKind::Handle(depth_texture_handle));
 
     let push_constant_ranges = &[wgpu::PushConstantRange {
         stages: wgpu::ShaderStages::VERTEX,
         range: 0..16 * 4,
     }];
 
-    let pipeline_ctx = Some(PipelineContext {
+    let pipeline_ctx = PipelineContext {
         pass_bind_group_layout_handle: Some(clip_plane_bind_group_layout),
         draw_call_bind_group_layout_handle: None,
+        frame_bind_group_layout_handle_override: None,
         push_constant_ranges,
-        vs_path: Some("shaded.vert.spv"),
-        fs_path: Some("shaded.frag.spv"),
+        vs_module_name: Some(SHADED_WGSL),
+        vs_entry_point: Some(VS_MAIN),
+        fs_module_name: Some(SHADED_WGSL),
+        fs_entry_point: Some(FS_MAIN),
         vert_desc: vertex::ShadedVertex::desc,
         label: Some(pass_label),
         fragment_targets: Some(vec![ColorTarget {
@@ -218,9 +223,14 @@ pub fn init_shaded_pass<'a>(ctx: &'a mut Context) -> PassHandle<'a> {
         },
 
         multiview: None,
-    });
+    };
 
-    let pipelines = Vec::new();
+    let pipelines = ctx.wrangler.create_pipelines(
+        &ctx.device,
+        &ctx.shader_context,
+        &ctx.surface_config,
+        &pipeline_ctx,
+    );
 
     let pass = Pass {
         label: pass_label,
@@ -230,11 +240,12 @@ pub fn init_shaded_pass<'a>(ctx: &'a mut Context) -> PassHandle<'a> {
         color_attachment_view_handle: None,
         depth_ops,
         stencil_ops: None,
-        depth_stencil_view_handle,
+        viewport: None,
+        depth_stencil_view,
         pass_bind_group_handle,
-        draw_call_handles: Vec::new(),
         vertex_buffer_handle,
         index_buffer_handle,
+        frame_bind_group_handle_override: None,
     };
 
     let handle = ctx.wrangler.add_pass(pass, pass_label);

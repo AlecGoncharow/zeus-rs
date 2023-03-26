@@ -1,6 +1,10 @@
+use pantheon::wgpu;
 use pantheon::math::Vec2;
 use pantheon::math::Vec3;
 use pantheon::Color;
+
+// @SPEED this prevents spilling our allocs onto heap, keep updated
+const_assert_eq!(4, pantheon::graphics::wrangler::VERTEX_KIND_COUNT);
 
 pub enum VertexKind {
     Basic,

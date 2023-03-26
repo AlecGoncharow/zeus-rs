@@ -8,7 +8,11 @@ use crate::shader;
 use crate::timer;
 use futures::executor::block_on;
 use graphics::prelude::*;
-use winit::{event::*, event_loop::EventLoop, window::WindowBuilder};
+use winit::{
+    event::*,
+    event_loop::{EventLoop, EventLoopBuilder},
+    window::WindowBuilder,
+};
 
 /// A custom event type for the winit app.
 pub enum EngineEvent {
@@ -22,7 +26,7 @@ pub struct Context<'a> {
     pub gfx_context: graphics::renderer::GraphicsContext,
     pub wrangler: RenderWrangler<'a>,
     pub timer_context: timer::TimeContext,
-    pub shader_context: shader::ShaderContext,
+    pub shader_context: shader::WgslShaderContext<'a>,
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub window: winit::window::Window,
@@ -39,11 +43,13 @@ impl<'a, 'winit> Context<'a> {
         clear_color: crate::math::Vec4,
         shader_path: PathBuf,
     ) -> (Self, EventLoop<EngineEvent>) {
-        let event_loop: EventLoop<EngineEvent> = EventLoop::with_user_event();
+        let event_loop: EventLoop<EngineEvent> =
+            EventLoopBuilder::<EngineEvent>::with_user_event().build();
 
         let window = WindowBuilder::new().build(&event_loop).unwrap();
-        let instance = wgpu::Instance::new(wgpu::Backends::PRIMARY);
-        let surface = unsafe { instance.create_surface(&window) };
+        let instance = wgpu::Instance::default();
+
+        let surface = unsafe { instance.create_surface(&window) }.unwrap();
         let size = window.inner_size();
 
         let adapter = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
@@ -53,8 +59,12 @@ impl<'a, 'winit> Context<'a> {
         }))
         .unwrap();
 
+        // @TODO lets write some checks here to validate the adapter supports the requested feature
+        // and limits, and if not, let's use those.
+
         println!("[adapter.backend] {:#?}", adapter.get_info().backend);
         println!("[adapter.features] {:#?}", adapter.features());
+        println!("[adapter.limits] {:#?}", adapter.limits());
 
         let mut features = wgpu::Features::empty();
         // @TODO need to wrap this so that non Vulkan/DX12 don't offer multiple pipelines
@@ -63,6 +73,8 @@ impl<'a, 'winit> Context<'a> {
         #[cfg(not(target_os = "macos"))]
         features.set(wgpu::Features::POLYGON_MODE_POINT, true);
         features.set(wgpu::Features::PUSH_CONSTANTS, true);
+        features.set(wgpu::Features::ADDRESS_MODE_CLAMP_TO_BORDER, true);
+        features.set(wgpu::Features::DEPTH_CLIP_CONTROL, true);
 
         let (device, queue) = match block_on(adapter.request_device(
             &wgpu::DeviceDescriptor {
@@ -70,7 +82,7 @@ impl<'a, 'winit> Context<'a> {
                 features,
                 limits: wgpu::Limits {
                     /// AMD pls https://www.khronos.org/registry/vulkan/specs/1.1/html/vkspec.html#limits-minmax
-                    max_push_constant_size: 256,
+                    max_push_constant_size: 128,
                     ..wgpu::Limits::default()
                 },
             },
@@ -78,7 +90,8 @@ impl<'a, 'winit> Context<'a> {
         )) {
             Ok(stuff) => stuff,
             Err(e) => {
-                eprintln!("[request_device] {:#?}", e);
+                eprintln!("[request_device_error] requesting fallback device");
+                eprintln!("[request_device_error] WARNING: running with no additional features");
                 block_on(adapter.request_device(
                     &wgpu::DeviceDescriptor {
                         label: Some("Fallback Device"),
@@ -92,11 +105,14 @@ impl<'a, 'winit> Context<'a> {
         };
         println!("[device.features] {:#?}", device.features());
 
+        let caps = surface.get_capabilities(&adapter);
         let surface_config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: surface.get_preferred_format(&adapter).unwrap(),
+            format: caps.formats[0],
+            alpha_mode: caps.alpha_modes[0],
             width: size.width,
             height: size.height,
+            view_formats: graphics::texture::FORMATS.to_vec(),
             present_mode,
         };
         surface.configure(&device, &surface_config);
@@ -106,11 +122,7 @@ impl<'a, 'winit> Context<'a> {
         let wrangler = RenderWrangler::new();
 
         let shader_src_path = shader_path.clone();
-        let shader_spirv_path = shader_path.join("build");
-        let shader_context = shader::ShaderContext {
-            shader_src_path,
-            shader_spirv_path,
-        };
+        let shader_context = shader::WgslShaderContext::new(shader_src_path);
 
         let event_loop_proxy = std::sync::Mutex::new(event_loop.create_proxy());
         let ctx = Self {
@@ -186,6 +198,7 @@ impl<'a, 'winit> Context<'a> {
     }
 
     pub fn reload_shaders(&mut self) {
+        self.shader_context.refresh_modules(&self.device);
         self.wrangler
             .reload_shaders(&self.device, &self.shader_context, &self.surface_config);
     }
@@ -194,11 +207,15 @@ impl<'a, 'winit> Context<'a> {
 
     pub fn resize(&mut self) {
         let size = self.window.inner_size();
+
+        let caps = self.surface.get_capabilities(&self.adapter);
         self.surface_config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: self.surface.get_preferred_format(&self.adapter).unwrap(),
+            format: caps.formats[0],
+            alpha_mode: caps.alpha_modes[0],
             width: size.width,
             height: size.height,
+            view_formats: self.surface_config.view_formats.clone(),
             present_mode: self.surface_config.present_mode,
         };
 

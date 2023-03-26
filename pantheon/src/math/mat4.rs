@@ -1,7 +1,6 @@
 use super::Dim;
 use super::Mat3;
-use crate::math::Vec3;
-use crate::math::Vec4;
+use crate::math::prelude::*;
 use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
 
 /// Column major xyzw
@@ -304,7 +303,7 @@ impl Mat4 {
         let mut mat = Self::identity();
 
         mat.z.z = -0.5;
-        mat.w.z = -1.0;
+        mat.w.z = 0.5;
 
         mat
     }

@@ -1,8 +1,9 @@
 use atlas::rendering;
+use atlas::rendering::prelude::Passes;
 use atlas::vertex::BasicTexturedVertex;
 use pantheon::graphics::prelude::*;
 use pantheon::prelude::*;
-use pantheon::Vec2;
+use pantheon::vec2::*;
 
 pub struct TexturedQuad<'a> {
     pub quad: TexturableQuad,
@@ -23,7 +24,7 @@ impl<'a> TexturedQuad<'a> {
         label: &'a str,
     ) -> Self {
         let (bind_group_handle, texture_handle) =
-            rendering::register_texture(ctx, texture, label, "basic_textured", None);
+            rendering::register_texture(ctx, texture, label, "basic_textured");
 
         Self {
             quad,
@@ -52,7 +53,7 @@ impl<'a> TexturedQuad<'a> {
     pub fn register(&mut self, ctx: &mut Context<'a>) {
         self.draw_call_handle = Some(rendering::register(
             ctx,
-            &["basic_textured"],
+            Passes::BASIC_TEXURED,
             "basic_textured",
             Self::TOPOLOGY,
             &self.quad.verts,

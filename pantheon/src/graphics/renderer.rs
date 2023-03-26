@@ -41,6 +41,7 @@ impl GraphicsContext {
     pub fn render<'a>(
         &mut self,
         wrangler: &RenderWrangler<'a>,
+        //passes: &[Pass<'a>],
         device: &wgpu::Device,
         output: wgpu::SurfaceTexture,
         queue: &wgpu::Queue,
@@ -50,29 +51,35 @@ impl GraphicsContext {
             .create_view(&wgpu::TextureViewDescriptor::default());
         let mut encoder =
             device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+        let mut pass_mask = 1;
         for pass in &wrangler.passes {
-            encoder.push_debug_group(pass.label);
+            // encoder.push_debug_group(pass.label);
 
             let attachment;
-            let color_attachments: &[wgpu::RenderPassColorAttachment] =
+
+            let color_attachments: &[Option<wgpu::RenderPassColorAttachment>] =
                 if let Some(ops) = pass.color_attachment_ops {
                     let attach_view = if let Some(handle) = &pass.color_attachment_view_handle {
+                        // @TODO @FIXME this should be it's own view, no fetching should be needed
                         &wrangler.get_texture(handle).view
                     } else {
                         view
                     };
-                    attachment = [wgpu::RenderPassColorAttachment {
+                    attachment = [Some(wgpu::RenderPassColorAttachment {
                         view: attach_view,
                         resolve_target: None,
                         ops,
-                    }];
+                    })];
                     &attachment
                 } else {
                     &[]
                 };
 
-            let depth_stencil_attachment = if let Some(handle) = &pass.depth_stencil_view_handle {
-                let view = &wrangler.get_texture(handle).view;
+            let depth_stencil_attachment = if let Some(view_kind) = &pass.depth_stencil_view {
+                let view = match view_kind {
+                    ViewKind::Handle(handle) => &wrangler.get_texture(handle).view,
+                    ViewKind::View(view) => &view,
+                };
                 Some(wgpu::RenderPassDepthStencilAttachment {
                     view,
                     depth_ops: pass.depth_ops,
@@ -88,11 +95,28 @@ impl GraphicsContext {
                 depth_stencil_attachment,
             });
 
-            render_pass.set_bind_group(
-                0,
-                wrangler.get_bind_group(&wrangler.frame_bind_group_handle),
-                &[],
-            );
+            if let Some(viewport) = &pass.viewport {
+                let Viewport {
+                    x,
+                    y,
+                    w,
+                    h,
+                    min_depth,
+                    max_depth,
+                } = *viewport;
+                render_pass.set_viewport(x, y, w, h, min_depth, max_depth);
+            }
+
+            if let Some(handle) = &pass.frame_bind_group_handle_override {
+                render_pass.set_bind_group(0, wrangler.get_bind_group(&handle), &[]);
+            } else {
+                render_pass.set_bind_group(
+                    0,
+                    wrangler.get_bind_group(&wrangler.frame_bind_group_handle),
+                    &[],
+                );
+            }
+
             if let Some(pass_bind_group_handle) = &pass.pass_bind_group_handle {
                 render_pass.set_bind_group(1, wrangler.get_bind_group(pass_bind_group_handle), &[]);
             }
@@ -102,12 +126,11 @@ impl GraphicsContext {
             let vertex_buffer = wrangler.get_vertex_buffer(&pass.vertex_buffer_handle);
             render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
 
-            let draw_calls = pass
-                .draw_call_handles
+            for LabeledEntry { entry: call, .. } in wrangler
+                .draw_calls
                 .iter()
-                .map(|handle| wrangler.get_draw_call(handle));
-
-            for call in draw_calls {
+                .filter(|entry| (entry.entry.pass_flags & pass_mask) != 0)
+            {
                 if let Some(handle) = &call.bind_group_handle {
                     render_pass.set_bind_group(2, wrangler.get_bind_group(handle), &[]);
                 }
@@ -140,7 +163,9 @@ impl GraphicsContext {
                 }
             }
             drop(render_pass);
-            encoder.pop_debug_group();
+            //encoder.pop_debug_group();
+
+            pass_mask <<= 1;
         }
 
         queue.submit(std::iter::once(encoder.finish()));

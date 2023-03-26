@@ -1,4 +1,4 @@
-use pantheon::math::Vec3;
+use pantheon::math::prelude::*;
 
 #[derive(Debug)]
 pub struct Plane {
@@ -8,7 +8,7 @@ pub struct Plane {
 
 impl Plane {
     pub fn new(p0: Vec3, p1: Vec3, p2: Vec3) -> Option<Self> {
-        let norm = (p1 - p0).cross(&(p2 - p0)).make_unit_vector();
+        let norm = (p1 - p0).cross(&(p2 - p0)).unit_vector();
 
         if norm.magnitude() == 0.0 {
             None
